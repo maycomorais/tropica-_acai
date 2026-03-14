@@ -1,5 +1,5 @@
 :root {
-    --primary: #1a7a2e;
+    --primary: #1a7a2e; /* Cor padrão — sobrescrita pelo JS */
     --dark: #2c3e50;
     --light: #ecf0f1;
     --success: #2ecc71;
@@ -1420,7 +1420,7 @@ select.form-control, select.input-modern {
 .rank-info { flex: 1; min-width: 0; }
 .rank-name { font-size: 0.82rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-bar-wrap { background: #f1f5f9; height: 5px; border-radius: 99px; margin-top: 3px; }
-.rank-bar { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #27ae60, #1a7a2e); transition: width 0.8s ease; }
+.rank-bar { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #27ae60, var(--primary)); transition: width 0.8s ease; }
 .rank-bar-purple { background: linear-gradient(90deg, #a78bfa, #7c3aed); }
 .rank-val { font-size: 0.8rem; font-weight: 700; color: #666; flex-shrink: 0; }
 
@@ -3525,8 +3525,8 @@ hr.modal-divisor {
   align-self: flex-start;
 }
 .gs-btn-add-turno:hover {
-  border-color: var(--primary, #1a7a2e);
-  color: var(--primary, #1a7a2e);
+  border-color: var(--primary);
+  color: var(--primary);
   background: #fff5f5;
 }
 

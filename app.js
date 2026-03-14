@@ -1,16 +1,17 @@
 // ==========================================
 // 1. CONFIGURAÇÕES & DADOS GERAIS
 // ==========================================
-const FONE_LOJA = '' // Açaí Tropical; 
-const COORD_LOJA = { lat: -25.2365803, lng: -57.5380816 };
+// Todos os valores abaixo são carregados do banco (configuracoes)
+// em verificarHorario(). Ficam em branco até carregar.
+let COORD_LOJA   = { lat: 0, lng: 0 };
 let COTACAO_REAL = 1100;
+let CHAVE_PIX    = '';
+let NOME_PIX     = '';
+let DADOS_ALIAS  = '';
+let ALIAS_PY     = '';
+let WHATSAPP_LOJA_APP = '';
+let NOME_RESTAURANTE_APP = '';
 let autoConfirmTimer = null;
-
-// DADOS DE PAGAMENTO (Pix e Alias)
-const CHAVE_PIX = '';
-const NOME_PIX = '';
-const DADOS_ALIAS = '';
-const ALIAS_PY = '';
 
 function iniciarTimerAutoConfirmacao(pedidoId) {
     // 4 horas em milissegundos
@@ -30,17 +31,17 @@ function iniciarTimerAutoConfirmacao(pedidoId) {
     // Salva timestamp no localStorage para persistir entre reloads
     const agora = new Date().getTime();
     const tempoExpiracao = agora + QUATRO_HORAS;
-    localStorage.setItem('tropical_confirmExpiry_' + pedidoId, tempoExpiracao);
+    localStorage.setItem('app_confirmExpiry_' + pedidoId, tempoExpiracao);
     
     console.log('⏰ Timer de auto-confirmação iniciado para 4 horas');
 }
 
 // ===== FUNÇÃO PARA RESTAURAR TIMER APÓS RELOAD =====
 function restaurarTimerSeNecessario() {
-    const pedidoId = localStorage.getItem('tropical_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
     
-    const tempoExpiracao = localStorage.getItem('tropical_confirmExpiry_' + pedidoId);
+    const tempoExpiracao = localStorage.getItem('app_confirmExpiry_' + pedidoId);
     if (!tempoExpiracao) return;
     
     const agora = new Date().getTime();
@@ -75,7 +76,7 @@ async function confirmarEntregaAutomatica(pedidoId) {
         console.log('✅ Entrega confirmada automaticamente após 4 horas');
         
         // Limpa dados locais
-        localStorage.removeItem('tropical_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
         fecharTracker();
         
         // Mostra notificação
@@ -91,7 +92,7 @@ async function confirmarEntregaAutomatica(pedidoId) {
 
 // ===== CONFIRMAÇÃO MANUAL (CLIENTE) =====
 async function confirmarEntregaCliente() {
-    const pedidoId = localStorage.getItem('tropical_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) {
         alert('Erro: Pedido não encontrado');
         return;
@@ -118,7 +119,7 @@ async function confirmarEntregaCliente() {
         if (autoConfirmTimer) {
             clearTimeout(autoConfirmTimer);
         }
-        localStorage.removeItem('tropical_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
         
         // Atualiza UI
         mostrarMensagemEntregaConfirmada();
@@ -173,7 +174,7 @@ function mostrarTracker(status, uidPedido) {
     if (tr) tr.style.display = 'block';
 
     // Botão confirmar entrega se saiu para entrega
-    const pedidoId = localStorage.getItem('tropical_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (status === 'saiu_entrega' && pedidoId) {
         const tr2 = document.getElementById('track-result');
         if (tr2 && !document.getElementById('btn-confirmar-entrega')) {
@@ -185,14 +186,14 @@ function mostrarTracker(status, uidPedido) {
                 </button>
             `);
         }
-        const tempoExpiracao = localStorage.getItem('tropical_confirmExpiry_' + pedidoId);
+        const tempoExpiracao = localStorage.getItem('app_confirmExpiry_' + pedidoId);
         if (!tempoExpiracao) iniciarTimerAutoConfirmacao(pedidoId);
     }
 
     if (status === 'entregue') {
         mostrarMensagemEntregaConfirmada();
         if (autoConfirmTimer) clearTimeout(autoConfirmTimer);
-        localStorage.removeItem('tropical_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
     }
 }
 
@@ -309,8 +310,17 @@ async function verificarHorario() {
   const { data } = await supa.from('configuracoes').select('*').maybeSingle();
   if (!data) return;
 
+  // ── Carrega todos os globals white-label ──────────────────────
   if (data.cotacao_real) COTACAO_REAL = data.cotacao_real;
   if (data.tabela_frete && Array.isArray(data.tabela_frete)) TABELA_FRETE = data.tabela_frete;
+  if (data.chave_pix)       CHAVE_PIX        = data.chave_pix;
+  if (data.nome_pix)        NOME_PIX         = data.nome_pix;
+  if (data.dados_alias)     DADOS_ALIAS      = data.dados_alias;
+  if (data.nome_alias)      ALIAS_PY         = data.nome_alias;
+  if (data.whatsapp_loja)   WHATSAPP_LOJA_APP = data.whatsapp_loja;
+  if (data.nome_restaurante) NOME_RESTAURANTE_APP = data.nome_restaurante;
+  if (data.coord_lat)       COORD_LOJA.lat   = parseFloat(data.coord_lat);
+  if (data.coord_lng)       COORD_LOJA.lng   = parseFloat(data.coord_lng);
 
   const agora = new Date();
   const horaAtual = agora.getHours() * 60 + agora.getMinutes();
@@ -389,22 +399,44 @@ async function verificarHorario() {
     }
   }
   
-  // Aplica personalização visual se existir
-  if (data.nome_loja) {
+  // Aplica personalização visual
+  const nomeExib = data.nome_restaurante || data.nome_loja || '';
+  if (nomeExib) {
     const h1 = document.querySelector('.store-details h1');
-    if(h1) h1.textContent = data.nome_loja;
-    
-    // Atualiza o título da página também
-    document.title = `${data.nome_loja} - Delivery`;
+    if (h1) h1.textContent = nomeExib;
+    document.title = `${nomeExib} - Delivery`;
+    // Metadados Open Graph dinâmicos
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.content = nomeExib;
+    const twTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twTitle) twTitle.content = nomeExib;
+    // PWA title
+    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitle) appleTitle.content = nomeExib;
+    // Banner PWA install
+    const bannerLabel = document.querySelector('#pwa-install-banner [data-pwa-nome]');
+    if (bannerLabel) bannerLabel.textContent = `📲 Instalar ${nomeExib}`;
+    // Atualiza manifest PWA dinamicamente
+    _atualizarManifest(nomeExib, logoVal || '');
   }
-  
   if (data.cor_primaria) {
     document.documentElement.style.setProperty('--primary', data.cor_primaria);
   }
-  
-  if (data.icone_url) {
-    document.querySelectorAll('.logo-area img, link[rel="apple-touch-icon"]').forEach(img => {
-      img.src = data.icone_url;
+  const logoVal = data.logo_url || data.icone_url || '';
+  if (logoVal) {
+    document.querySelectorAll('.logo-area img, link[rel="apple-touch-icon"]').forEach(el => {
+      el.src = logoVal;
+    });
+    // Atualiza banners do carrossel
+    document.querySelectorAll('.banner-track img').forEach(el => { el.src = logoVal; });
+  }
+  // Footer telefone/whatsapp
+  if (data.whatsapp_loja || data.telefone_loja) {
+    const num = data.whatsapp_loja || data.telefone_loja;
+    const zapLinks = document.querySelectorAll('[data-loja-whatsapp]');
+    zapLinks.forEach(el => {
+      el.href = `https://wa.me/${num.replace(/\D/g, '')}`;
+      el.textContent = num;
     });
   }
 }
@@ -451,6 +483,31 @@ function mostrarIndicadorAgendamento() {
   if (lista && lista.parentElement) {
     lista.parentElement.insertBefore(indicador, lista);
   }
+}
+
+// Atualiza o manifest.json dinamicamente (via blob URL) para refletir
+// o nome e ícone do restaurante carregados do banco.
+function _atualizarManifest(nome, iconeUrl) {
+  try {
+    const linkEl = document.querySelector('link[rel="manifest"]');
+    if (!linkEl) return;
+    const manifest = {
+      name: nome, short_name: nome,
+      description: '', start_url: '/index.html',
+      scope: '/', display: 'standalone',
+      orientation: 'portrait',
+      background_color: '#ffffff',
+      theme_color: document.documentElement.style.getPropertyValue('--primary') || '#1a7a2e',
+      lang: 'pt-BR',
+      icons: iconeUrl
+        ? [{ src: iconeUrl, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+           { src: iconeUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
+        : [],
+      categories: ['food','shopping'],
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    linkEl.href = URL.createObjectURL(blob);
+  } catch(e) { /* silencia — não crítico */ }
 }
 
 async function renderMenu() {
@@ -2025,6 +2082,19 @@ function _coletarMultiPagamento() {
   return partes;
 }
 
+// Consulta distância pela rota real (OSRM público). Retorna km ou null se falhar.
+async function obterDistanciaPelaRota(latDestino, lngDestino) {
+  const origem  = `${COORD_LOJA.lng},${COORD_LOJA.lat}`;
+  const destino = `${lngDestino},${latDestino}`;
+  const url = `https://router.project-osrm.org/route/v1/driving/${origem};${destino}?overview=false`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.code === 'Ok') return d.routes[0].distance / 1000;
+    return null;
+  } catch { return null; }
+}
+
 async function calcularFrete() {
   const btn = document.getElementById('btn-gps');
   const msg = document.getElementById('frete-msg');
@@ -2041,59 +2111,84 @@ async function calcularFrete() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      localCliente = { lat: position.coords.latitude, lng: position.coords.longitude };
-      const dist = calcularDistancia(COORD_LOJA.lat, COORD_LOJA.lng, localCliente.lat, localCliente.lng);
-      
-      // === TABELA DE FRETE DINÂMICA (configurada no admin) ===
-      // Faixas: [0-3], [3.1-4], [4.1-5], ..., [19.1-20], >20 = a combinar
-      const LIMITES_KM = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
-      let freteIndex = -1;
-      for (let i = 0; i < LIMITES_KM.length; i++) {
-        if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
-      }
+  // Envolve em Promise para poder usar await
+  let position;
+  try {
+    position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, timeout: 10000
+      });
+    });
+  } catch (err) {
+    msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter sua localização</span>';
+    boxErro.style.display = 'block';
+    btn.innerText = '📍 Tentar Novamente';
+    btn.disabled = false;
+    return;
+  }
 
-      if (freteIndex === -1) {
-        // Acima de 20km
-        freteCalculado = -1; // sentinela: a combinar
-        msg.innerHTML = `<span style="color:#e67e22">⚠️ Distância: ${dist.toFixed(1)}km — Frete <strong>a combinar</strong> pelo WhatsApp.</span>`;
-        msg.style.color = '#e67e22';
-        boxErro.style.display = 'none';
-        btn.innerText = '✅ Localização OK';
-        btn.disabled = false;
-        atualizarTotalCheckout();
-        return;
-      }
+  localCliente = { lat: position.coords.latitude, lng: position.coords.longitude };
 
-      if (TABELA_FRETE && TABELA_FRETE[freteIndex] !== undefined) {
-        freteCalculado = TABELA_FRETE[freteIndex].loja || 0;
-        freteMotoboy   = TABELA_FRETE[freteIndex].motoboy || 0;
-      } else {
-        // Fallback se tabela não configurada: faixas padrão antigas
-        if (dist <= 3.3)       freteCalculado = 6000;
-        else if (dist <= 4.2)  freteCalculado = 12000;
-        else if (dist <= 5.2)  freteCalculado = 18000;
-        else if (dist <= 6.2)  freteCalculado = 24000;
-        else { const kmExtra = Math.ceil(dist - 6.2); freteCalculado = 24000 + (kmExtra * 3000); }
-        freteMotoboy = freteCalculado; // sem tabela, assume igual ao loja
-      }
-      
-      msg.innerHTML = `<span style="color:#27ae60">✅ Distância: ${dist.toFixed(1)}km - Frete: Gs ${freteCalculado.toLocaleString('es-PY')}</span>`;
-      msg.style.color = '#27ae60';
-      boxErro.style.display = 'none';
-      
-      btn.innerText = '✅ Localização OK';
-      btn.disabled = true;
-      atualizarTotalCheckout();
-    },
-    (error) => {
-      msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter sua localização</span>';
-      boxErro.style.display = 'block';
-      btn.innerText = '📍 Tentar Novamente';
-      btn.disabled = false;
-    }
-  );
+  // Tenta rota real pelo OSRM
+  msg.innerHTML = '<span style="color:#888">⏳ Calculando rota...</span>';
+  btn.innerText = 'Calculando rota...';
+
+  let dist = await obterDistanciaPelaRota(localCliente.lat, localCliente.lng);
+  let usouRota = true;
+  if (dist === null) {
+    // Fallback linha reta se OSRM falhar
+    dist = calcularDistancia(COORD_LOJA.lat, COORD_LOJA.lng, localCliente.lat, localCliente.lng);
+    usouRota = false;
+  }
+
+  const nota = usouRota ? '🛣️ via rota' : '📏 linha reta*';
+
+  // === TABELA DE FRETE DINÂMICA (configurada no admin) ===
+  const LIMITES_KM = [2, 3.9, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  let freteIndex = -1;
+  for (let i = 0; i < LIMITES_KM.length; i++) {
+    if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
+  }
+
+  if (freteIndex === -1) {
+    freteCalculado = -1; // sentinela: a combinar
+    msg.innerHTML = `<span style="color:#e67e22">⚠️ ${dist.toFixed(1)}km (${nota}) — Frete <strong>a combinar</strong> pelo WhatsApp.</span>`;
+    boxErro.style.display = 'none';
+    btn.innerText = '✅ Localização OK';
+    btn.disabled = false;
+    atualizarTotalCheckout();
+    return;
+  }
+
+  if (TABELA_FRETE && TABELA_FRETE[freteIndex]?.acombinar) {
+    freteCalculado = -1; freteMotoboy = 0;
+    msg.innerHTML = `<span style="color:#e67e22">⚠️ ${dist.toFixed(1)}km (${nota}) — Frete a combinar.</span>`;
+    boxErro.style.display = 'none';
+    btn.innerText = '✅ Localização OK';
+    btn.disabled = false;
+    atualizarTotalCheckout();
+    return;
+  }
+
+  if (TABELA_FRETE && TABELA_FRETE[freteIndex] !== undefined) {
+    freteCalculado = TABELA_FRETE[freteIndex].loja || 0;
+    freteMotoboy   = TABELA_FRETE[freteIndex].motoboy || 0;
+  } else {
+    // Fallback se tabela não configurada
+    if (dist <= 3.3)       freteCalculado = 6000;
+    else if (dist <= 4.2)  freteCalculado = 12000;
+    else if (dist <= 5.2)  freteCalculado = 18000;
+    else if (dist <= 6.2)  freteCalculado = 24000;
+    else { const kmExtra = Math.ceil(dist - 6.2); freteCalculado = 24000 + (kmExtra * 3000); }
+    freteMotoboy = freteCalculado;
+  }
+
+  const aviso = usouRota ? '' : ' <small style="color:#e67e22">(rota indisponível, estimativa)</small>';
+  msg.innerHTML = `<span style="color:#27ae60">✅ ${dist.toFixed(1)}km ${nota} — Frete: Gs ${freteCalculado.toLocaleString('es-PY')}</span>${aviso}`;
+  boxErro.style.display = 'none';
+  btn.innerText = '✅ Localização OK';
+  btn.disabled = true;
+  atualizarTotalCheckout();
 }
 
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -2146,8 +2241,8 @@ async function enviarZap() {
 
   // Pedido duplo: bloqueia se mesmo carrinho enviado no último 1h
   const _agora = Date.now();
-  const _ultimoHash = localStorage.getItem('tropical_last_hash');
-  const _ultimoTs   = parseInt(localStorage.getItem('tropical_last_ts') || '0');
+  const _ultimoHash = localStorage.getItem('app_last_hash');
+  const _ultimoTs   = parseInt(localStorage.getItem('app_last_ts') || '0');
   const _hashAtual  = carrinho.map(i => i.nome + i.qtd).sort().join('|');
   if (_ultimoHash === _hashAtual && (_agora - _ultimoTs) < 3600000) {
     return alert('🚫 Seu pedido anterior foi computado, estamos bloqueando esta segunda tentativa.');
@@ -2199,7 +2294,7 @@ async function enviarZap() {
     return cat.includes('bebida') || cat.includes('drink');
   });
 
-  if (typeof supa !== 'undefined') {
+  {
     const pedidoDb = {
       status: _soBebidas ? 'pronto_entrega' : 'pendente',
       tipo_entrega: modoEntrega,
@@ -2234,16 +2329,43 @@ async function enviarZap() {
         : null,
     };
 
-    const { data: pedidoSalvo, error } = await supa.from('pedidos').insert([pedidoDb]).select().single();
+    // ── Envia via Edge Function (valida e corrige frete no servidor) ──
+    const _fnUrl = _SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/validar-pedido';
+    let pedidoSalvo = null;
+    let error = null;
+    try {
+      const resp = await fetch(_fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': _SUPABASE_KEY,
+          'Authorization': 'Bearer ' + _SUPABASE_KEY,
+        },
+        body: JSON.stringify(pedidoDb),
+      });
+      const json = await resp.json();
+      if (!resp.ok || json.error) {
+        error = { message: json.error || `HTTP ${resp.status}` };
+      } else {
+        pedidoSalvo = json;
+        // Atualiza freteCalculado com o valor confirmado pelo servidor
+        if (json.frete_cobrado_cliente !== undefined) {
+          freteCalculado = json.frete_cobrado_cliente;
+          freteAplicado  = json.frete_cobrado_cliente;
+        }
+      }
+    } catch (e) {
+      error = { message: e.message };
+    }
 
     if (error) {
       console.error('Erro ao salvar pedido:', error);
       alert('⚠️ Erro ao salvar pedido no sistema. Tente novamente.');
       return;
     }
-    
+
     if (pedidoSalvo) {
-      pedidoDbId = pedidoSalvo.id;
+      pedidoDbId   = pedidoSalvo.id;
       numeroPedido = pedidoSalvo.id; // USA O ID DO BANCO
       console.log('✅ Pedido salvo com ID:', pedidoDbId);
 
@@ -2258,8 +2380,8 @@ async function enviarZap() {
   }
 
   // Salva localmente para "Repetir Pedido"
-  localStorage.setItem('tropical_last', JSON.stringify(carrinho));
-  localStorage.setItem('tropical_user', JSON.stringify({ nome, tel }));
+  localStorage.setItem('app_last', JSON.stringify(carrinho));
+  localStorage.setItem('app_user', JSON.stringify({ nome, tel }));
 
   // 2. Usa o número real do pedido na mensagem
   const idDisplay = numeroPedido || 'TEMP';
@@ -2362,8 +2484,8 @@ async function enviarZap() {
 
   // Salva hash anti-duplicata ANTES de enviar
   const _hashFinal = carrinho.map(i => i.nome + i.qtd).sort().join('|');
-  localStorage.setItem('tropical_last_hash', _hashFinal);
-  localStorage.setItem('tropical_last_ts',   Date.now().toString());
+  localStorage.setItem('app_last_hash', _hashFinal);
+  localStorage.setItem('app_last_ts',   Date.now().toString());
 
   // Modal de confirmação 5s antes de abrir WhatsApp
   await _mostrarModalEnvio(msg, numeroPedido);
@@ -2434,8 +2556,8 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 
   // Limpa backup imediatamente para não restaurar na próxima visita
   try {
-    localStorage.removeItem('tropical_carrinho_backup');
-    localStorage.removeItem('tropical_carrinho_backup_time');
+    localStorage.removeItem('app_carrinho_backup');
+    localStorage.removeItem('app_carrinho_backup_time');
   } catch(e) {}
 
   updateUI();
@@ -2451,13 +2573,13 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 // 9. DADOS LOCAIS & REPETIR PEDIDO (Funções Restauradas)
 // ==========================================
 function carregarDadosLocal() {
-  const user = JSON.parse(localStorage.getItem('tropical_user'));
+  const user = JSON.parse(localStorage.getItem('app_user'));
   if (user) {
     if (document.getElementById('cli-nome')) document.getElementById('cli-nome').value = user.nome;
     if (document.getElementById('cli-tel')) document.getElementById('cli-tel').value = user.tel;
   }
 
-  const last = JSON.parse(localStorage.getItem('tropical_last'));
+  const last = JSON.parse(localStorage.getItem('app_last'));
   const box = document.getElementById('buy-again-container');
 
   if (last && Array.isArray(last) && last.length > 0) {
@@ -2477,7 +2599,7 @@ function carregarDadosLocal() {
 }
 
 function repetirPedido() {
-  const last = JSON.parse(localStorage.getItem('tropical_last'));
+  const last = JSON.parse(localStorage.getItem('app_last'));
   if (last && Array.isArray(last) && last.length > 0) {
     carrinho = last;
     updateUI();
@@ -2528,8 +2650,8 @@ function iniciarTracking(pedidoDbId, uidTemporal) {
     const uid      = uidTemporal || pedidoDbId;
 
     try {
-        localStorage.setItem('tropical_pedido_id',  pedidoDbId);
-        localStorage.setItem('tropical_pedido_uid', uid);
+        localStorage.setItem('app_pedido_id',  pedidoDbId);
+        localStorage.setItem('app_pedido_uid', uid);
     } catch(e) {}
 
     _lastTrackedSt = 'pendente';
@@ -2573,7 +2695,7 @@ function _iniciarPollingTracking(pedidoId, uid) {
 
             // Notificação push
             if ('Notification' in window && Notification.permission === 'granted' && TRACKER_STEPS[data.status]) {
-                new Notification('tropical Pizzeria 🇧🇷', {
+                new Notification('Locanda Pizzeria 🇧🇷', {
                     body: TRACKER_STEPS[data.status].msg,
                     icon: 'https://instagram.fasu6-2.fna.fbcdn.net/v/t51.82787-15/573374451_17842149696611574_8991774026443342090_n.jpg?stp=dst-jpg_s150x150_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=instagram.fasu6-2.fna.fbcdn.net&_nc_cat=106&_nc_oc=Q6cZ2QGF-zpjA8cPijPd5RSpqKxETK5rnkkDDh2p9_6yqpej9zo5GRLUgm0d3tqaeu4Q0J4&_nc_ohc=RupM1OUrZJ4Q7kNvwGnum_W&_nc_gid=FbdfUjQDJpnDTLdsOu7bcA&edm=AP4sbd4BAAAA&ccb=7-5&oh=00_AfzONtO62cnJCGwHroepfIxL3OcBuhtF6AcdRJWoRqm39Q&oe=69ABD045&_nc_sid=7a9f4b'
                 });
@@ -2583,7 +2705,7 @@ function _iniciarPollingTracking(pedidoId, uid) {
                 clearInterval(_pollingTracker); _pollingTracker = null;
                 if (_trackingChannel) { _trackingChannel.unsubscribe(); _trackingChannel = null; }
                 setTimeout(() => {
-                    try { localStorage.removeItem('tropical_pedido_id'); localStorage.removeItem('tropical_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                 }, 10000);
             }
         } catch(e) { /* falha silenciosa de rede */ }
@@ -2644,8 +2766,8 @@ function restaurarTrackingSeExistir() {
     const card = document.getElementById('track-order-card');
     if (card) card.style.display = 'none';
 
-    const savedId  = localStorage.getItem('tropical_pedido_id');
-    const savedUid = localStorage.getItem('tropical_pedido_uid');
+    const savedId  = localStorage.getItem('app_pedido_id');
+    const savedUid = localStorage.getItem('app_pedido_uid');
     if (!savedId) return;
 
     console.log('🔄 Restaurando tracking para pedido:', savedId);
@@ -2656,7 +2778,7 @@ function restaurarTrackingSeExistir() {
             if (error || !data) return;
             // Se já foi entregue ou cancelado, limpa e não mostra tracker
             if (data.status === 'entregue' || data.status === 'cancelado') {
-                try { localStorage.removeItem('tropical_pedido_id'); localStorage.removeItem('tropical_pedido_uid'); } catch(e) {}
+                try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                 return;
             }
 
@@ -2664,7 +2786,7 @@ function restaurarTrackingSeExistir() {
             if (data.created_at) {
                 const diffHoras = (Date.now() - new Date(data.created_at).getTime()) / 3600000;
                 if (diffHoras > 6) {
-                    try { localStorage.removeItem('tropical_pedido_id'); localStorage.removeItem('tropical_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                     return;
                 }
             }
@@ -2891,9 +3013,9 @@ function atualizarTrackingVisual(status, motoboy) {
             _trackResult.appendChild(_btn);
         }
         // Inicia timer auto-confirm se ainda não iniciado
-        const _pedidoLocal = localStorage.getItem('tropical_pedido_id');
+        const _pedidoLocal = localStorage.getItem('app_pedido_id');
         if (_pedidoLocal && typeof iniciarTimerAutoConfirmacao === 'function') {
-            if (!localStorage.getItem('tropical_confirmExpiry_' + _pedidoLocal)) {
+            if (!localStorage.getItem('app_confirmExpiry_' + _pedidoLocal)) {
                 iniciarTimerAutoConfirmacao(_pedidoLocal);
             }
         }
@@ -2922,7 +3044,7 @@ function atualizarTrackingVisual(status, motoboy) {
 
 // ── EDIÇÃO DE PEDIDO PELO CLIENTE ────────────────────────────────
 function abrirEdicaoPedido() {
-    const pedidoId = localStorage.getItem('tropical_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
 
     // Fecha tracking e abre carrinho com itens atuais
@@ -2993,7 +3115,7 @@ async function iniciarEdicaoCarrinho(pedidoId) {
 
 // ── SOLICITAR CANCELAMENTO PELO CLIENTE (via tracking) ──────────
 async function solicitarCancelamentoCliente() {
-    const pedidoId = localStorage.getItem('tropical_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
     
     const motivo = prompt('Motivo do cancelamento (obrigatório):');
@@ -3018,8 +3140,8 @@ async function solicitarCancelamentoCliente() {
 function iniciarTrackingRealtime(pedidoId) {
     _trackedId     = pedidoId;
     _lastTrackedSt = ''; // força re-render na primeira leitura do polling
-    localStorage.setItem('tropical_pedido_id', pedidoId);
-    localStorage.setItem('tropical_pedido_uid', pedidoId);
+    localStorage.setItem('app_pedido_id', pedidoId);
+    localStorage.setItem('app_pedido_uid', pedidoId);
     _iniciarPollingTracking(pedidoId, pedidoId);
     _tentarCanalRealtime(pedidoId, pedidoId);
 }
@@ -3097,11 +3219,11 @@ initDeteccaoConexao();
 function salvarCarrinhoLocal() {
   try {
     if (carrinho && carrinho.length > 0) {
-      localStorage.setItem('tropical_carrinho_backup', JSON.stringify(carrinho));
-      localStorage.setItem('tropical_carrinho_backup_time', new Date().toISOString());
+      localStorage.setItem('app_carrinho_backup', JSON.stringify(carrinho));
+      localStorage.setItem('app_carrinho_backup_time', new Date().toISOString());
     } else {
-      localStorage.removeItem('tropical_carrinho_backup');
-      localStorage.removeItem('tropical_carrinho_backup_time');
+      localStorage.removeItem('app_carrinho_backup');
+      localStorage.removeItem('app_carrinho_backup_time');
     }
   } catch (e) {
     console.warn('Não foi possível salvar backup do carrinho:', e);
@@ -3110,8 +3232,8 @@ function salvarCarrinhoLocal() {
 
 function restaurarCarrinhoBackup() {
   try {
-    const backup = localStorage.getItem('tropical_carrinho_backup');
-    const backupTime = localStorage.getItem('tropical_carrinho_backup_time');
+    const backup = localStorage.getItem('app_carrinho_backup');
+    const backupTime = localStorage.getItem('app_carrinho_backup_time');
 
     if (backup && backupTime) {
       const tempoBackup = new Date(backupTime);

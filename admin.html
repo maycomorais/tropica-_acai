@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Açaí Tropical — Admin</title>
+    <title>Admin — Restaurante</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link
@@ -22,38 +22,37 @@
 
     <div class="sidebar">
       <div class="brand" style="display:flex;align-items:center;justify-content:space-between;padding:16px 12px">
-        <span id="brand-text">AÇAÍ TROPICAL ADMIN</span>
+        <span id="brand-text">ADMIN</span>
         <button id="btn-toggle-sidebar" onclick="toggleSidebar()" title="Recolher menu"
           style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:1rem;cursor:pointer;padding:4px;border-radius:6px;line-height:1">
           <i class="fas fa-chevron-left"></i>
         </button>
       </div>
 
-      <div
-        style="padding: 10px; text-align: center; font-size: 0.8rem; background: rgba(0, 0, 0, 0.2)"
-      >
-        <i class="fas fa-user-circle"></i> <span id="user-cargo">...</span><br />
+      <div style="padding:10px;text-align:center;font-size:0.8rem;background:rgba(0,0,0,0.2)">
+        <i class="fas fa-user-circle"></i> <span id="user-nome-display">...</span><br>
+        <span id="user-cargo" style="font-size:0.7rem;opacity:0.75">...</span><br>
         <small id="user-email">...</small>
       </div>
 
       <div class="menu">
-        <div class="menu-item active" onclick="showTab('dashboard', event)">
+        <div class="menu-item active" id="menu-dashboard" onclick="showTab('dashboard', event)">
           <i class="fas fa-chart-line"></i><span class="mobile-hide sidebar-label"> Visão</span>
         </div>
 
-        <div class="menu-item" onclick="showTab('pdv', event)" style="color: #ffca28">
+        <div class="menu-item" id="menu-pdv" onclick="showTab('pdv', event)" style="color: #ffca28">
           <i class="fas fa-cash-register"></i><span class="mobile-hide sidebar-label"> PDV Balcão</span>
         </div>
 
-        <div class="menu-item" onclick="showTab('pedidos', event)">
+        <div class="menu-item" id="menu-pedidos" onclick="showTab('pedidos', event)">
           <i class="fas fa-clipboard-list"></i><span class="mobile-hide sidebar-label"> Pedidos</span>
         </div>
 
-        <div class="menu-item" onclick="showTab('cozinha', event)">
+        <div class="menu-item" id="menu-cozinha" onclick="showTab('cozinha', event)">
           <i class="fas fa-fire"></i><span class="mobile-hide sidebar-label"> Cozinha</span>
         </div>
 
-        <div class="menu-item restrito-gerente" onclick="showTab('equipe', event)">
+        <div class="menu-item restrito-gerente" id="menu-equipe" onclick="showTab('equipe', event)">
           <i class="fas fa-users"></i><span class="mobile-hide sidebar-label"> Equipe</span>
         </div>
 
@@ -69,11 +68,17 @@
             <i class="fas fa-motorcycle"></i><span> Motos</span>
         </div>
 
-        <div class="menu-item restrito-gerente" onclick="showTab('financeiro', event)">
+        <div class="menu-item restrito-gerente" id="menu-financeiro" onclick="showTab('financeiro', event)" style="display:none">
           <i class="fas fa-wallet"></i><span class="mobile-hide sidebar-label"> Financeiro</span>
         </div>
-        <div class="menu-item restrito-func" onclick="showTab('configuracoes', event)">
+        <div class="menu-item restrito-func" id="menu-configuracoes" onclick="showTab('configuracoes', event)">
           <i class="fas fa-cogs"></i><span class="mobile-hide sidebar-label"> Config</span>
+        </div>
+
+        <!-- Visível apenas para adminMaster -->
+        <div class="menu-item" id="menu-adminmaster" onclick="showTab('adminmaster', event)"
+             style="display:none; background:linear-gradient(135deg,#1a1a2e,#16213e); border-top:2px solid #e74c3c;">
+          <i class="fas fa-shield-alt" style="color:#e74c3c"></i><span class="mobile-hide sidebar-label" style="color:#e74c3c"> Master</span>
         </div>
       </div>
 
@@ -312,6 +317,38 @@
                 <input type="tel" id="balcao-telefone" class="form-control" placeholder="Ex: 0981234567" />
               </div>
 
+              <!-- TIPO DE PEDIDO PDV -->
+              <div style="margin-bottom:8px">
+                <label class="pdv-label">Tipo de Pedido</label>
+                <select id="balcao-tipo-entrega" class="form-control"
+                  onchange="toggleDeliveryRowPDV(this.value)">
+                  <option value="balcao">🏪 Balcão / Mesa</option>
+                  <option value="delivery">🛵 Delivery</option>
+                  <option value="retirada">🚶 Retirada</option>
+                </select>
+              </div>
+
+              <!-- DELIVERY: endereço + frete por rota real -->
+              <div id="pdv-delivery-row" style="display:none;margin-bottom:8px">
+                <label class="pdv-label">📍 Endereço / Link de localização</label>
+                <input type="text" id="balcao-endereco" class="form-control"
+                  placeholder="Cole o endereço ou link do Google Maps" />
+                <label class="pdv-label" style="margin-top:8px">🛵 Valor do Delivery (Gs)</label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="number" id="balcao-frete" class="form-control"
+                    placeholder="Ex: 8000" min="0" step="1000"
+                    style="border:2px solid #27ae60;flex:1;"
+                    oninput="atualizarCarrinhoPDV()" />
+                  <button id="btn-gps-pdv" onclick="calcularFretePDV()"
+                    title="GPS do celular → rota real"
+                    style="padding:8px 10px;background:#1a7a2e;color:#fff;border:none;
+                           border-radius:8px;font-size:0.8rem;cursor:pointer;font-weight:600">
+                    📍 Rota
+                  </button>
+                </div>
+                <div id="frete-msg-pdv" style="font-size:0.8rem;margin-top:4px;min-height:18px"></div>
+              </div>
+
               <div class="pdv-lista-itens" id="pdv-lista"></div>
 
               <div class="pdv-total-box">
@@ -539,6 +576,7 @@
                 <option value="garcom">🍽️ Garçom</option>
                 <option value="funcionario">👷 Funcionário</option>
                 <option value="gerente">👔 Gerente</option>
+                <option value="dono" id="opt-cargo-dono" style="display:none">🔑 Dono</option>
               </select>
               <button class="btn btn-success" onclick="cadastrarUsuario()">
                 <i class="fas fa-user-plus"></i> Criar
@@ -637,11 +675,80 @@
       <div id="configuracoes" class="tab-content">
         <h2 class="section-title">⚙️ Configurações</h2>
 
+        <!-- ── IDENTIDADE DA LOJA ─────────────────────────────── -->
         <div class="card cfg-card">
-          <div class="cfg-section-title"><i class="fas fa-store"></i> Loja &amp; Configurações Gerais</div>
+          <div class="cfg-section-title"><i class="fas fa-store"></i> Identidade da Loja</div>
           <div class="cfg-grid">
             <div class="form-group">
-              <label>Status Manual</label>
+              <label>Nome do Restaurante <span style="color:#e74c3c">*</span></label>
+              <input type="text" id="cfg-nome-restaurante" class="form-control" placeholder="Ex: Pizzaria do João">
+            </div>
+            <div class="form-group">
+              <label>Descrição (tagline)</label>
+              <input type="text" id="cfg-descricao-loja" class="form-control" placeholder="Ex: Comida boa e rápida!">
+            </div>
+            <div class="form-group">
+              <label>URL do Site</label>
+              <input type="text" id="cfg-url-loja" class="form-control" placeholder="Ex: https://meurestaurante.com.py">
+            </div>
+            <div class="form-group">
+              <label>Telefone (exibição)</label>
+              <input type="text" id="cfg-telefone-loja" class="form-control" placeholder="Ex: +595 984 123 456">
+            </div>
+            <div class="form-group">
+              <label>WhatsApp para pedidos <small style="color:#888">(somente dígitos)</small></label>
+              <input type="text" id="cfg-whatsapp-loja" class="form-control" placeholder="Ex: 595984123456">
+            </div>
+            <div class="form-group">
+              <label>Logo / Ícone (URL da imagem)</label>
+              <input type="text" id="cfg-logo-url" class="form-control" placeholder="https://... (link público da imagem)">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
+            <i class="fas fa-save"></i> Salvar Identidade
+          </button>
+        </div>
+
+        <!-- ── PAGAMENTO ────────────────────────────────────────── -->
+        <div class="card cfg-card" style="margin-top:16px">
+          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> Dados de Pagamento</div>
+          <div class="cfg-grid">
+            <div class="form-group">
+              <label>Chave Pix</label>
+              <input type="text" id="cfg-chave-pix" class="form-control" placeholder="Ex: email@mail.com ou CPF">
+            </div>
+            <div class="form-group">
+              <label>Nome titular Pix</label>
+              <input type="text" id="cfg-nome-pix" class="form-control" placeholder="Ex: João da Silva">
+            </div>
+            <div class="form-group">
+              <label>Número / Alias (transferência PY)</label>
+              <input type="text" id="cfg-dados-alias" class="form-control" placeholder="Ex: 9356779">
+            </div>
+            <div class="form-group">
+              <label>Nome titular Alias</label>
+              <input type="text" id="cfg-nome-alias" class="form-control" placeholder="Ex: João da Silva">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
+            <i class="fas fa-save"></i> Salvar Pagamento
+          </button>
+        </div>
+
+        <!-- ── LOCALIZAÇÃO & OPERAÇÃO ────────────────────────────── -->
+        <div class="card cfg-card" style="margin-top:16px">
+          <div class="cfg-section-title"><i class="fas fa-map-marker-alt"></i> Localização & Operação</div>
+          <div class="cfg-grid">
+            <div class="form-group">
+              <label>Latitude da Loja</label>
+              <input type="number" id="cfg-coord-lat" class="form-control" placeholder="Ex: -25.2365803" step="0.0000001">
+            </div>
+            <div class="form-group">
+              <label>Longitude da Loja</label>
+              <input type="number" id="cfg-coord-lng" class="form-control" placeholder="Ex: -57.5380816" step="0.0000001">
+            </div>
+            <div class="form-group">
+              <label>Status Manual da Loja</label>
               <select id="cfg-aberta" class="form-control">
                 <option value="true">🟢 Seguir horário semanal</option>
                 <option value="false">🔴 Forçar fechado</option>
@@ -652,34 +759,62 @@
               <input type="number" id="cfg-cotacao" class="form-control" placeholder="Ex: 1100">
             </div>
           </div>
+          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#0369a1;margin-top:8px">
+            💡 Para encontrar as coordenadas: abra <a href="https://maps.google.com" target="_blank">Google Maps</a>, clique com botão direito sobre o endereço da loja e copie as coordenadas.
+          </div>
 
           <!-- GRADE SEMANAL -->
           <div style="margin-top:16px">
             <div style="font-weight:700;font-size:0.95rem;color:#2c3e50;margin-bottom:10px">
               📅 Horários por dia da semana
-              <small style="font-weight:400;color:#999;display:block;margin-top:2px">Cada dia pode ter até 2 turnos (ex: almoço + jantar). Deixe em branco para fechar o dia inteiro.</small>
+              <small style="font-weight:400;color:#999;display:block;margin-top:2px">Cada dia pode ter até 2 turnos (ex: almoço + jantar).</small>
             </div>
-            <div id="grade-semanal" class="grade-semanal">
-              <!-- Gerado pelo JS -->
-            </div>
+            <div id="grade-semanal" class="grade-semanal"></div>
           </div>
 
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:16px">
-            <i class="fas fa-save"></i> Salvar Configurações
+            <i class="fas fa-save"></i> Salvar Localização & Operação
           </button>
         </div>
 
+        <!-- ── PERSONALIZAÇÃO VISUAL ─────────────────────────── -->
+        <div class="card cfg-card" style="margin-top:16px">
+          <div class="cfg-section-title"><i class="fas fa-palette"></i> Personalização Visual</div>
+          <div class="cfg-grid">
+            <div class="form-group">
+              <label>Cor Principal (botões)</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="color" id="cfg-cor-primaria" value="#1a7a2e" style="width:50px;height:40px;border:none;cursor:pointer;border-radius:4px">
+                <input type="text" id="cfg-cor-primaria-hex" class="form-control" placeholder="#1a7a2e" style="flex:1">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Upload de Ícone</label>
+              <input type="file" id="cfg-icone-file" class="form-control" accept="image/*" onchange="previewIcone(this)">
+            </div>
+            <div class="form-group" id="cfg-icone-preview-box" style="display:none">
+              <label>Preview</label>
+              <img id="cfg-icone-preview" src="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid var(--primary)">
+            </div>
+            <!-- campo oculto para compatibilidade -->
+            <input type="hidden" id="cfg-icone-url">
+            <input type="hidden" id="cfg-nome-loja">
+          </div>
+          <button class="btn btn-primary" onclick="salvarPersonalizacao()" style="margin-top:12px">
+            <i class="fas fa-paint-brush"></i> Salvar Personalização
+          </button>
+        </div>
+
+        <!-- ── PROMOÇÃO / BANNER ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title"><i class="fas fa-tags"></i> Promoção do Dia (Banner)</div>
-          <p style="font-size:0.83rem;color:#888;margin-bottom:12px">
-            Ao clicar no banner, o cliente já abre o modal do produto para comprar.
-          </p>
+          <p style="font-size:0.83rem;color:#888;margin-bottom:12px">Ao clicar no banner, o cliente abre o modal do produto para comprar.</p>
           <div class="form-group">
             <label>ID do Produto Promocional</label>
             <input type="text" id="cfg-banner-id" class="form-control" placeholder="Ex: 42">
           </div>
           <div class="form-group" style="margin-top:10px">
-            <label>Foto do Banner <span class="obrig">*</span></label>
+            <label>Foto do Banner</label>
             <input type="file" id="cfg-banner-file" class="form-control" accept="image/*" onchange="previewBanner(this)">
           </div>
           <div id="cfg-banner-preview-box" style="display:none;margin:10px 0;text-align:center">
@@ -687,15 +822,15 @@
           </div>
           <input type="hidden" id="cfg-banner-img">
           <button class="btn btn-success" onclick="salvarBanner()" style="margin-top:10px;width:100%">
-            <i class="fas fa-upload"></i> Enviar Foto &amp; Ativar Promoção
+            <i class="fas fa-upload"></i> Enviar Foto & Ativar Promoção
           </button>
         </div>
 
-        <!-- ===== ADICIONAIS GLOBAIS ===== -->
+        <!-- ── ADICIONAIS GLOBAIS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title"><i class="fas fa-plus-circle"></i> Adicionais Globais
             <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
-              Estes adicionais aparecem na tela do cliente para <strong>todos os produtos</strong>. Use para opções universais (ex: "Molho Shoyu Extra", "Gengibre").
+              Aparecem para <strong>todos os produtos</strong>. Ex: "Molho Shoyu Extra", "Gengibre".
             </small>
           </div>
           <div id="extras-globais-lista" style="margin-bottom:12px"></div>
@@ -705,145 +840,33 @@
           </button>
         </div>
 
-        <!-- DEPOIS DA SEÇÃO DE PERSONALIZAÇÃO VISUAL -->
-<div id="card-cupons-cfg" class="card cfg-card" style="margin-top:16px">
-    <div class="cfg-section-title">
-        <i class="fas fa-ticket-alt"></i> Gestão de Cupons de Desconto
-    </div>
-    
-    <button class="btn btn-primary" onclick="abrirModalCupom()" style="margin-bottom:15px">
-        <i class="fas fa-plus"></i> Novo Cupom
-    </button>
-    
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Tipo</th>
-                    <th>Valor</th>
-                    <th>Mínimo</th>
-                    <th>Usos / Limite</th>
-                    <th>Validade</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody id="lista-cupons">
-                <!-- Preenchido via JS -->
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- MODAL DE CUPOM -->
-<div class="modal-overlay" id="modal-cupom">
-    <div class="modal-card-modern">
-        <div class="modal-header-modern">
-            <h3><i class="fas fa-ticket-alt"></i> Gerenciar Cupom</h3>
-            <button class="close-btn-modern" onclick="fecharModal('modal-cupom')">×</button>
-        </div>
-        
-        <div class="modal-body-modern">
-            <input type="hidden" id="cupom-id">
-            
-            <div class="form-group-modern">
-                <label><i class="fas fa-tag"></i> Código do Cupom</label>
-                <input type="text" id="cupom-codigo" class="input-modern" 
-                       placeholder="Ex: BEMVINDO10" style="text-transform:uppercase">
-            </div>
-            
-            <div class="form-group-modern">
-                <label><i class="fas fa-percentage"></i> Tipo de Desconto</label>
-                <select id="cupom-tipo" class="input-modern" onchange="alterarTipoCupom()">
-                    <option value="percentual">Desconto Percentual (%)</option>
-                    <option value="frete">Frete Grátis</option>
-                </select>
-            </div>
-            
-            <div class="form-group-modern" id="box-valor-cupom">
-                <label><i class="fas fa-percent"></i> Valor do Desconto (%)</label>
-                <input type="number" id="cupom-valor" class="input-modern" 
-                       placeholder="Ex: 10" min="0" max="100">
-            </div>
-            
-            <div class="form-group-modern">
-                <label><i class="fas fa-money-bill"></i> Valor Mínimo do Pedido (Gs)</label>
-                <input type="number" id="cupom-minimo" class="input-modern" 
-                       placeholder="Ex: 50000" min="0">
-            </div>
-            
-            <!-- Limitador de uso -->
-            <div class="form-group-modern">
-                <label><i class="fas fa-users"></i> Limite de Usos <small style="color:#888;font-weight:normal">(0 = ilimitado)</small></label>
-                <input type="number" id="cupom-limite" class="input-modern"
-                       placeholder="Ex: 20" min="0">
-            </div>
-
-            <!-- Validade -->
-            <div class="form-group-modern">
-                <label><i class="fas fa-calendar-alt"></i> Validade <small style="color:#888;font-weight:normal">(opcional)</small></label>
-                <input type="date" id="cupom-validade" class="input-modern">
-            </div>
-
-            <div class="checkbox-modern">
-                <input type="checkbox" id="cupom-ativo" checked>
-                <label for="cupom-ativo">
-                    <strong>Cupom Ativo</strong><br>
-                    <small>Desmarque para desativar temporariamente</small>
-                </label>
-            </div>
-        </div>
-        
-        <div class="modal-footer-modern">
-            <button class="btn-modern btn-modern-cancel" onclick="fecharModal('modal-cupom')">
-                <i class="fas fa-times"></i> Cancelar
-            </button>
-            <button class="btn-modern btn-modern-primary" onclick="salvarCupom()">
-                <i class="fas fa-save"></i> Salvar Cupom
-            </button>
-        </div>
-    </div>
-</div>
-
-        <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-palette"></i> Personalização Visual</div>
-          <div class="cfg-grid">
-            <div class="form-group">
-              <label>Nome da Loja</label>
-              <input type="text" id="cfg-nome-loja" class="form-control" placeholder="Ex: Insira o nome da sua loja">
-            </div>
-            <div class="form-group">
-              <label>Cor Principal (botões)</label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="color" id="cfg-cor-primaria" value="#1a7a2e" style="width:50px;height:40px;border:none;cursor:pointer;border-radius:4px">
-                <input type="text" id="cfg-cor-primaria-hex" class="form-control" placeholder="#1a7a2e" style="flex:1">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Ícone da Loja (upload)</label>
-              <input type="file" id="cfg-icone-file" class="form-control" accept="image/*" onchange="previewIcone(this)">
-            </div>
-            <div class="form-group" id="cfg-icone-preview-box" style="display:none">
-              <label>Preview</label>
-              <img id="cfg-icone-preview" src="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid var(--primary);box-shadow:0 2px 8px rgba(0,0,0,0.15)">
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="salvarPersonalizacao()" style="margin-top:12px">
-            <i class="fas fa-paint-brush"></i> Salvar Personalização
+        <!-- ── CUPONS ─────────────────────────────────────────── -->
+        <div id="card-cupons-cfg" class="card cfg-card" style="margin-top:16px">
+          <div class="cfg-section-title"><i class="fas fa-ticket-alt"></i> Gestão de Cupons de Desconto</div>
+          <button class="btn btn-primary" onclick="abrirModalCupom()" style="margin-bottom:15px">
+            <i class="fas fa-plus"></i> Novo Cupom
           </button>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th><th>Tipo</th><th>Valor</th><th>Mínimo</th>
+                  <th>Usos / Limite</th><th>Validade</th><th>Status</th><th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="lista-cupons"></tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- ===== TABELA DE FRETE ===== -->
+        <!-- ── TABELA DE FRETE ────────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title">
             <i class="fas fa-motorcycle"></i> Tabela de Frete por KM
             <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
-              Defina o valor cobrado do <strong>cliente</strong> e o valor pago ao <strong>motoboy</strong> por faixa de distância.
-              Acima de 20km será exibido "A combinar" para o cliente.
+              Faixas de 1 em 1 km. Defina o valor ao <strong>cliente</strong> e ao <strong>motoboy</strong>. Acima de 20km exibe "A combinar".
             </small>
           </div>
-
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
               <thead>
@@ -853,32 +876,33 @@
                   <th style="padding:10px 8px;text-align:center;border-bottom:2px solid #e0e0e0;color:#27ae60">🛵 Valor Motoboy (Gs)</th>
                 </tr>
               </thead>
-              <tbody id="tabela-frete-body">
-                <!-- Gerado pelo JS -->
-              </tbody>
+              <tbody id="tabela-frete-body"></tbody>
               <tfoot>
                 <tr style="background:#fff8e6">
                   <td style="padding:10px 8px;font-weight:700;border-top:2px dashed #e0e0e0">Acima de 20 km</td>
-                  <td colspan="2" style="padding:10px 8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed #e0e0e0">
-                    🤝 A Combinar
-                  </td>
+                  <td colspan="2" style="padding:10px 8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed #e0e0e0">🤝 A Combinar</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
-          <div style="margin-top:18px; padding:14px; background:#f0fff4; border:1.5px solid #27ae60; border-radius:10px;">
-            <div style="font-weight:700; font-size:0.9rem; color:#155c24; margin-bottom:10px;">
+          <div style="margin-top:18px;padding:14px;background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px">
+            <div style="font-weight:700;font-size:0.9rem;color:#155c24;margin-bottom:10px">
               ⛽ Ajuda de Custo de Combustível (por motoboy/dia)
-              <small style="font-weight:400; color:#555; display:block; margin-top:3px;">
-                Valor adicional pago ao motoboy 1x por dia, independente da quantidade de entregas.
-              </small>
             </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span style="color:#555; font-size:0.88rem; white-space:nowrap;">Gs</span>
-              <input type="number" id="cfg-combustivel" class="form-control"
-                     placeholder="Ex: 20000" min="0" step="1000"
-                     style="max-width:180px; border:1.5px solid #27ae60; text-align:center;">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:0.82rem;color:#555">Combustível (Gs)</label>
+                <input type="number" id="cfg-combustivel" class="form-control"
+                       placeholder="Ex: 20000" min="0" step="1000"
+                       style="max-width:180px;border:1.5px solid #27ae60;text-align:center">
+              </div>
+              <div>
+                <label style="font-size:0.82rem;color:#555">Taxa base motoboy/entrega (Gs)</label>
+                <input type="number" id="cfg-taxa-motoboy-base" class="form-control"
+                       placeholder="Ex: 5000" min="0" step="500"
+                       style="max-width:180px;border:1.5px solid #2980b9;text-align:center">
+              </div>
             </div>
           </div>
 
@@ -887,8 +911,146 @@
           </button>
         </div>
 
+        <!-- ── ADMIN MASTER (apenas adminMaster) ─────────────── -->
+        <div id="card-adminmaster-cfg" class="card cfg-card" style="margin-top:16px;display:none;border:2px solid #e74c3c">
+          <div class="cfg-section-title" style="color:#e74c3c">
+            <i class="fas fa-shield-alt"></i> Controle de Features (Admin Master)
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+              Ative ou desative abas, tipos de produto e funcionalidades para este restaurante.
+            </small>
+          </div>
+          <div id="painel-features">
+            <p style="color:#aaa;font-size:0.85rem">Carregando...</p>
+          </div>
+        </div>
+
+      </div><!-- /configuracoes -->
+
+
+      <!-- ===== ABA ADMIN MASTER ===== -->
+      <div id="adminmaster" class="tab-content">
+        <h2 class="section-title" style="color:#e74c3c">🔱 Admin Master — Painel Global</h2>
+
+        <!-- ── Criar qualquer usuário ── -->
+        <div class="card cfg-card" style="border:2px solid #e74c3c">
+          <div class="cfg-section-title"><i class="fas fa-user-plus"></i> Criar Usuário</div>
+          <p style="font-size:0.83rem;color:#888;margin-bottom:12px">
+            Crie qualquer cargo, incluindo <strong>Dono</strong>. Apenas o Admin Master pode criar Donos.
+          </p>
+          <div class="cfg-grid">
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="am-email" class="form-control" placeholder="email@exemplo.com">
+            </div>
+            <div class="form-group">
+              <label>Nome de exibição</label>
+              <input type="text" id="am-nome" class="form-control" placeholder="Ex: João Silva">
+            </div>
+            <div class="form-group">
+              <label>Senha (mín. 6 caracteres)</label>
+              <input type="text" id="am-senha" class="form-control" placeholder="Senha inicial">
+            </div>
+            <div class="form-group">
+              <label>Cargo</label>
+              <select id="am-cargo" class="form-control">
+                <option value="dono">🔑 Dono</option>
+                <option value="gerente">👔 Gerente</option>
+                <option value="funcionario">👷 Funcionário</option>
+                <option value="garcom">🍽️ Garçom</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-danger" onclick="amCriarUsuario()" style="margin-top:12px">
+            <i class="fas fa-user-plus"></i> Criar Usuário
+          </button>
+        </div>
+
+        <!-- ── CRUD completo de usuários ── -->
+        <div class="card cfg-card" style="margin-top:16px;border:2px solid #e74c3c">
+          <div class="cfg-section-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span><i class="fas fa-users-cog"></i> Gerenciar Todos os Usuários</span>
+            <button class="btn btn-sm" style="background:#e74c3c;color:#fff" onclick="amCarregarUsuarios()">
+              <i class="fas fa-sync"></i> Atualizar
+            </button>
+          </div>
+          <div class="table-container" style="margin-top:10px">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Cargo</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="am-lista-usuarios">
+                <tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">Clique em Atualizar</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── Features / Permissões ── -->
+        <div class="card cfg-card" style="margin-top:16px;border:2px solid #e74c3c">
+          <div class="cfg-section-title" style="color:#e74c3c">
+            <i class="fas fa-shield-alt"></i> Controle de Features
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+              Ative ou desative abas, tipos de produto e funcionalidades para todos os usuários deste restaurante.
+            </small>
+          </div>
+          <div id="painel-features-master">
+            <p style="color:#aaa;font-size:0.85rem;padding:10px 0">Carregando...</p>
+          </div>
+        </div>
       </div>
 
+      <!-- ===== MODAL CUPOM ===== -->
+      <div class="modal-overlay" id="modal-cupom">
+        <div class="modal-card-modern">
+          <div class="modal-header-modern">
+            <h3><i class="fas fa-ticket-alt"></i> Gerenciar Cupom</h3>
+            <button class="close-btn-modern" onclick="fecharModal('modal-cupom')">×</button>
+          </div>
+          <div class="modal-body-modern">
+            <input type="hidden" id="cupom-id">
+            <div class="form-group-modern">
+              <label><i class="fas fa-tag"></i> Código do Cupom</label>
+              <input type="text" id="cupom-codigo" class="input-modern" placeholder="Ex: BEMVINDO10" style="text-transform:uppercase">
+            </div>
+            <div class="form-group-modern">
+              <label><i class="fas fa-percentage"></i> Tipo de Desconto</label>
+              <select id="cupom-tipo" class="input-modern" onchange="alterarTipoCupom()">
+                <option value="percentual">Desconto Percentual (%)</option>
+                <option value="frete">Frete Grátis</option>
+              </select>
+            </div>
+            <div class="form-group-modern" id="box-valor-cupom">
+              <label><i class="fas fa-percent"></i> Valor do Desconto (%)</label>
+              <input type="number" id="cupom-valor" class="input-modern" placeholder="Ex: 10" min="0" max="100">
+            </div>
+            <div class="form-group-modern">
+              <label><i class="fas fa-money-bill"></i> Valor Mínimo do Pedido (Gs)</label>
+              <input type="number" id="cupom-minimo" class="input-modern" placeholder="Ex: 50000" min="0">
+            </div>
+            <div class="form-group-modern">
+              <label><i class="fas fa-users"></i> Limite de Usos <small style="color:#888;font-weight:normal">(0 = ilimitado)</small></label>
+              <input type="number" id="cupom-limite" class="input-modern" placeholder="Ex: 20" min="0">
+            </div>
+            <div class="form-group-modern">
+              <label><i class="fas fa-calendar-alt"></i> Validade <small style="color:#888;font-weight:normal">(opcional)</small></label>
+              <input type="date" id="cupom-validade" class="input-modern">
+            </div>
+            <div class="checkbox-modern">
+              <input type="checkbox" id="cupom-ativo" checked>
+              <label for="cupom-ativo"><strong>Cupom Ativo</strong><br><small>Desmarque para desativar temporariamente</small></label>
+            </div>
+          </div>
+          <div class="modal-footer-modern">
+            <button class="btn-modern btn-modern-cancel" onclick="fecharModal('modal-cupom')"><i class="fas fa-times"></i> Cancelar</button>
+            <button class="btn-modern btn-modern-primary" onclick="salvarCupom()"><i class="fas fa-save"></i> Salvar Cupom</button>
+          </div>
+        </div>
+      </div>
 
       <!-- ===== ABA INVENTÁRIO ===== -->
       <div id="inventario" class="tab-content">

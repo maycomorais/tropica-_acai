@@ -1,9 +1,18 @@
 // =========================================
 // 1. CONSTANTES E INICIALIZAÇÃO
 // =========================================
-const TAXA_MOTOBOY = 5000;
-let AJUDA_COMBUSTIVEL = 20000; // Carregado do banco em carregarConfiguracoes()
-const COORD_LOJA = { lat: -25.2365803, lng: -57.5380816 };
+// ── Globals carregados do banco (configuracoes) ──────────────────
+let TAXA_MOTOBOY      = 0;              // taxa_motoboy_base
+let AJUDA_COMBUSTIVEL = 0;              // ajuda_combustivel
+let COORD_LOJA        = { lat: 0, lng: 0 }; // coord_lat / coord_lng
+let CHAVE_PIX_CFG     = '';             // chave_pix
+let NOME_PIX_CFG      = '';             // nome_pix
+let DADOS_ALIAS_CFG   = '';             // dados_alias
+let NOME_ALIAS_CFG    = '';             // nome_alias
+let WHATSAPP_LOJA_CFG = '';             // whatsapp_loja (dígitos)
+let NOME_RESTAURANTE  = '';             // nome_restaurante
+let FEATURES_ATIVAS   = null;           // features_ativas JSONB
+let TABELA_FRETE_ADMIN = null;          // tabela_frete (carregada do banco para calcularFretePDV)
 
 let perfilUsuario = null;
 let _perfilId     = null;   // UUID do usuário logado
@@ -12,7 +21,7 @@ let audioHabilitado = false; // Controle de permissão do navegador
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Recupera a última aba ou define padrão
-  let lastTab = localStorage.getItem('tropical_lastTab');
+  let lastTab = localStorage.getItem('simbora_lastTab');
   if (!lastTab || !document.getElementById(lastTab)) {
     lastTab = 'pedidos';
   }
@@ -24,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // === SISTEMA DE AUTO-REFRESH (10 SEGUNDOS) ===
   // Backup caso o Realtime falhe
   setInterval(() => {
-    const abaAtual = localStorage.getItem('tropical_lastTab');
+    const abaAtual = localStorage.getItem('simbora_lastTab');
     // true = modo silencioso (sem recarregar som se já estiver tocando)
     if (abaAtual === 'pedidos') carregarPedidos(true);
     if (abaAtual === 'cozinha') carregarCozinha();
@@ -44,15 +53,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     _perfilId   = session.user.id;
     _perfilNome = perfil?.nome_display || session.user.email || 'Admin';
-    perfilUsuario = perfil ? perfil.cargo : 'dono'; // fallback: sem perfil = dono (instalação nova)
-    const elCargo = document.getElementById('user-cargo');
-    if (elCargo) elCargo.innerText = perfilUsuario.toUpperCase();
+    perfilUsuario = perfil ? perfil.cargo : 'dono';
 
-    if (perfilUsuario === 'dono') {
+    // Atualiza sidebar: nome, cargo e email
+    const elNomeDisplay = document.getElementById('user-nome-display');
+    const elCargo       = document.getElementById('user-cargo');
+    const elEmail       = document.getElementById('user-email');
+    if (elNomeDisplay) elNomeDisplay.textContent = _perfilNome;
+    if (elEmail)       elEmail.textContent       = session.user.email;
+
+    const cargoBadges = {
+      adminMaster: '🔱 ADMIN MASTER', dono: '🔑 DONO',
+      gerente: '👔 GERENTE', funcionario: '👷 FUNCIONÁRIO', garcom: '🍽️ GARÇOM',
+    };
+    if (elCargo) elCargo.textContent = cargoBadges[perfilUsuario] || perfilUsuario.toUpperCase();
+
+    // Carrega features e aplica visibilidade das abas
+    await _carregarFeaturesGlobais();
+
+    // Atualiza brand com nome do restaurante (carregado em _carregarFeaturesGlobais)
+    const elBrand = document.getElementById('brand-text');
+    if (elBrand) elBrand.textContent = (NOME_RESTAURANTE || 'ADMIN') + ' ADMIN';
+
+    _aplicarVisibilidadeAbas();
+
+    if (perfilUsuario === 'adminMaster') {
+      // adminMaster vê tudo + aba exclusiva de administração
+      document.querySelectorAll('.menu-item').forEach(m => m.style.display = 'flex');
+      const menuAM = document.getElementById('menu-adminmaster');
+      if (menuAM) menuAM.style.display = 'flex';
+      // Exibe opção Dono no select de equipe
+      const optDono = document.getElementById('opt-cargo-dono');
+      if (optDono) optDono.style.display = '';
+    }
+    if (perfilUsuario === 'dono' || perfilUsuario === 'adminMaster') {
       const menuFin = document.getElementById('menu-financeiro');
       if (menuFin) menuFin.style.display = 'flex';
     }
-    if (perfilUsuario === 'dono' || perfilUsuario === 'gerente') {
+    if (perfilUsuario === 'dono' || perfilUsuario === 'gerente' || perfilUsuario === 'adminMaster') {
       const menuEst = document.getElementById('menu-inventario');
       if (menuEst) menuEst.style.display = 'flex';
     }
@@ -112,7 +150,7 @@ function showTab(tabId, event) {
     realTabId = 'pedidos';
   }
 
-  localStorage.setItem('tropical_lastTab', realTabId);
+  localStorage.setItem('simbora_lastTab', realTabId);
 
   // 2. Reset visual
   document.querySelectorAll('.tab-content').forEach((t) => t.classList.remove('active'));
@@ -149,6 +187,7 @@ function showTab(tabId, event) {
   if (realTabId === 'dashboard') carregarDashboard();
   if (realTabId === 'pdv') carregarPDV();
   if (realTabId === 'equipe') carregarEquipe();
+  if (realTabId === 'adminmaster') { amCarregarUsuarios(); renderPainelFeatures(); }
   if (realTabId === 'configuracoes') {
     carregarConfiguracoes();
     if (perfilUsuario === 'dono' || perfilUsuario === 'gerente') {
@@ -185,6 +224,118 @@ function showSubTab(subId) {
 // =========================================
 // 3. REALTIME E ALARME (LOOP)
 // =========================================
+// ── Features globais (controladas pelo adminMaster) ────────────
+async function _carregarFeaturesGlobais() {
+  const { data } = await supa.from('configuracoes').select('features_ativas, nome_restaurante, whatsapp_loja, coord_lat, coord_lng, taxa_motoboy_base, ajuda_combustivel, chave_pix, nome_pix, dados_alias, nome_alias, tabela_frete').maybeSingle();
+  if (!data) return;
+  FEATURES_ATIVAS = data.features_ativas || null;
+  // Globals operacionais
+  if (data.nome_restaurante) NOME_RESTAURANTE = data.nome_restaurante;
+  if (data.whatsapp_loja)    WHATSAPP_LOJA_CFG = data.whatsapp_loja;
+  if (data.coord_lat)        COORD_LOJA.lat = parseFloat(data.coord_lat);
+  if (data.coord_lng)        COORD_LOJA.lng = parseFloat(data.coord_lng);
+  if (data.taxa_motoboy_base != null) TAXA_MOTOBOY = data.taxa_motoboy_base;
+  if (data.ajuda_combustivel != null) AJUDA_COMBUSTIVEL = data.ajuda_combustivel;
+  if (data.chave_pix)  CHAVE_PIX_CFG   = data.chave_pix;
+  if (data.nome_pix)   NOME_PIX_CFG    = data.nome_pix;
+  if (data.dados_alias) DADOS_ALIAS_CFG = data.dados_alias;
+  if (data.nome_alias) NOME_ALIAS_CFG  = data.nome_alias;
+  if (data.tabela_frete && Array.isArray(data.tabela_frete)) TABELA_FRETE_ADMIN = data.tabela_frete;
+}
+
+function _feat(categoria, chave) {
+  if (!FEATURES_ATIVAS) return true; // sem config = tudo ativo
+  const cat = FEATURES_ATIVAS[categoria];
+  if (!cat) return true;
+  return cat[chave] !== false;
+}
+
+function _aplicarVisibilidadeAbas() {
+  const mapa = {
+    'menu-pedidos':       'pedidos',
+    'menu-cozinha':       'cozinha',
+    'menu-pdv':           'pdv',
+    'menu-financeiro':    'financeiro',
+    'menu-inventario':    'inventario',
+    'menu-equipe':        'equipe',
+    'menu-configuracoes': 'configuracoes',
+    'menu-dashboard':     'dashboard',
+  };
+  // Só aplica restrições para cargos abaixo de adminMaster
+  if (perfilUsuario === 'adminMaster') return;
+  Object.entries(mapa).forEach(([menuId, chave]) => {
+    const el = document.getElementById(menuId);
+    if (el && !_feat('tabs', chave)) el.style.display = 'none';
+  });
+}
+
+// Salva features (adminMaster only)
+async function salvarFeatures() {
+  if (perfilUsuario !== 'adminMaster') return alert('Acesso negado.');
+  const tabs = {}, tipos = {}, funcs = {};
+  document.querySelectorAll('[data-feat-tab]').forEach(el => { tabs[el.dataset.featTab] = el.checked; });
+  document.querySelectorAll('[data-feat-tipo]').forEach(el => { tipos[el.dataset.featTipo] = el.checked; });
+  document.querySelectorAll('[data-feat-func]').forEach(el => { funcs[el.dataset.featFunc] = el.checked; });
+  const features = { tabs, tipos_produto: tipos, funcionalidades: funcs };
+  const { error } = await supa.from('configuracoes').update({ features_ativas: features }).eq('id', 1);
+  if (error) return alert('Erro: ' + error.message);
+  FEATURES_ATIVAS = features;
+  alert('✅ Features salvas!');
+}
+
+// Renderiza painel de features (adminMaster)
+async function renderPainelFeatures() {
+  const targets = ['painel-features', 'painel-features-master'].map(id => document.getElementById(id)).filter(Boolean);
+  if (!targets.length) return;
+  await _carregarFeaturesGlobais();
+  const f = FEATURES_ATIVAS || {};
+  const tabs = f.tabs || {};
+  const tipos = f.tipos_produto || {};
+  const funcs = f.funcionalidades || {};
+
+  const chkTabs = [
+    ['pedidos','Pedidos'],['cozinha','Cozinha/KDS'],['pdv','PDV Balcão'],
+    ['financeiro','Financeiro'],['inventario','Inventário'],['equipe','Equipe'],
+    ['configuracoes','Configurações'],['dashboard','Dashboard'],
+  ].map(([k,l]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
+    <input type="checkbox" data-feat-tab="${k}" ${tabs[k]!==false?'checked':''} style="width:18px;height:18px">
+    <span>${l}</span></label>`).join('');
+
+  const chkTipos = [
+    ['padrao','Simples'],['bebida','Bebida'],['lanche','Lanche'],['pizza','Pizza'],
+    ['acai','Açaí'],['shake','Shake'],['suco','Suco'],['sorvete','Sorvete'],
+    ['montavel','Montável'],['combo','Combo'],['variacoes','Variações'],['kg','⚖️ Venda Kg'],
+  ].map(([k,l]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
+    <input type="checkbox" data-feat-tipo="${k}" ${tipos[k]!==false?'checked':''} style="width:18px;height:18px">
+    <span>${l}</span></label>`).join('');
+
+  const chkFuncs = [
+    ['delivery','Delivery'],['retirada','Retirada'],['local','Comer no Local'],
+    ['balcao','Balcão/PDV'],['cupons','Cupons'],['factura','Factura'],
+    ['multipagamento','Multipagamento'],['agendamento','Agendamento'],
+  ].map(([k,l]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
+    <input type="checkbox" data-feat-func="${k}" ${funcs[k]!==false?'checked':''} style="width:18px;height:18px">
+    <span>${l}</span></label>`).join('');
+
+  const html = `
+    <div style="display:grid;gap:20px">
+      <div>
+        <h4 style="margin-bottom:10px;color:#2c3e50">📂 Abas visíveis</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">${chkTabs}</div>
+      </div>
+      <div>
+        <h4 style="margin-bottom:10px;color:#2c3e50">🏷️ Tipos de produto permitidos</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">${chkTipos}</div>
+      </div>
+      <div>
+        <h4 style="margin-bottom:10px;color:#2c3e50">⚙️ Funcionalidades</h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">${chkFuncs}</div>
+      </div>
+      <button class="btn btn-primary" onclick="salvarFeatures()"><i class="fas fa-save"></i> Salvar Features</button>
+    </div>`;
+  targets.forEach(el => { el.innerHTML = html; });
+}
+
 function iniciarRealtime() {
   supa
     .channel('tabela-pedidos-admin')
@@ -195,7 +346,7 @@ function iniciarRealtime() {
       }
       // Atualiza tela — silencioso=true em updates para não re-tocar alarme
       const silencioso = payload.eventType === 'UPDATE';
-      const abaAtual = localStorage.getItem('tropical_lastTab');
+      const abaAtual = localStorage.getItem('simbora_lastTab');
       if (abaAtual === 'pedidos') carregarPedidos(silencioso);
       if (abaAtual === 'cozinha') carregarCozinha();
       if (abaAtual === 'dashboard') carregarDashboard();
@@ -621,7 +772,7 @@ async function mudarStatus(id, novoStatus) {
 
   if (typeof pararAlarme === 'function') pararAlarme();
 
-  const abaAtual = localStorage.getItem('tropical_lastTab');
+  const abaAtual = localStorage.getItem('simbora_lastTab');
   if (abaAtual === 'cozinha') carregarCozinha();
   else if (abaAtual === 'pedidos') carregarPedidos();
   else if (abaAtual === 'pdv') carregarMonitorMesas();
@@ -3816,11 +3967,18 @@ function _lerGradeSemanal() {
 }
 
 async function carregarConfiguracoes() {
-  // Gestão de cupons: apenas dono e gerente
+  // Gestão de cupons: apenas dono, gerente e adminMaster
   const _cardCupons = document.getElementById('card-cupons-cfg');
   if (_cardCupons)
     _cardCupons.style.display =
-      perfilUsuario === 'dono' || perfilUsuario === 'gerente' ? '' : 'none';
+      ['dono','gerente','adminMaster'].includes(perfilUsuario) ? '' : 'none';
+
+  // Painel adminMaster
+  const _cardAM = document.getElementById('card-adminmaster-cfg');
+  if (_cardAM) {
+    _cardAM.style.display = perfilUsuario === 'adminMaster' ? '' : 'none';
+    if (perfilUsuario === 'adminMaster') renderPainelFeatures();
+  }
 
   const { data } = await supa.from('configuracoes').select('*').maybeSingle();
   _renderGradeSemanal((data && data.horarios_semanais) || {});
@@ -3831,35 +3989,48 @@ async function carregarConfiguracoes() {
     const el = document.getElementById(id);
     if (el) el.value = val ?? '';
   };
-  s('cfg-aberta', data.loja_aberta ? 'true' : 'false');
-  s('cfg-cotacao', data.cotacao_real);
-  s('cfg-banner-id', data.banner_produto_id || '');
+  // Operação
+  s('cfg-aberta',   data.loja_aberta ? 'true' : 'false');
+  s('cfg-cotacao',  data.cotacao_real);
+
+  // Identidade da loja
+  s('cfg-nome-restaurante', data.nome_restaurante);
+  s('cfg-descricao-loja',   data.descricao_loja);
+  s('cfg-url-loja',         data.url_loja);
+  s('cfg-telefone-loja',    data.telefone_loja);
+  s('cfg-whatsapp-loja',    data.whatsapp_loja);
+  s('cfg-logo-url',         data.logo_url || data.icone_url);
+
+  // Pagamento
+  s('cfg-chave-pix',   data.chave_pix);
+  s('cfg-nome-pix',    data.nome_pix);
+  s('cfg-dados-alias', data.dados_alias);
+  s('cfg-nome-alias',  data.nome_alias);
+
+  // Localização
+  s('cfg-coord-lat', data.coord_lat);
+  s('cfg-coord-lng', data.coord_lng);
+
+  // Banner
+  s('cfg-banner-id',  data.banner_produto_id || '');
   s('cfg-banner-img', data.banner_imagem || '');
-
-
   if (data.banner_imagem) {
     const prev = document.getElementById('cfg-banner-preview');
-    const box = document.getElementById('cfg-banner-preview-box');
+    const box  = document.getElementById('cfg-banner-preview-box');
     if (prev) prev.src = data.banner_imagem;
-    if (box) box.style.display = 'block';
+    if (box)  box.style.display = 'block';
   }
 
-  // Personalização visual (se campos existirem)
-  const sc = (id, val) => {
-    const el = document.getElementById(id);
-    if (el && val) el.value = val;
-  };
-  sc('cfg-nome-loja', data.nome_loja);
-  sc('cfg-cor-primaria', data.cor_primaria);
-  sc('cfg-cor-primaria-hex', data.cor_primaria);
+  // Visual
+  const sc = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  sc('cfg-nome-loja',       data.nome_restaurante || data.nome_loja);
+  sc('cfg-cor-primaria',    data.cor_primaria);
+  sc('cfg-cor-primaria-hex',data.cor_primaria);
 
-  // Sincronizar color picker com hex
   const corPicker = document.getElementById('cfg-cor-primaria');
-  const corHex = document.getElementById('cfg-cor-primaria-hex');
+  const corHex    = document.getElementById('cfg-cor-primaria-hex');
   if (corPicker && corHex) {
-    corPicker.addEventListener('input', (e) => {
-      corHex.value = e.target.value;
-    });
+    corPicker.addEventListener('input', (e) => { corHex.value = e.target.value; });
     corHex.addEventListener('input', (e) => {
       if (e.target.value.startsWith('#') && e.target.value.length === 7)
         corPicker.value = e.target.value;
@@ -3867,46 +4038,78 @@ async function carregarConfiguracoes() {
   }
 
   const iconeUrlInput = document.getElementById('cfg-icone-url');
-  const iconePreview = document.getElementById('cfg-icone-preview');
-  if (iconeUrlInput) iconeUrlInput.value = data.icone_url || '';
-  if (iconePreview && data.icone_url) { iconePreview.src = data.icone_url; iconePreview.style.display = 'block'; }
+  const iconePreview  = document.getElementById('cfg-icone-preview');
+  const logoVal = data.logo_url || data.icone_url || '';
+  if (iconeUrlInput) iconeUrlInput.value = logoVal;
+  if (iconePreview && logoVal) { iconePreview.src = logoVal; iconePreview.style.display = 'block'; }
 
-  // Carrega adicionais globais
+  // Globals
+  if (data.nome_restaurante) NOME_RESTAURANTE = data.nome_restaurante;
+  if (data.whatsapp_loja)    WHATSAPP_LOJA_CFG = data.whatsapp_loja;
+  if (data.coord_lat)        COORD_LOJA.lat = parseFloat(data.coord_lat);
+  if (data.coord_lng)        COORD_LOJA.lng = parseFloat(data.coord_lng);
+  if (data.chave_pix)        CHAVE_PIX_CFG  = data.chave_pix;
+  if (data.nome_pix)         NOME_PIX_CFG   = data.nome_pix;
+  if (data.dados_alias)      DADOS_ALIAS_CFG = data.dados_alias;
+  if (data.nome_alias)       NOME_ALIAS_CFG  = data.nome_alias;
+
   await carregarExtrasGlobaisAdmin();
 
-  // Carrega combustível
+  // Motoboy base + combustível
+  s('cfg-taxa-motoboy-base', data.taxa_motoboy_base ?? 0);
+  TAXA_MOTOBOY = data.taxa_motoboy_base ?? 0;
   const combEl = document.getElementById('cfg-combustivel');
   if (combEl) {
-    const saved = data.ajuda_combustivel ?? 20000;
+    const saved = data.ajuda_combustivel ?? 0;
     combEl.value = saved;
     AJUDA_COMBUSTIVEL = saved;
   }
 }
 
 async function salvarConfiguracoes() {
-  const g = (id) => {
-    const el = document.getElementById(id);
-    return el ? el.value : null;
-  };
+  const g = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
   const dados = {
-    loja_aberta: g('cfg-aberta') === 'true',
-    cotacao_real: parseFloat(g('cfg-cotacao')) || 1100,
-    banner_produto_id: parseInt(g('cfg-banner-id')) || null,
-    banner_imagem: g('cfg-banner-img') || '',
+    loja_aberta:       g('cfg-aberta') === 'true',
+    cotacao_real:      parseFloat(g('cfg-cotacao'))  || 1100,
+    banner_produto_id: parseInt(g('cfg-banner-id'))  || null,
+    banner_imagem:     g('cfg-banner-img') || '',
     horarios_semanais: _lerGradeSemanal(),
+    // Identidade
+    nome_restaurante:  g('cfg-nome-restaurante') || '',
+    descricao_loja:    g('cfg-descricao-loja')   || '',
+    url_loja:          g('cfg-url-loja')         || '',
+    telefone_loja:     g('cfg-telefone-loja')    || '',
+    whatsapp_loja:     (g('cfg-whatsapp-loja') || '').replace(/\D/g, ''),
+    logo_url:          g('cfg-logo-url')         || '',
+    icone_url:         g('cfg-logo-url')         || '',
+    // Pagamento
+    chave_pix:   g('cfg-chave-pix')   || '',
+    nome_pix:    g('cfg-nome-pix')    || '',
+    dados_alias: g('cfg-dados-alias') || '',
+    nome_alias:  g('cfg-nome-alias')  || '',
+    // Localização
+    coord_lat: parseFloat(g('cfg-coord-lat')) || 0,
+    coord_lng: parseFloat(g('cfg-coord-lng')) || 0,
+    // Motoboy
+    taxa_motoboy_base: parseInt(g('cfg-taxa-motoboy-base')) || 0,
+    // Visual
+    cor_primaria: g('cfg-cor-primaria') || '#1a7a2e',
   };
 
-  // Personalização extra (se campos existirem)
-  const nomeLoja = g('cfg-nome-loja');
-  const corPri = g('cfg-cor-primaria');
-  const corSec = g('cfg-cor-secundaria');
-  if (nomeLoja) dados.nome_loja = nomeLoja;
-  if (corPri) dados.cor_primaria = corPri;
-  if (corSec) dados.cor_secundaria = corSec;
+  // Aplica globals imediatamente
+  NOME_RESTAURANTE  = dados.nome_restaurante;
+  WHATSAPP_LOJA_CFG = dados.whatsapp_loja;
+  COORD_LOJA.lat    = dados.coord_lat;
+  COORD_LOJA.lng    = dados.coord_lng;
+  TAXA_MOTOBOY      = dados.taxa_motoboy_base;
+  CHAVE_PIX_CFG     = dados.chave_pix;
+  NOME_PIX_CFG      = dados.nome_pix;
+  DADOS_ALIAS_CFG   = dados.dados_alias;
+  NOME_ALIAS_CFG    = dados.nome_alias;
 
   const { error } = await supa.from('configuracoes').update(dados).gt('id', 0);
   if (error) alert('Erro: ' + error.message);
-  else alert('✅ Configurações salvas!');
+  else alert('✅ Configurações salvas com sucesso!');
 }
 
 function previewBanner(input) {
@@ -3995,24 +4198,26 @@ function previewIcone(input) {
 // TABELA DE FRETE
 // =========================================================
 const FRETE_FAIXAS = [
-  { label: '0 – 3 km',      max: 3.0  },
-  { label: '3,1 – 4 km',    max: 4.0  },
-  { label: '4,1 – 5 km',    max: 5.0  },
-  { label: '5,1 – 6 km',    max: 6.0  },
-  { label: '6,1 – 7 km',    max: 7.0  },
-  { label: '7,1 – 8 km',    max: 8.0  },
-  { label: '8,1 – 9 km',    max: 9.0  },
-  { label: '9,1 – 10 km',   max: 10.0 },
-  { label: '10,1 – 11 km',  max: 11.0 },
-  { label: '11,1 – 12 km',  max: 12.0 },
-  { label: '12,1 – 13 km',  max: 13.0 },
-  { label: '13,1 – 14 km',  max: 14.0 },
-  { label: '14,1 – 15 km',  max: 15.0 },
-  { label: '15,1 – 16 km',  max: 16.0 },
-  { label: '16,1 – 17 km',  max: 17.0 },
-  { label: '17,1 – 18 km',  max: 18.0 },
-  { label: '18,1 – 19 km',  max: 19.0 },
-  { label: '19,1 – 20 km',  max: 20.0 },
+  { label: '0 – 1 km',     max: 1.0  },
+  { label: '1,1 – 2 km',   max: 2.0  },
+  { label: '2,1 – 3 km',   max: 3.0  },
+  { label: '3,1 – 4 km',   max: 4.0  },
+  { label: '4,1 – 5 km',   max: 5.0  },
+  { label: '5,1 – 6 km',   max: 6.0  },
+  { label: '6,1 – 7 km',   max: 7.0  },
+  { label: '7,1 – 8 km',   max: 8.0  },
+  { label: '8,1 – 9 km',   max: 9.0  },
+  { label: '9,1 – 10 km',  max: 10.0 },
+  { label: '10,1 – 11 km', max: 11.0 },
+  { label: '11,1 – 12 km', max: 12.0 },
+  { label: '12,1 – 13 km', max: 13.0 },
+  { label: '13,1 – 14 km', max: 14.0 },
+  { label: '14,1 – 15 km', max: 15.0 },
+  { label: '15,1 – 16 km', max: 16.0 },
+  { label: '16,1 – 17 km', max: 17.0 },
+  { label: '17,1 – 18 km', max: 18.0 },
+  { label: '18,1 – 19 km', max: 19.0 },
+  { label: '19,1 – 20 km', max: 20.0 },
 ];
 
 function _renderTabelaFrete(savedData) {
@@ -4050,9 +4255,11 @@ async function salvarTabelaFrete() {
   });
 
   const novoCombus = parseInt(document.getElementById('cfg-combustivel')?.value) || 0;
+  const novoMotoBase = parseInt(document.getElementById('cfg-taxa-motoboy-base')?.value) || 0;
   AJUDA_COMBUSTIVEL = novoCombus;
+  TAXA_MOTOBOY      = novoMotoBase;
 
-  const { error } = await supa.from('configuracoes').update({ tabela_frete: tabela, ajuda_combustivel: novoCombus }).gt('id', 0);
+  const { error } = await supa.from('configuracoes').update({ tabela_frete: tabela, ajuda_combustivel: novoCombus, taxa_motoboy_base: novoMotoBase }).gt('id', 0);
   if (error) {
     if (error.code === '42703' || (error.message && (error.message.includes('tabela_frete') || error.message.includes('ajuda_combustivel')))) {
       alert(
@@ -4076,13 +4283,15 @@ async function salvarPersonalizacao() {
 
   try {
     const dados = {};
-    const nomeLoja = document.getElementById('cfg-nome-loja')?.value;
-    const corPri = document.getElementById('cfg-cor-primaria')?.value;
-    const corHex = document.getElementById('cfg-cor-primaria-hex')?.value;
+    const nomeLoja = document.getElementById('cfg-nome-restaurante')?.value?.trim()
+                  || document.getElementById('cfg-nome-loja')?.value?.trim();
+    const corHex = document.getElementById('cfg-cor-primaria-hex')?.value
+                || document.getElementById('cfg-cor-primaria')?.value;
+    const logoUrl = document.getElementById('cfg-logo-url')?.value?.trim();
 
-    if (nomeLoja) dados.nome_loja = nomeLoja;
-    if (corPri) dados.cor_primaria = corPri;
+    if (nomeLoja)  { dados.nome_restaurante = nomeLoja; }
     if (corHex && corHex.startsWith('#')) dados.cor_primaria = corHex;
+    if (logoUrl) { dados.logo_url = logoUrl; dados.icone_url = logoUrl; }
 
     // Upload do ícone se houver arquivo selecionado
     const iconeFile = document.getElementById('cfg-icone-file')?.files?.[0];
@@ -4093,13 +4302,22 @@ async function salvarPersonalizacao() {
       if (upErr) throw new Error('Erro no upload: ' + upErr.message);
       const { data: urlData } = supa.storage.from('produtos').getPublicUrl(nomeArq);
       dados.icone_url = urlData.publicUrl;
+      dados.logo_url  = urlData.publicUrl;
+      // Atualiza preview
+      const prev = document.getElementById('cfg-icone-preview');
+      const box  = document.getElementById('cfg-icone-preview-box');
+      if (prev) { prev.src = dados.icone_url; }
+      if (box)  { box.style.display = 'block'; }
+      // Preenche campo URL
+      const urlInp = document.getElementById('cfg-logo-url');
+      if (urlInp) urlInp.value = dados.icone_url;
     }
 
     if (Object.keys(dados).length > 0) {
       const { error } = await supa.from('configuracoes').update(dados).gt('id', 0);
       if (error) throw error;
     }
-    if (dados.icone_url) _atualizarManifestDinamico(dados.icone_url);
+    if (dados.nome_restaurante) NOME_RESTAURANTE = dados.nome_restaurante;
     alert('✅ Personalização salva! Recarregue o cardápio para ver as mudanças.');
   } catch (e) {
     alert('Erro: ' + e.message);
@@ -5339,19 +5557,27 @@ async function salvarPedidoBalcao() {
   }
 
   // ── INSERT: novo pedido de balcão ─────────────────────────────
-  const totalNovo = novosItens.reduce((acc, i) => acc + i.preco * i.qtd, 0);
+  const tipoEntregaPDV = document.getElementById('balcao-tipo-entrega')?.value || 'balcao';
+  const fretePDV       = tipoEntregaPDV === 'delivery'
+    ? (parseInt(document.getElementById('balcao-frete')?.value || '0') || 0)
+    : 0;
+  const enderecoPDV    = tipoEntregaPDV === 'delivery'
+    ? (document.getElementById('balcao-endereco')?.value.trim() || 'Delivery')
+    : (mesa ? `Mesa ${mesa}` : (_soKg ? 'Balcão - Venda Kg' : 'Balcão'));
+
+  const totalNovo = novosItens.reduce((acc, i) => acc + i.preco * i.qtd, 0) + fretePDV;
   const _agora = new Date().toISOString();
   const pedido = {
     uid_temporal: `BALC-${Math.floor(Math.random() * 1000)}`,
     // Kg express: entra direto como entregue (venda imediata, sem cozinha)
     status: _soKg ? 'entregue' : (_todosBebidas(carrinhoPDV) ? 'pronto_entrega' : 'em_preparo'),
-    tipo_entrega: 'balcao',
+    tipo_entrega: tipoEntregaPDV,
     total_geral: totalNovo,
-    subtotal: totalNovo,
-    frete_cobrado_cliente: 0,
+    subtotal: totalNovo - fretePDV,
+    frete_cobrado_cliente: fretePDV,
     forma_pagamento: pag,
     itens: novosItens,
-    endereco_entrega: mesa ? `Mesa ${mesa}` : (_soKg ? 'Balcão - Venda Kg' : 'Balcão'),
+    endereco_entrega: enderecoPDV,
     cliente_nome: nomeFinal,
     cliente_telefone: tel,
     obs_pagamento: obsPagPDV,
@@ -5390,7 +5616,7 @@ async function salvarPedidoBalcao() {
         peso_gramas: i.peso_gramas,
         _isKg: i._isKg,
       })),
-      valores: { sub: totalNovo, frete: 0, total: totalNovo },
+      valores: { sub: totalNovo - fretePDV, frete: fretePDV, total: totalNovo },
       pagamento: { metodo: pag, obs: obsPagPDV },
       data: new Date().toLocaleString('pt-BR'),
     };
@@ -5403,6 +5629,17 @@ async function salvarPedidoBalcao() {
   document.getElementById('balcao-cliente').value = '';
   document.getElementById('balcao-mesa').value = '';
   document.getElementById('balcao-telefone').value = '';
+  // Reset tipo entrega e campos de delivery
+  const tipoSelPDV = document.getElementById('balcao-tipo-entrega');
+  if (tipoSelPDV) tipoSelPDV.value = 'balcao';
+  const endPDV = document.getElementById('balcao-endereco');
+  if (endPDV) endPDV.value = '';
+  const fretePDVInput = document.getElementById('balcao-frete');
+  if (fretePDVInput) fretePDVInput.value = '';
+  const freteMsgPDV = document.getElementById('frete-msg-pdv');
+  if (freteMsgPDV) freteMsgPDV.innerHTML = '';
+  const deliveryRowPDV = document.getElementById('pdv-delivery-row');
+  if (deliveryRowPDV) deliveryRowPDV.style.display = 'none';
   // Reset multipagamento PDV
   const multiPartesPDV = document.getElementById('multi-partes-pdv');
   if (multiPartesPDV) multiPartesPDV.innerHTML = '';
@@ -5702,19 +5939,25 @@ async function carregarEquipe() {
       const ehGerente = u.cargo === 'gerente';
       const ehFuncionario = u.cargo === 'funcionario';
       const ehGarcom = u.cargo === 'garcom';
+      const ehAM = u.cargo === 'adminMaster';
 
-      // Botão de promoção/rebaixamento (só dono pode gerenciar)
+      // Botão de promoção/rebaixamento
       let acaoCargo = '';
-      if (!ehDono && perfilUsuario === 'dono') {
+      if (!ehAM && (perfilUsuario === 'dono' || perfilUsuario === 'adminMaster')) {
         if (ehFuncionario || ehGarcom) {
           acaoCargo = `<button class="btn btn-sm btn-success" onclick="promoverUsuario('${u.id}', 'gerente')" title="Promover a Gerente"><i class="fas fa-arrow-up"></i> Gerente</button>`;
         } else if (ehGerente) {
           acaoCargo = `<button class="btn btn-sm btn-warning" onclick="promoverUsuario('${u.id}', 'funcionario')" title="Rebaixar a Funcionário"><i class="fas fa-arrow-down"></i> Funcionário</button>`;
         }
-        acaoCargo += ` <button class="btn btn-sm btn-danger" onclick="excluirUsuario('${u.id}', '${u.email}')" title="Excluir"><i class="fas fa-trash"></i></button>`;
+        if (perfilUsuario === 'adminMaster' && !ehDono) {
+          acaoCargo += ` <button class="btn btn-sm btn-primary" onclick="promoverUsuario('${u.id}', 'dono')" title="Tornar Dono"><i class="fas fa-crown"></i> Dono</button>`;
+        }
+        if (!ehDono) {
+          acaoCargo += ` <button class="btn btn-sm btn-danger" onclick="excluirUsuario('${u.id}', '${u.email}')" title="Excluir"><i class="fas fa-trash"></i></button>`;
+        }
       }
 
-      const cargoBadge = ehDono ? '🔑 Dono' : ehGerente ? '👔 Gerente' : ehGarcom ? '🍽️ Garçom' : '👷 Funcionário';
+      const cargoBadge = ehAM ? '🔱 Admin Master' : ehDono ? '🔑 Dono' : ehGerente ? '👔 Gerente' : ehGarcom ? '🍽️ Garçom' : '👷 Funcionário';
       tbody.innerHTML += `<tr>
                 <td><strong>${u.nome_display || '—'}</strong></td>
                 <td>${u.email}</td>
@@ -5759,6 +6002,106 @@ async function excluirUsuario(id, email) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ADMIN MASTER — CRUD completo de usuários
+// ═══════════════════════════════════════════════════════════════
+
+async function amCriarUsuario() {
+  if (perfilUsuario !== 'adminMaster') return alert('Acesso negado.');
+  const email = document.getElementById('am-email')?.value?.trim();
+  const nome  = document.getElementById('am-nome')?.value?.trim();
+  const senha = document.getElementById('am-senha')?.value;
+  const cargo = document.getElementById('am-cargo')?.value || 'dono';
+  if (!email || !nome || !senha || senha.length < 6)
+    return alert('Preencha email, nome e senha (mín. 6 caracteres).');
+  const btn = event?.target;
+  if (btn) { btn.disabled = true; btn.textContent = 'Criando...'; }
+  try {
+    const { data, error } = await supa.auth.signUp({ email, password: senha });
+    if (error) { alert('❌ Erro: ' + error.message); return; }
+    if (data.user) {
+      const { error: ep } = await supa.from('perfis_acesso')
+        .upsert([{ id: data.user.id, email, cargo, nome_display: nome }], { onConflict: 'id' });
+      if (ep) { alert('⚠️ Auth criado mas erro no perfil: ' + ep.message); return; }
+      const cargoBadge = { dono: 'Dono', gerente: 'Gerente', funcionario: 'Funcionário', garcom: 'Garçom' };
+      alert(`✅ Usuário "${nome}" criado como ${cargoBadge[cargo] || cargo}!\nSolicite que confirme o email antes de fazer login.`);
+      document.getElementById('am-email').value = '';
+      document.getElementById('am-nome').value  = '';
+      document.getElementById('am-senha').value = '';
+      amCarregarUsuarios();
+    }
+  } catch(e) { alert('❌ Erro: ' + e.message); }
+  finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar Usuário'; } }
+}
+
+// Compatibilidade com cadastrarDono (aba Configurações)
+async function cadastrarDono() {
+  const emailEl = document.getElementById('am-email');
+  const cargoEl = document.getElementById('am-cargo');
+  if (cargoEl) cargoEl.value = 'dono';
+  return amCriarUsuario();
+}
+
+async function amCarregarUsuarios() {
+  if (perfilUsuario !== 'adminMaster') return;
+  const tbody = document.getElementById('am-lista-usuarios');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:16px"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
+
+  const { data, error } = await supa.from('perfis_acesso').select('*').order('cargo');
+  if (error) { tbody.innerHTML = `<tr><td colspan="4" style="color:red;text-align:center">${error.message}</td></tr>`; return; }
+
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa">Nenhum usuário cadastrado</td></tr>';
+    return;
+  }
+
+  const cargoBadges = {
+    adminMaster: '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🔱 Admin Master</span>',
+    dono:        '<span style="background:#f39c12;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🔑 Dono</span>',
+    gerente:     '<span style="background:#2980b9;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">👔 Gerente</span>',
+    funcionario: '<span style="background:#7f8c8d;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">👷 Funcionário</span>',
+    garcom:      '<span style="background:#27ae60;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🍽️ Garçom</span>',
+  };
+
+  tbody.innerHTML = data.map(u => {
+    const isMe = u.id === _perfilId;
+    const isAM = u.cargo === 'adminMaster';
+    const opcoesCargo = ['dono','gerente','funcionario','garcom']
+      .map(c => `<option value="${c}" ${u.cargo===c?'selected':''}>${c}</option>`).join('');
+    const acoes = isMe || isAM ? '<span style="color:#aaa;font-size:0.78rem">—</span>' : `
+      <select onchange="amAlterarCargo('${u.id}', this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;font-size:0.8rem;margin-right:6px">
+        ${opcoesCargo}
+      </select>
+      <button onclick="amExcluirUsuario('${u.id}','${u.email}')"
+        style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem">
+        <i class="fas fa-trash"></i>
+      </button>`;
+    return `<tr>
+      <td><strong>${u.nome_display || '—'}</strong>${isMe?' <span style="font-size:0.7rem;color:#27ae60">(você)</span>':''}</td>
+      <td style="font-size:0.85rem">${u.email}</td>
+      <td>${cargoBadges[u.cargo] || u.cargo}</td>
+      <td>${acoes}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function amAlterarCargo(id, novoCargo) {
+  if (perfilUsuario !== 'adminMaster') return;
+  if (!confirm(`Alterar cargo para "${novoCargo}"?`)) { amCarregarUsuarios(); return; }
+  const { error } = await supa.from('perfis_acesso').update({ cargo: novoCargo }).eq('id', id);
+  if (error) alert('❌ Erro: ' + error.message);
+  else { amCarregarUsuarios(); carregarEquipe(); }
+}
+
+async function amExcluirUsuario(id, email) {
+  if (perfilUsuario !== 'adminMaster') return;
+  if (!confirm(`⚠️ Excluir o usuário "${email}"?\n\nIsso remove o perfil do banco. O acesso de autenticação pode precisar ser revogado no Supabase Dashboard.`)) return;
+  const { error } = await supa.from('perfis_acesso').delete().eq('id', id);
+  if (error) alert('❌ Erro: ' + error.message);
+  else { alert('✅ Usuário excluído.'); amCarregarUsuarios(); carregarEquipe(); }
+}
+
 async function cadastrarUsuario() {
   const email = document.getElementById('novo-user-email')?.value?.trim();
   const nomeDisplay = document.getElementById('novo-user-nome')?.value?.trim() || '';
@@ -5768,6 +6111,10 @@ async function cadastrarUsuario() {
   if (!email || !senha || senha.length < 6)
     return alert('Email e senha (mín. 6 caracteres) são obrigatórios');
   if (!nomeDisplay) return alert('O nome de exibição é obrigatório');
+
+  // Apenas adminMaster pode criar dono
+  if (cargo === 'dono' && perfilUsuario !== 'adminMaster')
+    return alert('Apenas o Admin Master pode criar usuários com cargo Dono.');
 
   const btn = event?.target;
   if (btn) {
@@ -6271,12 +6618,12 @@ function toggleSidebar() {
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
   if (btn) btn.innerHTML = collapsed ? '<i class="fas fa-bars"></i>' : '<i class="fas fa-chevron-left"></i>';
-  localStorage.setItem('tropical_sidebar_collapsed', collapsed ? '1' : '0');
+  localStorage.setItem('simbora_sidebar_collapsed', collapsed ? '1' : '0');
 }
 
 // Restaura estado da sidebar ao carregar
 document.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('tropical_sidebar_collapsed') === '1') {
+  if (localStorage.getItem('simbora_sidebar_collapsed') === '1') {
     document.querySelector('.sidebar')?.classList.add('collapsed');
     const btn = document.getElementById('btn-toggle-sidebar');
     if (btn) btn.innerHTML = '<i class="fas fa-bars"></i>';
@@ -6289,8 +6636,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function _atualizarManifestDinamico(logoUrl) {
   try {
     const manifest = {
-      name: 'Tropical Açaí', short_name: 'Tropical Açaí',
-      description: 'Tropical Açaí',
+      name: NOME_RESTAURANTE || 'Restaurante', short_name: NOME_RESTAURANTE || 'App',
+      description: 'Sistema de pedidos online',
       start_url: '/index.html', scope: '/', display: 'standalone',
       orientation: 'portrait', background_color: '#ffffff', theme_color: '#1d1d1d',
       icons: [
@@ -6546,4 +6893,113 @@ function toggleEstoqueProduto() {
   if (!area) return;
   area.style.display = checked ? 'block' : 'none';
   if (checked) _carregarSelectInventario();
+}
+// =========================================
+// FRETE PDV — ROTA REAL (OSRM)
+// =========================================
+
+function toggleDeliveryRowPDV(tipo) {
+  const row = document.getElementById('pdv-delivery-row');
+  if (!row) return;
+  row.style.display = (tipo === 'delivery') ? 'block' : 'none';
+  if (tipo !== 'delivery') {
+    const freteInput = document.getElementById('balcao-frete');
+    const msg = document.getElementById('frete-msg-pdv');
+    if (freteInput) freteInput.value = '';
+    if (msg) msg.innerHTML = '';
+  }
+  atualizarCarrinhoPDV();
+}
+
+// Consulta distância pela rota real (OSRM público). Retorna km ou null se falhar.
+async function obterDistanciaPelaRota(latDestino, lngDestino) {
+  const origem  = `${COORD_LOJA.lng},${COORD_LOJA.lat}`;
+  const destino = `${lngDestino},${latDestino}`;
+  const url = `https://router.project-osrm.org/route/v1/driving/${origem};${destino}?overview=false`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.code === 'Ok') return d.routes[0].distance / 1000;
+    return null;
+  } catch { return null; }
+}
+
+async function calcularFretePDV() {
+  const btn       = document.getElementById('btn-gps-pdv');
+  const msg       = document.getElementById('frete-msg-pdv');
+  const freteInput = document.getElementById('balcao-frete');
+
+  if (!navigator.geolocation) {
+    msg.innerHTML = '<span style="color:#e74c3c">GPS não disponível</span>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = '⏳';
+  msg.innerHTML = '<span style="color:#888">Localizando...</span>';
+
+  let position;
+  try {
+    position = await new Promise((resolve, reject) =>
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, timeout: 10000
+      })
+    );
+  } catch {
+    msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter localização</span>';
+    btn.disabled = false;
+    btn.innerText = '📍 Rota';
+    return;
+  }
+
+  msg.innerHTML = '<span style="color:#888">⏳ Calculando rota...</span>';
+  const { latitude: lat, longitude: lng } = position.coords;
+
+  let dist = await obterDistanciaPelaRota(lat, lng);
+  let usouRota = true;
+  if (dist === null) {
+    // Fallback linha reta
+    const R = 6371, toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat - COORD_LOJA.lat);
+    const dLon = toRad(lng - COORD_LOJA.lng);
+    const a = Math.sin(dLat/2)**2
+            + Math.cos(toRad(COORD_LOJA.lat)) * Math.cos(toRad(lat)) * Math.sin(dLon/2)**2;
+    dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    usouRota = false;
+  }
+
+  const LIMITES_KM = [2, 3.9, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  let freteIndex = -1;
+  for (let i = 0; i < LIMITES_KM.length; i++) {
+    if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
+  }
+
+  const nota = usouRota ? '🛣️ rota' : '📏 linha reta*';
+
+  if (freteIndex === -1 || (TABELA_FRETE_ADMIN && TABELA_FRETE_ADMIN[freteIndex]?.acombinar)) {
+    msg.innerHTML = `<span style="color:#e67e22">⚠️ ${dist.toFixed(1)}km (${nota}) — combinar frete</span>`;
+    freteInput.value = '';
+    btn.disabled = false;
+    btn.innerText = '📍 Rota';
+    atualizarCarrinhoPDV();
+    return;
+  }
+
+  let frete = 0;
+  if (TABELA_FRETE_ADMIN?.[freteIndex]) {
+    frete = TABELA_FRETE_ADMIN[freteIndex].loja || 0;
+  } else {
+    if      (dist <= 3.3) frete = 6000;
+    else if (dist <= 4.2) frete = 12000;
+    else if (dist <= 5.2) frete = 18000;
+    else if (dist <= 6.2) frete = 24000;
+    else frete = 24000 + Math.ceil(dist - 6.2) * 3000;
+  }
+
+  freteInput.value = frete;
+  const aviso = usouRota ? '' : ' <em style="color:#e67e22">(estimativa)</em>';
+  msg.innerHTML = `<span style="color:#27ae60">✅ ${dist.toFixed(1)}km ${nota} → Gs ${frete.toLocaleString('es-PY')}</span>${aviso}`;
+  btn.disabled = false;
+  btn.innerText = '📍 Rota';
+  atualizarCarrinhoPDV();
 }
