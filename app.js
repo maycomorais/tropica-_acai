@@ -245,26 +245,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Carrega dados salvos (Nome, Tel, Último Pedido)
   carregarDadosLocal();
 
-  // 2. Renderiza o Menu vindo do Banco de Dados
-  await renderMenu();
+  try {
+    // 2. Renderiza o Menu vindo do Banco de Dados
+    await renderMenu();
 
-  // 3. Verifica Horário de Funcionamento e Banner
-  await verificarHorario();
-  
-  // 4. Restaura tracking se houver pedido ativo
-  restaurarTrackingSeExistir();
+    // 3. Verifica Horário de Funcionamento e Banner
+    await verificarHorario();
+    
+    // 4. Restaura tracking se houver pedido ativo
+    restaurarTrackingSeExistir();
 
-  // Restaura timer se página foi recarregada durante entrega
-  restaurarTimerSeNecessario();
-  
-  // 5. Carrega extras globais (adicionais que aparecem em todos os produtos)
-  await carregarExtrasGlobais();
-
-  const overlay = document.getElementById('loading-overlay');
+    // Restaura timer se página foi recarregada durante entrega
+    restaurarTimerSeNecessario();
+    
+    // 5. Carrega extras globais (adicionais que aparecem em todos os produtos)
+    await carregarExtrasGlobais();
+  } catch (e) {
+    console.error('Erro na inicialização do app:', e);
+  } finally {
+    // Garante que o overlay SEMPRE some, mesmo se houver erro
+    const overlay = document.getElementById('loading-overlay');
     if (overlay) {
       overlay.style.opacity = '0';
       setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
+  }
 });
 
 // Carrega os extras globais da tabela configuracoes
@@ -400,6 +405,7 @@ async function verificarHorario() {
   }
   
   // Aplica personalização visual
+  const logoVal = data.logo_url || data.icone_url || '';
   const nomeExib = data.nome_restaurante || data.nome_loja || '';
   if (nomeExib) {
     const h1 = document.querySelector('.store-details h1');
@@ -422,7 +428,6 @@ async function verificarHorario() {
   if (data.cor_primaria) {
     document.documentElement.style.setProperty('--primary', data.cor_primaria);
   }
-  const logoVal = data.logo_url || data.icone_url || '';
   if (logoVal) {
     document.querySelectorAll('.logo-area img, link[rel="apple-touch-icon"]').forEach(el => {
       el.src = logoVal;
@@ -533,8 +538,8 @@ async function renderMenu() {
       .or('somente_balcao.is.null,somente_balcao.eq.false');
 
   if (!produtos || !categsDb) {
-    console.error('Erro ao carregar menu do banco');
-    
+    console.error('Erro ao carregar menu do banco — verifique RLS nas tabelas categorias e produtos');
+    // Não trava: deixa o overlay ser ocultado normalmente pelo DOMContentLoaded
     return;
   }
 
