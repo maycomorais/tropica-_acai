@@ -521,7 +521,7 @@ async function renderMenu() {
   content.innerHTML = '';
 
   // Busca Categorias, Subcategorias e Produtos ativos
-  const { data: categsDb } = await supa.from('categorias').select('*').eq('ativo', true).order('ordem');
+  const { data: categsDb } = await supa.from('categorias').select('*').eq('ativa', true).order('ordem')
   let subcatsDb = [];
   try {
     const { data: _subs } = await supa.from('subcategorias').select('*').order('categoria_slug,ordem');
