@@ -2871,6 +2871,8 @@ async function duplicarProduto(id) {
   alert('✅ Produto duplicado! A cópia foi criada pausada para revisão.');
   carregarProdutos();
 }
+
+function toggleExtras() {
   const ativo = document.getElementById('prod-tem-extras').checked;
   document.getElementById('extras-area').style.display = ativo ? 'block' : 'none';
 }
@@ -4793,7 +4795,7 @@ async function salvarMaquininhas() {
   alert('✅ Maquininhas salvas!');
 }
 
-
+async function salvarPersonalizacao() {
   const btn = event.target;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
   btn.disabled = true;
@@ -7387,6 +7389,8 @@ async function avisarClientePronto(pedidoId) {
     </div>`;
   document.body.appendChild(overlay);
 }
+
+async function confirmarEntregaFuncionario(pedidoId) {
   if (!confirm('Confirmar que este pedido foi entregue ao cliente?')) {
     return;
   }
