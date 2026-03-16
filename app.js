@@ -1,17 +1,16 @@
 // ==========================================
 // 1. CONFIGURAÇÕES & DADOS GERAIS
 // ==========================================
-// Todos os valores abaixo são carregados do banco (configuracoes)
-// em verificarHorario(). Ficam em branco até carregar.
-let COORD_LOJA   = { lat: 0, lng: 0 };
+const FONE_LOJA = '595992490500'; 
+const COORD_LOJA = { lat: -25.2365803, lng: -57.5380816 };
 let COTACAO_REAL = 1100;
-let CHAVE_PIX    = '';
-let NOME_PIX     = '';
-let DADOS_ALIAS  = '';
-let ALIAS_PY     = '';
-let WHATSAPP_LOJA_APP = '';
-let NOME_RESTAURANTE_APP = '';
 let autoConfirmTimer = null;
+
+// DADOS DE PAGAMENTO (Pix e Alias)
+const CHAVE_PIX = '16999647032';
+const NOME_PIX = 'Jessica Aparecida Silva Pereira';
+const DADOS_ALIAS = 'Banco: Itaú PY | Titular: Marcus de Alencar Roque Pereira';
+const ALIAS_PY = 'Alias: 0992490500';
 
 function iniciarTimerAutoConfirmacao(pedidoId) {
     // 4 horas em milissegundos
@@ -31,17 +30,17 @@ function iniciarTimerAutoConfirmacao(pedidoId) {
     // Salva timestamp no localStorage para persistir entre reloads
     const agora = new Date().getTime();
     const tempoExpiracao = agora + QUATRO_HORAS;
-    localStorage.setItem('app_confirmExpiry_' + pedidoId, tempoExpiracao);
+    localStorage.setItem('autoConfirmExpiry_' + pedidoId, tempoExpiracao);
     
     console.log('⏰ Timer de auto-confirmação iniciado para 4 horas');
 }
 
 // ===== FUNÇÃO PARA RESTAURAR TIMER APÓS RELOAD =====
 function restaurarTimerSeNecessario() {
-    const pedidoId = localStorage.getItem('app_pedido_id');
+    const pedidoId = localStorage.getItem('sushi_pedido_id');
     if (!pedidoId) return;
     
-    const tempoExpiracao = localStorage.getItem('app_confirmExpiry_' + pedidoId);
+    const tempoExpiracao = localStorage.getItem('autoConfirmExpiry_' + pedidoId);
     if (!tempoExpiracao) return;
     
     const agora = new Date().getTime();
@@ -76,7 +75,7 @@ async function confirmarEntregaAutomatica(pedidoId) {
         console.log('✅ Entrega confirmada automaticamente após 4 horas');
         
         // Limpa dados locais
-        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('autoConfirmExpiry_' + pedidoId);
         fecharTracker();
         
         // Mostra notificação
@@ -92,7 +91,7 @@ async function confirmarEntregaAutomatica(pedidoId) {
 
 // ===== CONFIRMAÇÃO MANUAL (CLIENTE) =====
 async function confirmarEntregaCliente() {
-    const pedidoId = localStorage.getItem('app_pedido_id');
+    const pedidoId = localStorage.getItem('sushi_pedido_id');
     if (!pedidoId) {
         alert('Erro: Pedido não encontrado');
         return;
@@ -119,7 +118,7 @@ async function confirmarEntregaCliente() {
         if (autoConfirmTimer) {
             clearTimeout(autoConfirmTimer);
         }
-        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('autoConfirmExpiry_' + pedidoId);
         
         // Atualiza UI
         mostrarMensagemEntregaConfirmada();
@@ -174,7 +173,7 @@ function mostrarTracker(status, uidPedido) {
     if (tr) tr.style.display = 'block';
 
     // Botão confirmar entrega se saiu para entrega
-    const pedidoId = localStorage.getItem('app_pedido_id');
+    const pedidoId = localStorage.getItem('sushi_pedido_id');
     if (status === 'saiu_entrega' && pedidoId) {
         const tr2 = document.getElementById('track-result');
         if (tr2 && !document.getElementById('btn-confirmar-entrega')) {
@@ -186,14 +185,14 @@ function mostrarTracker(status, uidPedido) {
                 </button>
             `);
         }
-        const tempoExpiracao = localStorage.getItem('app_confirmExpiry_' + pedidoId);
+        const tempoExpiracao = localStorage.getItem('autoConfirmExpiry_' + pedidoId);
         if (!tempoExpiracao) iniciarTimerAutoConfirmacao(pedidoId);
     }
 
     if (status === 'entregue') {
         mostrarMensagemEntregaConfirmada();
         if (autoConfirmTimer) clearTimeout(autoConfirmTimer);
-        localStorage.removeItem('app_confirmExpiry_' + pedidoId);
+        localStorage.removeItem('autoConfirmExpiry_' + pedidoId);
     }
 }
 
@@ -230,7 +229,7 @@ let DATA_AGENDAMENTO = null; // Data/hora do agendamento
 // Variável Global de Menu (Preenchida via Banco)
 let MENU = {
   promocoes_do_dia: [],
-  pratos_especiais: [],
+  sushis_e_rolls: [],
   temakis: [],
   pratos_quentes: [],
   pokes: [],
@@ -242,61 +241,51 @@ let MENU = {
 // 3. INICIALIZAÇÃO
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Carrega dados salvos (Nome, Tel, Último Pedido)
-  carregarDadosLocal();
-
-  // 2. Renderiza o Menu vindo do Banco de Dados
-  await renderMenu();
-
-  // 3. Verifica Horário de Funcionamento e Banner
-  await verificarHorario();
-  
-  // 4. Restaura tracking se houver pedido ativo
-  restaurarTrackingSeExistir();
-
-  // Restaura timer se página foi recarregada durante entrega
-  restaurarTimerSeNecessario();
-  
-  // 5. Carrega extras globais (adicionais que aparecem em todos os produtos)
-  await carregarExtrasGlobais();
-
   const overlay = document.getElementById('loading-overlay');
+
+  try {
+    // 1. Carrega dados salvos (Nome, Tel, Último Pedido)
+    carregarDadosLocal();
+
+    // 2. Renderiza o Menu vindo do Banco de Dados
+    await renderMenu();
+
+    // 3. Verifica Horário de Funcionamento e Banner
+    await verificarHorario();
+
+    // 4. Restaura tracking se houver pedido ativo
+    restaurarTrackingSeExistir();
+
+    // Restaura timer se página foi recarregada durante entrega
+    restaurarTimerSeNecessario();
+
+    // 5. Carrega extras globais
+    await carregarExtrasGlobais();
+
+  } catch (e) {
+    console.error('Erro ao inicializar app:', e);
+  } finally {
+    // SEMPRE oculta o overlay — independente de erros ou banco não configurado
     if (overlay) {
       overlay.style.opacity = '0';
       setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
+  }
 });
 
 // Carrega os extras globais da tabela configuracoes
 // (coluna extras_globais pode não existir ainda — SQL: ALTER TABLE configuracoes ADD COLUMN extras_globais JSONB DEFAULT '[]')
 async function carregarExtrasGlobais() {
   try {
-    // Tenta buscar com a coluna extras_globais
-    const { data, error } = await supa.from('configuracoes').select('extras_globais').maybeSingle();
-
-    // Se der erro de coluna não encontrada, ignora silenciosamente
-    if (error) {
-      if (error.message && error.message.includes('extras_globais')) {
-        console.log('ℹ️ Coluna extras_globais não existe no banco. Usando array vazio.');
-      } else if (error.code === 'PGRST204' || error.code === '42703') {
-        // Código de erro do PostgREST para coluna não encontrada
-        console.log('ℹ️ Coluna extras_globais não existe no banco. Usando array vazio.');
-      } else {
-        console.warn('Erro ao carregar extras globais:', error.message);
-      }
-      EXTRAS_GLOBAIS = [];
-      return;
-    }
-
-    if (data && Array.isArray(data.extras_globais) && data.extras_globais.length > 0) {
-      EXTRAS_GLOBAIS = data.extras_globais;
-      console.log('✅ Extras globais carregados:', EXTRAS_GLOBAIS.length, 'itens');
-    } else {
-      EXTRAS_GLOBAIS = [];
-    }
+    const { data, error } = await supa
+      .from('configuracoes')
+      .select('extras_globais')
+      .maybeSingle();  // nunca lança erro se não houver linha
+    if (error) { EXTRAS_GLOBAIS = []; return; }
+    EXTRAS_GLOBAIS = (data?.extras_globais && Array.isArray(data.extras_globais))
+      ? data.extras_globais
+      : [];
   } catch (e) {
-    // Coluna ainda não existe no banco — ignora silenciosamente
-    console.log('ℹ️ Extras globais não disponíveis:', e.message);
     EXTRAS_GLOBAIS = [];
   }
 }
@@ -310,17 +299,8 @@ async function verificarHorario() {
   const { data } = await supa.from('configuracoes').select('*').maybeSingle();
   if (!data) return;
 
-  // ── Carrega todos os globals white-label ──────────────────────
   if (data.cotacao_real) COTACAO_REAL = data.cotacao_real;
   if (data.tabela_frete && Array.isArray(data.tabela_frete)) TABELA_FRETE = data.tabela_frete;
-  if (data.chave_pix)       CHAVE_PIX        = data.chave_pix;
-  if (data.nome_pix)        NOME_PIX         = data.nome_pix;
-  if (data.dados_alias)     DADOS_ALIAS      = data.dados_alias;
-  if (data.nome_alias)      ALIAS_PY         = data.nome_alias;
-  if (data.whatsapp_loja)   WHATSAPP_LOJA_APP = data.whatsapp_loja;
-  if (data.nome_restaurante) NOME_RESTAURANTE_APP = data.nome_restaurante;
-  if (data.coord_lat)       COORD_LOJA.lat   = parseFloat(data.coord_lat);
-  if (data.coord_lng)       COORD_LOJA.lng   = parseFloat(data.coord_lng);
 
   const agora = new Date();
   const horaAtual = agora.getHours() * 60 + agora.getMinutes();
@@ -399,45 +379,24 @@ async function verificarHorario() {
     }
   }
   
-  // Aplica personalização visual
-  const nomeExib = data.nome_restaurante || data.nome_loja || '';
-  if (nomeExib) {
-    const h1 = document.querySelector('.store-details h1');
-    if (h1) h1.textContent = nomeExib;
-    document.title = `${nomeExib} - Delivery`;
-    // Metadados Open Graph dinâmicos
-    const ogTitle = document.querySelector('meta[property="og:title"]');
-    if (ogTitle) ogTitle.content = nomeExib;
-    const twTitle = document.querySelector('meta[name="twitter:title"]');
-    if (twTitle) twTitle.content = nomeExib;
-    // PWA title
-    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    if (appleTitle) appleTitle.content = nomeExib;
-    // Banner PWA install
-    const bannerLabel = document.querySelector('#pwa-install-banner [data-pwa-nome]');
-    if (bannerLabel) bannerLabel.textContent = `📲 Instalar ${nomeExib}`;
-    // Atualiza manifest PWA dinamicamente
-    _atualizarManifest(nomeExib, logoVal || '');
+  // Atualiza nome da loja no header
+  const nomeEl = document.getElementById('nome-loja-app');
+  const nomeVal = data.nome_restaurante || data.nome_loja || '';
+  if (nomeEl && nomeVal) {
+    nomeEl.textContent = nomeVal;
+    document.title = nomeVal + ' — Delivery';
   }
+
+  // Logo
+  const logoEl = document.getElementById('logo-app');
+  const logoUrl = data.logo_url || data.icone_url || '';
+  if (logoEl && logoUrl) {
+    logoEl.src = logoUrl;
+    logoEl.style.display = 'inline-block';
+  }
+
   if (data.cor_primaria) {
     document.documentElement.style.setProperty('--primary', data.cor_primaria);
-  }
-  const logoVal = data.logo_url || data.icone_url || '';
-  if (logoVal) {
-    document.querySelectorAll('.logo-area img, link[rel="apple-touch-icon"]').forEach(el => {
-      el.src = logoVal;
-    });
-    // Atualiza banners do carrossel
-    document.querySelectorAll('.banner-track img').forEach(el => { el.src = logoVal; });
-  }
-  // Footer telefone/whatsapp
-  if (data.whatsapp_loja || data.telefone_loja) {
-    const num = data.whatsapp_loja || data.telefone_loja;
-    const zapLinks = document.querySelectorAll('[data-loja-whatsapp]');
-    zapLinks.forEach(el => {
-      el.href = `https://wa.me/${num.replace(/\D/g, '')}`;
-      el.textContent = num;
-    });
   }
 }
 
@@ -485,31 +444,6 @@ function mostrarIndicadorAgendamento() {
   }
 }
 
-// Atualiza o manifest.json dinamicamente (via blob URL) para refletir
-// o nome e ícone do restaurante carregados do banco.
-function _atualizarManifest(nome, iconeUrl) {
-  try {
-    const linkEl = document.querySelector('link[rel="manifest"]');
-    if (!linkEl) return;
-    const manifest = {
-      name: nome, short_name: nome,
-      description: '', start_url: '/index.html',
-      scope: '/', display: 'standalone',
-      orientation: 'portrait',
-      background_color: '#ffffff',
-      theme_color: document.documentElement.style.getPropertyValue('--primary') || '#1a7a2e',
-      lang: 'pt-BR',
-      icons: iconeUrl
-        ? [{ src: iconeUrl, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-           { src: iconeUrl, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }]
-        : [],
-      categories: ['food','shopping'],
-    };
-    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-    linkEl.href = URL.createObjectURL(blob);
-  } catch(e) { /* silencia — não crítico */ }
-}
-
 async function renderMenu() {
   const nav = document.getElementById('category-nav');
   const content = document.getElementById('menu-content');
@@ -521,7 +455,7 @@ async function renderMenu() {
   content.innerHTML = '';
 
   // Busca Categorias, Subcategorias e Produtos ativos
-  const { data: categsDb } = await supa.from('categorias').select('*').eq('ativo', true).order('ordem');
+  const { data: categsDb } = await supa.from('categorias').select('*').order('ordem');
   let subcatsDb = [];
   try {
     const { data: _subs } = await supa.from('subcategorias').select('*').order('categoria_slug,ordem');
@@ -529,12 +463,10 @@ async function renderMenu() {
   } catch (_) { subcatsDb = []; }
   const { data: produtos } = await supa.from('produtos').select('*')
       .eq('ativo', true)
-      .eq('pausado', false)
       .or('somente_balcao.is.null,somente_balcao.eq.false');
 
   if (!produtos || !categsDb) {
-    console.error('Erro ao carregar menu do banco');
-    
+    console.error('Erro ao carregar menu do banco — verifique se as tabelas categorias e produtos existem.');
     return;
   }
 
@@ -564,7 +496,6 @@ async function renderMenu() {
       montagem: p.montagem_config,
       e_montavel: p.e_montavel,
       subcategoria_slug: sub || null,
-      categoria_slug: cat || '',   // ← necessário para filtro de bebidas no motoboy
     };
 
     if (sub) {
@@ -585,12 +516,6 @@ async function renderMenu() {
   const minAgora = agora.getHours() * 60 + agora.getMinutes();
 
   function categoriaVisivel(cat) {
-    if (Array.isArray(cat.dias_semana) && cat.dias_semana.length > 0) {
-      const mapa = { dom:0, seg:1, ter:2, qua:3, qui:4, sex:5, sab:6 };
-      const diaAtual = agora.getDay();
-      const diasNum = cat.dias_semana.map(d => mapa[d]).filter(n => n !== undefined);
-      if (!diasNum.includes(diaAtual)) return false;
-    }
     if (!cat.hora_inicio || !cat.hora_fim) return true;
     const [hI, mI] = cat.hora_inicio.split(':').map(Number);
     const [hF, mF] = cat.hora_fim.split(':').map(Number);
@@ -713,9 +638,7 @@ function abrirModal(item) {
   if (cfg && !Array.isArray(cfg) && cfg.__tipo) tipo = cfg.__tipo;
   else if (item.e_montavel || (cfg && Array.isArray(cfg) && cfg.length > 0)) tipo = 'montavel';
 
-  if (tipo === 'shake') {
-    _renderShake(cfg, divOptions);
-  } else if (tipo === 'montavel') {
+  if (tipo === 'montavel') {
     _renderMontavel(item, cfg, divOptions);
   } else if (tipo === 'pizza') {
     _renderPizza(cfg, divOptions);
@@ -745,104 +668,6 @@ function abrirModal(item) {
   // Atualiza preço inicial
   _atualizarPrecoPizza();
   document.getElementById('product-modal').classList.add('active');
-}
-
-
-/* ══════════════════════════════════════════════
-   SHAKE RENDERER — passo a passo: tamanho → sabor
-   ══════════════════════════════════════════════ */
-let _shakeConfig = { tamanhoSelecionado: null, saborSelecionado: null };
-
-function _renderShake(cfg, container) {
-  const shk = (cfg && cfg.shake) ? cfg.shake : cfg || {};
-  _shakeConfig = { tamanhoSelecionado: null, saborSelecionado: null };
-
-  const tamanhos = shk.tamanhos || [];
-  const sabores = shk.sabores || [];
-
-  // Passo 1: Tamanho
-  const sec1 = document.createElement('section');
-  sec1.className = 'pizza-step';
-  sec1.innerHTML = `
-    <div class="pizza-step-header">
-      <span class="pizza-step-num">1</span>
-      <span>Escolha o tamanho</span>
-    </div>
-    <div class="shake-size-grid" id="shake-size-grid"></div>`;
-  container.appendChild(sec1);
-
-  const sizeGrid = sec1.querySelector('#shake-size-grid');
-  tamanhos.forEach((tam) => {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'pizza-size-card';
-    card.innerHTML = `
-      <div class="pizza-size-name">${tam.nome}</div>
-      ${tam.ml ? `<div class="pizza-size-info">${tam.ml}ml</div>` : ''}
-      <div class="pizza-size-price">Gs ${(tam.preco || 0).toLocaleString('es-PY')}</div>`;
-    card.onclick = () => {
-      sizeGrid.querySelectorAll('.pizza-size-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      _shakeConfig.tamanhoSelecionado = tam;
-      sec2.style.display = 'block';
-      _atualizarPrecoShake();
-    };
-    sizeGrid.appendChild(card);
-  });
-
-  // Passo 2: Sabor
-  const sec2 = document.createElement('section');
-  sec2.className = 'pizza-step';
-  sec2.style.display = 'none';
-  sec2.innerHTML = `
-    <div class="pizza-step-header">
-      <span class="pizza-step-num">2</span>
-      <span>Escolha o sabor</span>
-    </div>
-    <div class="pizza-sabores-lista" id="shake-sabores-lista">
-      ${sabores.map(s => {
-        const esc = (s.nome || '').replace(/'/g, "\'");
-        return `<button type="button" class="pizza-sabor-item" onclick="_selecionarSaborShake('${esc}', ${s.preco || 0}, this)">
-          ${s.img ? `<img src="${s.img}" class="pizza-sabor-img" alt="${s.nome}" onerror="this.style.display='none'">` : `<div class="pizza-sabor-emoji">🥤</div>`}
-          <div class="pizza-sabor-info">
-            <div class="pizza-sabor-nome">${s.nome}</div>
-            ${s.preco ? `<div class="pizza-sabor-preco">+ Gs ${(s.preco).toLocaleString('es-PY')}</div>` : ''}
-          </div>
-        </button>`;
-      }).join('')}
-    </div>`;
-  container.appendChild(sec2);
-
-  // CSS para o grid de tamanhos (reutiliza pizza-size-grid)
-  const style = document.getElementById('shake-size-style');
-  if (!style) {
-    const s = document.createElement('style');
-    s.id = 'shake-size-style';
-    s.textContent = '.shake-size-grid { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }';
-    document.head.appendChild(s);
-  }
-}
-
-function _selecionarSaborShake(nome, preco, el) {
-  document.querySelectorAll('#shake-sabores-lista .pizza-sabor-item').forEach(b => {
-    b.classList.remove('selected');
-    b.querySelector('.pizza-fracao-tag')?.remove();
-  });
-  el.classList.add('selected');
-  const tag = document.createElement('span');
-  tag.className = 'pizza-fracao-tag';
-  tag.textContent = '✓';
-  el.appendChild(tag);
-  _shakeConfig.saborSelecionado = { nome, preco };
-  _atualizarPrecoShake();
-}
-
-function _atualizarPrecoShake() {
-  const tamPreco = _shakeConfig.tamanhoSelecionado?.preco || 0;
-  const saborExtra = _shakeConfig.saborSelecionado?.preco || 0;
-  const total = tamPreco + saborExtra;
-  const el = document.getElementById('product-price');
-  if (el && total > 0) el.textContent = 'Gs ' + total.toLocaleString('es-PY');
 }
 
 function _renderMontavel(item, cfg, container) {
@@ -954,8 +779,7 @@ function _revelarPasso2(p, container) {
   _pizzaConfig.numSabores = null;
   _pizzaConfig.sabores = [];
 
-  // max_sabores por tamanho tem prioridade sobre o global do produto
-  const maxLoja = _pizzaConfig.tamanhoSelecionado?.max_sabores || p.max_sabores || 1;
+  const maxLoja = p.max_sabores || 1;
   const opcoes = Array.from({ length: maxLoja }, (_, i) => i + 1);
   const labels = { 1: 'Inteira', 2: 'Meia a Meia', 3: '3 Sabores', 4: '4 Sabores' };
 
@@ -1023,21 +847,12 @@ function _selecionarDivisao(n) {
     <div class="pizza-sabores-lista" id="pizza-slot-${slot}">
       ${saboresFiltrados.map((s) => {
         const sfEsc = (s.nome || '').replace(/'/g, "\\'");
-        const tipoLower = (s.tipo || 'Tradicional').toLowerCase();
-        let tipoBadge = '';
-        if (tipoLower === 'especial') tipoBadge = `<span class="pizza-sabor-tipo-badge tipo-especial">⭐ Especial</span>`;
-        else if (tipoLower === 'doce') tipoBadge = `<span class="pizza-sabor-tipo-badge tipo-doce">🍫 Doce</span>`;
-        const iconHtml = s.img
-          ? `<img src="${s.img}" class="pizza-sabor-img" alt="${s.nome}" onerror="this.style.display='none'">`
-          : `<div class="pizza-sabor-emoji">🍕</div>`;
-        return `<button type="button" class="pizza-sabor-item" data-slot="${slot}" data-nome="${s.nome}" data-preco="${s.preco || 0}" data-tipo="${s.tipo || 'Tradicional'}" onclick="_selecionarSaborSlot(${slot}, '${sfEsc}', ${s.preco || 0}, this, '${s.tipo || 'Tradicional'}')">
-          ${iconHtml}
+        return `<button type="button" class="pizza-sabor-item" data-slot="${slot}" data-nome="${s.nome}" data-preco="${s.preco || 0}" onclick="_selecionarSaborSlot(${slot}, '${sfEsc}', ${s.preco || 0}, this)">
+          ${s.img ? `<img src="${s.img}" class="pizza-sabor-img" alt="${s.nome}">` : `<div class="pizza-sabor-emoji">🍕</div>`}
           <div class="pizza-sabor-info">
             <div class="pizza-sabor-nome">${s.nome}</div>
-            ${s.desc ? `<div class="pizza-sabor-desc">${s.desc}</div>` : ''}
-            ${s.preco ? `<div class="pizza-sabor-preco">+ Gs ${(s.preco).toLocaleString('es-PY')}</div>` : ''}
+            ${s.preco ? `<div class="pizza-sabor-preco">Gs ${(s.preco).toLocaleString('es-PY')}</div>` : ''}
           </div>
-          ${tipoBadge}
         </button>`;
       }).join('')}
     </div>`;
@@ -1053,8 +868,7 @@ function _selecionarDivisao(n) {
   _atualizarPrecoPizza();
 }
 
-function _selecionarSaborSlot(slot, nome, preco, el, tipo) {
-  tipo = tipo || el?.dataset?.tipo || 'Tradicional';
+function _selecionarSaborSlot(slot, nome, preco, el) {
   // Desmarca outros no mesmo slot
   const lista = document.getElementById(`pizza-slot-${slot}`);
   if (lista) lista.querySelectorAll('.pizza-sabor-item').forEach((b) => {
@@ -1070,39 +884,12 @@ function _selecionarSaborSlot(slot, nome, preco, el, tipo) {
   tag.textContent = n > 1 ? `${slot + 1}/${n}` : '✓';
   el.appendChild(tag);
 
-  _pizzaConfig.sabores[slot] = { nome, preco, tipo };
+  _pizzaConfig.sabores[slot] = { nome, preco };
 
   // Verifica se todos slots preenchidos → mostra borda
   const cheios = _pizzaConfig.sabores.filter(Boolean).length;
   if (cheios >= n) {
     _revelarPasso4Borda();
-    // Scroll para a borda com pequeno delay (aguarda renderização)
-    setTimeout(() => {
-      const p4 = document.getElementById('pizza-passo4');
-      if (p4) {
-        const scrollEl = document.querySelector('.modal-scroll-area') || document.querySelector('.options-list');
-        if (scrollEl) {
-          const top = p4.offsetTop - scrollEl.offsetTop;
-          scrollEl.scrollTo({ top: top - 12, behavior: 'smooth' });
-        }
-      }
-    }, 80);
-  } else {
-    // Ainda há slots para preencher — scroll para o próximo slot
-    const proximoSlot = slot + 1;
-    setTimeout(() => {
-      const proxLista = document.getElementById(`pizza-slot-${proximoSlot}`);
-      if (proxLista) {
-        const scrollEl = document.querySelector('.modal-scroll-area') || document.querySelector('.options-list');
-        if (scrollEl) {
-          // Sobe um pouco para mostrar o header do slot junto
-          const header = proxLista.previousElementSibling; // .pizza-slot-header
-          const target = header || proxLista;
-          const top = target.offsetTop - scrollEl.offsetTop;
-          scrollEl.scrollTo({ top: top - 12, behavior: 'smooth' });
-        }
-      }
-    }, 80);
   }
   _atualizarPrecoPizza();
   _atualizarResumo();
@@ -1114,21 +901,11 @@ function _revelarPasso4Borda() {
   const p4 = document.getElementById('pizza-passo4');
   if (!p4) return;
 
-  // Preço de cada borda = determinado pelo TIPO da borda (Tradicional/Especial/Doce)
-  // busca o preço correspondente no tamanho selecionado
-  const tam = _pizzaConfig.tamanhoSelecionado || {};
-
-  function _precoBordaPorTipo(tipo) {
-    const t = (tipo || 'Tradicional').toLowerCase();
-    if (t === 'especial' && tam.borda_preco_especial > 0) return tam.borda_preco_especial;
-    if (t === 'doce' && tam.borda_preco_doce > 0) return tam.borda_preco_doce;
-    return tam.borda_preco || 0;
-  }
-
+  // Monta opções de borda
   const bordasOpcoes = p.bordas && p.bordas.length > 0
-    ? p.bordas.map(b => ({ nome: b.nome, tipo: b.tipo || 'Tradicional', preco: _precoBordaPorTipo(b.tipo) }))
+    ? p.bordas
     : p.tem_borda
-      ? [{ nome: 'Borda Recheada', tipo: 'Tradicional', preco: tam.borda_preco || p.borda_preco || 0 }]
+      ? [{ nome: 'Borda Recheada', preco: p.borda_preco || 0 }]
       : [];
 
   p4.innerHTML = `<section class="pizza-step">
@@ -1367,23 +1144,6 @@ function adicionarDoModal() {
   // Validações por tipo
   if (tipo === 'pizza') {
     if (!_pizzaConfig.tamanhoSelecionado) { alert('Selecione o tamanho da pizza!'); return; }
-    // Shake
-    if (tipo === 'shake') {
-      const tamPreco = _shakeConfig.tamanhoSelecionado?.preco || 0;
-      const saborExtra = _shakeConfig.saborSelecionado?.preco || 0;
-      precoFinal = tamPreco + saborExtra;
-      variacao = [_shakeConfig.tamanhoSelecionado?.nome, _shakeConfig.saborSelecionado?.nome].filter(Boolean).join(' – ');
-      montagem = variacao ? [variacao] : [];
-      if (!_shakeConfig.tamanhoSelecionado) {
-        alert('Escolha um tamanho para o Milk Shake.');
-        return;
-      }
-      if (!_shakeConfig.saborSelecionado) {
-        alert('Escolha um sabor para o Milk Shake.');
-        return;
-      }
-    }
-
     const saboresOk = (_pizzaConfig.sabores || []).filter(Boolean);
     if (saboresOk.length === 0) { alert('Selecione ao menos 1 sabor!'); return; }
     if (_pizzaConfig.numSabores && saboresOk.length < _pizzaConfig.numSabores) {
@@ -1668,7 +1428,7 @@ function renderCarrinho() {
     } else {
       // Variação (ex: "Combo Grande") — aparece como badge separado, não duplica o nome
       if (item.variacao) {
-        detalhes += `<br><small style="color:#FF441F;font-weight:600">▸ ${item.variacao}</small>`;
+        detalhes += `<br><small style="color:var(--primary,#e74c3c);font-weight:600">▸ ${item.variacao}</small>`;
       }
       // Preparo (ex: "Flambado", "Batata Frita")
       if (item.preparo) {
@@ -1747,88 +1507,42 @@ function adicionarUpsell(item) {
 // ==========================================
 // CUPOM DE DESCONTO
 // ==========================================
-async function aplicarCupom() {
+function aplicarCupom() {
   const codigo = document.getElementById('cupom-codigo')?.value?.trim().toUpperCase();
   const msgBox = document.getElementById('cupom-msg');
-
+  
   if (!codigo) {
     msgBox.innerHTML = '<span style="color:#e74c3c">Digite um código</span>';
     msgBox.style.display = 'block';
     return;
   }
-
-  msgBox.innerHTML = '<span style="color:#888">🔍 Validando...</span>';
-  msgBox.style.display = 'block';
-
-  try {
-    const { data: cupom, error } = await supa
-      .from('cupons')
-      .select('id, codigo, tipo, valor, minimo, limite_uso, usos_realizados, ativo, validade')
-      .eq('codigo', codigo)
-      .eq('ativo', true)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    if (!cupom) {
-      msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom inválido ou inativo</span>';
-      cupomAplicado = null;
-      atualizarTotalCheckout();
-      return;
-    }
-
-    // Validade
-    if (cupom.validade) {
-      const hoje = new Date(); hoje.setHours(0,0,0,0);
-      const val  = new Date(cupom.validade + 'T00:00:00');
-      if (val < hoje) {
-        msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom expirado</span>';
-        cupomAplicado = null;
-        atualizarTotalCheckout();
-        return;
-      }
-    }
-
-    // Limite de usos
-    if (cupom.limite_uso != null && (cupom.usos_realizados || 0) >= cupom.limite_uso) {
-      msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom esgotado</span>';
-      cupomAplicado = null;
-      atualizarTotalCheckout();
-      return;
-    }
-
-    // Mínimo de compra
+  
+  // Cupons de exemplo - você pode buscar do banco de dados
+  const cupons = {
+    'BEMVINDO10': { tipo: 'percentual', valor: 10, min: 50000 },
+    'SUSHI20': { tipo: 'percentual', valor: 20, min: 100000 },
+    'FRETEGRATIS': { tipo: 'frete', valor: 0, min: 0 }
+  };
+  
+  const cupom = cupons[codigo];
+  
+  if (!cupom) {
+    msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom inválido</span>';
+    msgBox.style.display = 'block';
+    cupomAplicado = null;
+  } else {
     const subtotal = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
-    const minimo   = parseFloat(cupom.minimo) || 0;
-    if (subtotal < minimo) {
-      msgBox.innerHTML = `<span style="color:#e74c3c">Valor mínimo: Gs ${minimo.toLocaleString('es-PY')}</span>`;
+    if (subtotal < cupom.min) {
+      msgBox.innerHTML = `<span style="color:#e74c3c">Valor mínimo: Gs ${cupom.min.toLocaleString('es-PY')}</span>`;
+      msgBox.style.display = 'block';
       cupomAplicado = null;
-      atualizarTotalCheckout();
-      return;
+    } else {
+      cupomAplicado = { codigo, ...cupom };
+      msgBox.innerHTML = '<span style="color:#27ae60">✅ Cupom aplicado!</span>';
+      msgBox.style.display = 'block';
     }
-
-    // Frete grátis — mas preserva frete_motoboy no banco para o financeiro
-    cupomAplicado = {
-      id:     cupom.id,
-      codigo: cupom.codigo,
-      tipo:   cupom.tipo,
-      valor:  parseFloat(cupom.valor) || 0,
-      min:    minimo,
-      usos_realizados: cupom.usos_realizados || 0,
-    };
-
-    const labelDesconto = cupom.tipo === 'percentual'
-      ? `${cupom.valor}% OFF`
-      : cupom.tipo === 'frete'
-        ? 'Frete Grátis'
-        : `Gs ${parseFloat(cupom.valor).toLocaleString('es-PY')} OFF`;
-
-    msgBox.innerHTML = `<span style="color:#27ae60">✅ Cupom aplicado! ${labelDesconto}</span>`;
-  } catch (e) {
-    msgBox.innerHTML = '<span style="color:#e74c3c">Erro ao validar cupom</span>';
-    console.error('Cupom:', e);
   }
-
+  
   atualizarTotalCheckout();
 }
 
@@ -2129,19 +1843,6 @@ function _coletarMultiPagamento() {
   return partes;
 }
 
-// Consulta distância pela rota real (OSRM público). Retorna km ou null se falhar.
-async function obterDistanciaPelaRota(latDestino, lngDestino) {
-  const origem  = `${COORD_LOJA.lng},${COORD_LOJA.lat}`;
-  const destino = `${lngDestino},${latDestino}`;
-  const url = `https://router.project-osrm.org/route/v1/driving/${origem};${destino}?overview=false`;
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (d.code === 'Ok') return d.routes[0].distance / 1000;
-    return null;
-  } catch { return null; }
-}
-
 async function calcularFrete() {
   const btn = document.getElementById('btn-gps');
   const msg = document.getElementById('frete-msg');
@@ -2158,84 +1859,59 @@ async function calcularFrete() {
     return;
   }
 
-  // Envolve em Promise para poder usar await
-  let position;
-  try {
-    position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, timeout: 10000
-      });
-    });
-  } catch (err) {
-    msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter sua localização</span>';
-    boxErro.style.display = 'block';
-    btn.innerText = '📍 Tentar Novamente';
-    btn.disabled = false;
-    return;
-  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      localCliente = { lat: position.coords.latitude, lng: position.coords.longitude };
+      const dist = calcularDistancia(COORD_LOJA.lat, COORD_LOJA.lng, localCliente.lat, localCliente.lng);
+      
+      // === TABELA DE FRETE DINÂMICA (configurada no admin) ===
+      // Faixas: [0-3], [3.1-4], [4.1-5], ..., [19.1-20], >20 = a combinar
+      const LIMITES_KM = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+      let freteIndex = -1;
+      for (let i = 0; i < LIMITES_KM.length; i++) {
+        if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
+      }
 
-  localCliente = { lat: position.coords.latitude, lng: position.coords.longitude };
+      if (freteIndex === -1) {
+        // Acima de 20km
+        freteCalculado = -1; // sentinela: a combinar
+        msg.innerHTML = `<span style="color:#e67e22">⚠️ Distância: ${dist.toFixed(1)}km — Frete <strong>a combinar</strong> pelo WhatsApp.</span>`;
+        msg.style.color = '#e67e22';
+        boxErro.style.display = 'none';
+        btn.innerText = '✅ Localização OK';
+        btn.disabled = false;
+        atualizarTotalCheckout();
+        return;
+      }
 
-  // Tenta rota real pelo OSRM
-  msg.innerHTML = '<span style="color:#888">⏳ Calculando rota...</span>';
-  btn.innerText = 'Calculando rota...';
-
-  let dist = await obterDistanciaPelaRota(localCliente.lat, localCliente.lng);
-  let usouRota = true;
-  if (dist === null) {
-    // Fallback linha reta se OSRM falhar
-    dist = calcularDistancia(COORD_LOJA.lat, COORD_LOJA.lng, localCliente.lat, localCliente.lng);
-    usouRota = false;
-  }
-
-  const nota = usouRota ? '🛣️ via rota' : '📏 linha reta*';
-
-  // === TABELA DE FRETE DINÂMICA (configurada no admin) ===
-  const LIMITES_KM = [2, 3.9, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-  let freteIndex = -1;
-  for (let i = 0; i < LIMITES_KM.length; i++) {
-    if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
-  }
-
-  if (freteIndex === -1) {
-    freteCalculado = -1; // sentinela: a combinar
-    msg.innerHTML = `<span style="color:#e67e22">⚠️ ${dist.toFixed(1)}km (${nota}) — Frete <strong>a combinar</strong> pelo WhatsApp.</span>`;
-    boxErro.style.display = 'none';
-    btn.innerText = '✅ Localização OK';
-    btn.disabled = false;
-    atualizarTotalCheckout();
-    return;
-  }
-
-  if (TABELA_FRETE && TABELA_FRETE[freteIndex]?.acombinar) {
-    freteCalculado = -1; freteMotoboy = 0;
-    msg.innerHTML = `<span style="color:#e67e22">⚠️ ${dist.toFixed(1)}km (${nota}) — Frete a combinar.</span>`;
-    boxErro.style.display = 'none';
-    btn.innerText = '✅ Localização OK';
-    btn.disabled = false;
-    atualizarTotalCheckout();
-    return;
-  }
-
-  if (TABELA_FRETE && TABELA_FRETE[freteIndex] !== undefined) {
-    freteCalculado = TABELA_FRETE[freteIndex].loja || 0;
-    freteMotoboy   = TABELA_FRETE[freteIndex].motoboy || 0;
-  } else {
-    // Fallback se tabela não configurada
-    if (dist <= 3.3)       freteCalculado = 6000;
-    else if (dist <= 4.2)  freteCalculado = 12000;
-    else if (dist <= 5.2)  freteCalculado = 18000;
-    else if (dist <= 6.2)  freteCalculado = 24000;
-    else { const kmExtra = Math.ceil(dist - 6.2); freteCalculado = 24000 + (kmExtra * 3000); }
-    freteMotoboy = freteCalculado;
-  }
-
-  const aviso = usouRota ? '' : ' <small style="color:#e67e22">(rota indisponível, estimativa)</small>';
-  msg.innerHTML = `<span style="color:#27ae60">✅ ${dist.toFixed(1)}km ${nota} — Frete: Gs ${freteCalculado.toLocaleString('es-PY')}</span>${aviso}`;
-  boxErro.style.display = 'none';
-  btn.innerText = '✅ Localização OK';
-  btn.disabled = true;
-  atualizarTotalCheckout();
+      if (TABELA_FRETE && TABELA_FRETE[freteIndex] !== undefined) {
+        freteCalculado = TABELA_FRETE[freteIndex].loja || 0;
+        freteMotoboy   = TABELA_FRETE[freteIndex].motoboy || 0;
+      } else {
+        // Fallback se tabela não configurada: faixas padrão antigas
+        if (dist <= 3.3)       freteCalculado = 6000;
+        else if (dist <= 4.2)  freteCalculado = 12000;
+        else if (dist <= 5.2)  freteCalculado = 18000;
+        else if (dist <= 6.2)  freteCalculado = 24000;
+        else { const kmExtra = Math.ceil(dist - 6.2); freteCalculado = 24000 + (kmExtra * 3000); }
+        freteMotoboy = freteCalculado; // sem tabela, assume igual ao loja
+      }
+      
+      msg.innerHTML = `<span style="color:#27ae60">✅ Distância: ${dist.toFixed(1)}km - Frete: Gs ${freteCalculado.toLocaleString('es-PY')}</span>`;
+      msg.style.color = '#27ae60';
+      boxErro.style.display = 'none';
+      
+      btn.innerText = '✅ Localização OK';
+      btn.disabled = true;
+      atualizarTotalCheckout();
+    },
+    (error) => {
+      msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter sua localização</span>';
+      boxErro.style.display = 'block';
+      btn.innerText = '📍 Tentar Novamente';
+      btn.disabled = false;
+    }
+  );
 }
 
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -2288,8 +1964,8 @@ async function enviarZap() {
 
   // Pedido duplo: bloqueia se mesmo carrinho enviado no último 1h
   const _agora = Date.now();
-  const _ultimoHash = localStorage.getItem('app_last_hash');
-  const _ultimoTs   = parseInt(localStorage.getItem('app_last_ts') || '0');
+  const _ultimoHash = localStorage.getItem('sushi_last_hash');
+  const _ultimoTs   = parseInt(localStorage.getItem('sushi_last_ts') || '0');
   const _hashAtual  = carrinho.map(i => i.nome + i.qtd).sort().join('|');
   if (_ultimoHash === _hashAtual && (_agora - _ultimoTs) < 3600000) {
     return alert('🚫 Seu pedido anterior foi computado, estamos bloqueando esta segunda tentativa.');
@@ -2335,18 +2011,9 @@ async function enviarZap() {
   let pedidoDbId = null;
   let numeroPedido = null;
   
-  // Pedido 100% bebidas/açaí/shake/suco/sorvete → entra direto como pronto
-  const _CATS_SEM_COZINHA = ['bebida','drink','acai','açaí','shake','suco','sorvete'];
-  const _soBebidas = carrinho.every(i => {
-    const cat  = (i.categoria_slug || i.cat || '').toLowerCase();
-    const cfg  = i.montagem || {};
-    const tipo = (cfg && !Array.isArray(cfg) && cfg.__tipo) ? cfg.__tipo : '';
-    return _CATS_SEM_COZINHA.some(t => cat.includes(t) || tipo === t);
-  });
-
-  {
+  if (typeof supa !== 'undefined') {
     const pedidoDb = {
-      status: _soBebidas ? 'pronto_entrega' : 'pendente',
+      status: 'pendente',
       tipo_entrega: modoEntrega,
       subtotal: totalItens,
       frete_cobrado_cliente: modoEntrega === 'delivery' ? freteAplicado : 0,
@@ -2359,18 +2026,15 @@ async function enviarZap() {
                    : '',
       itens: carrinho.map((i) => ({
         n: i.nome,
-        nome: i.nome,
+        nome: i.nome,             // alias legível para admin/motoboy
         p: i.preco,
         q: i.qtd,
-        qtd: i.qtd,
+        qtd: i.qtd,               // alias legível
         t: i.variacao || '',
-        variacao: i.variacao || '',
         pr: i.preparo || '',
-        m: (i.montagem || []).map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m)).filter(Boolean),
-        montagem: (i.montagem || []).map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m)).filter(Boolean),
-        o: i.obs || '',
-        obs: i.obs || '',
-        categoria_slug: i.categoria_slug || i.cat || '',
+        m: i.montagem,
+        o: i.obs,
+        categoria_slug: i.categoria_slug || i.cat || ''  // para filtro de bebidas no motoboy
       })),
       endereco_entrega: ref,
       geo_lat: localCliente ? localCliente.lat.toString() : null,
@@ -2382,43 +2046,16 @@ async function enviarZap() {
         : null,
     };
 
-    // ── Envia via Edge Function (valida e corrige frete no servidor) ──
-    const _fnUrl = _SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/validar-pedido';
-    let pedidoSalvo = null;
-    let error = null;
-    try {
-      const resp = await fetch(_fnUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': _SUPABASE_KEY,
-          'Authorization': 'Bearer ' + _SUPABASE_KEY,
-        },
-        body: JSON.stringify(pedidoDb),
-      });
-      const json = await resp.json();
-      if (!resp.ok || json.error) {
-        error = { message: json.error || `HTTP ${resp.status}` };
-      } else {
-        pedidoSalvo = json;
-        // Atualiza freteCalculado com o valor confirmado pelo servidor
-        if (json.frete_cobrado_cliente !== undefined) {
-          freteCalculado = json.frete_cobrado_cliente;
-          freteAplicado  = json.frete_cobrado_cliente;
-        }
-      }
-    } catch (e) {
-      error = { message: e.message };
-    }
+    const { data: pedidoSalvo, error } = await supa.from('pedidos').insert([pedidoDb]).select().single();
 
     if (error) {
       console.error('Erro ao salvar pedido:', error);
       alert('⚠️ Erro ao salvar pedido no sistema. Tente novamente.');
       return;
     }
-
+    
     if (pedidoSalvo) {
-      pedidoDbId   = pedidoSalvo.id;
+      pedidoDbId = pedidoSalvo.id;
       numeroPedido = pedidoSalvo.id; // USA O ID DO BANCO
       console.log('✅ Pedido salvo com ID:', pedidoDbId);
 
@@ -2433,14 +2070,14 @@ async function enviarZap() {
   }
 
   // Salva localmente para "Repetir Pedido"
-  localStorage.setItem('app_last', JSON.stringify(carrinho));
-  localStorage.setItem('app_user', JSON.stringify({ nome, tel }));
+  localStorage.setItem('sushi_last', JSON.stringify(carrinho));
+  localStorage.setItem('sushi_user', JSON.stringify({ nome, tel }));
 
   // 2. Usa o número real do pedido na mensagem
   const idDisplay = numeroPedido || 'TEMP';
   
   // 3. Monta Mensagem WhatsApp
-  let msg = `🛒 PEDIDO #${idDisplay} — ${(NOME_RESTAURANTE_APP || 'Restaurante').toUpperCase()}\n`;
+  let msg = `🍣 PEDIDO #${idDisplay} - SUSHITERIA\n`;
   msg += `--------------------------\n`;
   msg += `👤 Cliente: ${nome}\n`;
   msg += `📱 Tel: ${telCompleto}\n`;
@@ -2468,15 +2105,9 @@ async function enviarZap() {
   carrinho.forEach((item) => {
     msg += `${item.qtd}x ${item.nome}`;
     if (item.variacao) msg += ` — ${item.variacao}`;
-    if (item.preparo)  msg += ` [${item.preparo}]`;
+    if (item.preparo) msg += ` [${item.preparo}]`;
     msg += `\n`;
-    if (item.montagem && item.montagem.length > 0) {
-      const montagemStr = item.montagem
-        .map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m))
-        .filter(Boolean)
-        .join(', ');
-      if (montagemStr) msg += `   + ${montagemStr}\n`;
-    }
+    if (item.montagem && item.montagem.length > 0) msg += `   + ${item.montagem.join(', ')}\n`;
     if (item.obs) msg += `   Obs: ${item.obs}\n`;
   });
 
@@ -2543,8 +2174,8 @@ async function enviarZap() {
 
   // Salva hash anti-duplicata ANTES de enviar
   const _hashFinal = carrinho.map(i => i.nome + i.qtd).sort().join('|');
-  localStorage.setItem('app_last_hash', _hashFinal);
-  localStorage.setItem('app_last_ts',   Date.now().toString());
+  localStorage.setItem('sushi_last_hash', _hashFinal);
+  localStorage.setItem('sushi_last_ts',   Date.now().toString());
 
   // Modal de confirmação 5s antes de abrir WhatsApp
   await _mostrarModalEnvio(msg, numeroPedido);
@@ -2615,8 +2246,8 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 
   // Limpa backup imediatamente para não restaurar na próxima visita
   try {
-    localStorage.removeItem('app_carrinho_backup');
-    localStorage.removeItem('app_carrinho_backup_time');
+    localStorage.removeItem('sushi_carrinho_backup');
+    localStorage.removeItem('sushi_carrinho_backup_time');
   } catch(e) {}
 
   updateUI();
@@ -2632,13 +2263,13 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 // 9. DADOS LOCAIS & REPETIR PEDIDO (Funções Restauradas)
 // ==========================================
 function carregarDadosLocal() {
-  const user = JSON.parse(localStorage.getItem('app_user'));
+  const user = JSON.parse(localStorage.getItem('sushi_user'));
   if (user) {
     if (document.getElementById('cli-nome')) document.getElementById('cli-nome').value = user.nome;
     if (document.getElementById('cli-tel')) document.getElementById('cli-tel').value = user.tel;
   }
 
-  const last = JSON.parse(localStorage.getItem('app_last'));
+  const last = JSON.parse(localStorage.getItem('sushi_last'));
   const box = document.getElementById('buy-again-container');
 
   if (last && Array.isArray(last) && last.length > 0) {
@@ -2658,7 +2289,7 @@ function carregarDadosLocal() {
 }
 
 function repetirPedido() {
-  const last = JSON.parse(localStorage.getItem('app_last'));
+  const last = JSON.parse(localStorage.getItem('sushi_last'));
   if (last && Array.isArray(last) && last.length > 0) {
     carrinho = last;
     updateUI();
@@ -2709,8 +2340,8 @@ function iniciarTracking(pedidoDbId, uidTemporal) {
     const uid      = uidTemporal || pedidoDbId;
 
     try {
-        localStorage.setItem('app_pedido_id',  pedidoDbId);
-        localStorage.setItem('app_pedido_uid', uid);
+        localStorage.setItem('sushi_pedido_id',  pedidoDbId);
+        localStorage.setItem('sushi_pedido_uid', uid);
     } catch(e) {}
 
     _lastTrackedSt = 'pendente';
@@ -2754,9 +2385,9 @@ function _iniciarPollingTracking(pedidoId, uid) {
 
             // Notificação push
             if ('Notification' in window && Notification.permission === 'granted' && TRACKER_STEPS[data.status]) {
-                new Notification('Locanda Pizzeria 🇧🇷', {
+                new Notification(NOME_RESTAURANTE_APP || 'Pedido', {
                     body: TRACKER_STEPS[data.status].msg,
-                    icon: 'https://instagram.fasu6-2.fna.fbcdn.net/v/t51.82787-15/573374451_17842149696611574_8991774026443342090_n.jpg?stp=dst-jpg_s150x150_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=instagram.fasu6-2.fna.fbcdn.net&_nc_cat=106&_nc_oc=Q6cZ2QGF-zpjA8cPijPd5RSpqKxETK5rnkkDDh2p9_6yqpej9zo5GRLUgm0d3tqaeu4Q0J4&_nc_ohc=RupM1OUrZJ4Q7kNvwGnum_W&_nc_gid=FbdfUjQDJpnDTLdsOu7bcA&edm=AP4sbd4BAAAA&ccb=7-5&oh=00_AfzONtO62cnJCGwHroepfIxL3OcBuhtF6AcdRJWoRqm39Q&oe=69ABD045&_nc_sid=7a9f4b'
+                    icon: 'https://img.freepik.com/vetores-gratis/desenho-de-modelo-de-logotipo-de-sushi_742173-17797.jpg'
                 });
             }
 
@@ -2764,7 +2395,7 @@ function _iniciarPollingTracking(pedidoId, uid) {
                 clearInterval(_pollingTracker); _pollingTracker = null;
                 if (_trackingChannel) { _trackingChannel.unsubscribe(); _trackingChannel = null; }
                 setTimeout(() => {
-                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
                 }, 10000);
             }
         } catch(e) { /* falha silenciosa de rede */ }
@@ -2825,8 +2456,8 @@ function restaurarTrackingSeExistir() {
     const card = document.getElementById('track-order-card');
     if (card) card.style.display = 'none';
 
-    const savedId  = localStorage.getItem('app_pedido_id');
-    const savedUid = localStorage.getItem('app_pedido_uid');
+    const savedId  = localStorage.getItem('sushi_pedido_id');
+    const savedUid = localStorage.getItem('sushi_pedido_uid');
     if (!savedId) return;
 
     console.log('🔄 Restaurando tracking para pedido:', savedId);
@@ -2837,7 +2468,7 @@ function restaurarTrackingSeExistir() {
             if (error || !data) return;
             // Se já foi entregue ou cancelado, limpa e não mostra tracker
             if (data.status === 'entregue' || data.status === 'cancelado') {
-                try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
+                try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
                 return;
             }
 
@@ -2845,7 +2476,7 @@ function restaurarTrackingSeExistir() {
             if (data.created_at) {
                 const diffHoras = (Date.now() - new Date(data.created_at).getTime()) / 3600000;
                 if (diffHoras > 6) {
-                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
                     return;
                 }
             }
@@ -3072,9 +2703,9 @@ function atualizarTrackingVisual(status, motoboy) {
             _trackResult.appendChild(_btn);
         }
         // Inicia timer auto-confirm se ainda não iniciado
-        const _pedidoLocal = localStorage.getItem('app_pedido_id');
+        const _pedidoLocal = localStorage.getItem('sushi_pedido_id');
         if (_pedidoLocal && typeof iniciarTimerAutoConfirmacao === 'function') {
-            if (!localStorage.getItem('app_confirmExpiry_' + _pedidoLocal)) {
+            if (!localStorage.getItem('autoConfirmExpiry_' + _pedidoLocal)) {
                 iniciarTimerAutoConfirmacao(_pedidoLocal);
             }
         }
@@ -3103,7 +2734,7 @@ function atualizarTrackingVisual(status, motoboy) {
 
 // ── EDIÇÃO DE PEDIDO PELO CLIENTE ────────────────────────────────
 function abrirEdicaoPedido() {
-    const pedidoId = localStorage.getItem('app_pedido_id');
+    const pedidoId = localStorage.getItem('sushi_pedido_id');
     if (!pedidoId) return;
 
     // Fecha tracking e abre carrinho com itens atuais
@@ -3174,7 +2805,7 @@ async function iniciarEdicaoCarrinho(pedidoId) {
 
 // ── SOLICITAR CANCELAMENTO PELO CLIENTE (via tracking) ──────────
 async function solicitarCancelamentoCliente() {
-    const pedidoId = localStorage.getItem('app_pedido_id');
+    const pedidoId = localStorage.getItem('sushi_pedido_id');
     if (!pedidoId) return;
     
     const motivo = prompt('Motivo do cancelamento (obrigatório):');
@@ -3199,8 +2830,8 @@ async function solicitarCancelamentoCliente() {
 function iniciarTrackingRealtime(pedidoId) {
     _trackedId     = pedidoId;
     _lastTrackedSt = ''; // força re-render na primeira leitura do polling
-    localStorage.setItem('app_pedido_id', pedidoId);
-    localStorage.setItem('app_pedido_uid', pedidoId);
+    localStorage.setItem('sushi_pedido_id', pedidoId);
+    localStorage.setItem('sushi_pedido_uid', pedidoId);
     _iniciarPollingTracking(pedidoId, pedidoId);
     _tentarCanalRealtime(pedidoId, pedidoId);
 }
@@ -3278,11 +2909,11 @@ initDeteccaoConexao();
 function salvarCarrinhoLocal() {
   try {
     if (carrinho && carrinho.length > 0) {
-      localStorage.setItem('app_carrinho_backup', JSON.stringify(carrinho));
-      localStorage.setItem('app_carrinho_backup_time', new Date().toISOString());
+      localStorage.setItem('sushi_carrinho_backup', JSON.stringify(carrinho));
+      localStorage.setItem('sushi_carrinho_backup_time', new Date().toISOString());
     } else {
-      localStorage.removeItem('app_carrinho_backup');
-      localStorage.removeItem('app_carrinho_backup_time');
+      localStorage.removeItem('sushi_carrinho_backup');
+      localStorage.removeItem('sushi_carrinho_backup_time');
     }
   } catch (e) {
     console.warn('Não foi possível salvar backup do carrinho:', e);
@@ -3291,8 +2922,8 @@ function salvarCarrinhoLocal() {
 
 function restaurarCarrinhoBackup() {
   try {
-    const backup = localStorage.getItem('app_carrinho_backup');
-    const backupTime = localStorage.getItem('app_carrinho_backup_time');
+    const backup = localStorage.getItem('sushi_carrinho_backup');
+    const backupTime = localStorage.getItem('sushi_carrinho_backup_time');
 
     if (backup && backupTime) {
       const tempoBackup = new Date(backupTime);
