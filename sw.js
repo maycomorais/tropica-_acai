@@ -1,6 +1,5 @@
-const CACHE_NAME = 'acai_tropical-v1';
+const CACHE_NAME = 'app-v1';
 
-// Never intercept requests from these domains
 const BLOCKED_ORIGINS = [
   'instagram.', 'fbcdn.net', 'facebook.com',
   'chrome-extension://', 'accounts.google.',
@@ -13,7 +12,7 @@ const ASSETS_TO_CACHE = [
   '/admin.css',
   '/admin.js',
   '/app.js',
-  '/styles.css',
+  '/style.css',
   '/supabaseClient.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
 ];
@@ -21,11 +20,9 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        ASSETS_TO_CACHE.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(ASSETS_TO_CACHE.map(url => cache.add(url).catch(() => {})))
+    )
   );
 });
 
@@ -39,17 +36,10 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-
-  // Never intercept cross-origin domains that block cross-origin
   const shouldSkip = BLOCKED_ORIGINS.some(d => url.includes(d));
-  if (shouldSkip) return; // let browser handle natively
-
-  // Skip non-GET
+  if (shouldSkip) return;
   if (event.request.method !== 'GET') return;
-
-  // Skip Supabase API calls
   if (url.includes('supabase.co') || url.includes('supabase.io')) return;
-
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

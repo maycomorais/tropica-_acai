@@ -212,6 +212,15 @@
 
 <div id="atend-toast"></div>
 
+<!-- RODAPÉ FIXO — pedido pronto (persiste após fechar banner) -->
+<div id="footer-pronto" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:500;background:#27ae60;color:#fff;padding:10px 16px;display:none;align-items:center;justify-content:space-between;box-shadow:0 -2px 12px rgba(0,0,0,0.15)">
+  <span id="footer-pronto-txt" style="font-weight:700;font-size:0.9rem"></span>
+  <button onclick="document.getElementById('banner-pronto').classList.add('show')"
+    style="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 14px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.82rem">
+    Ver pedidos
+  </button>
+</div>
+
 <!-- BANNER PRONTO -->
 <div id="banner-pronto">
   <div class="pronto-card">
@@ -786,14 +795,36 @@ function exibirBannerPronto(pedidos){
   pedidos.forEach(function(p){
     var num=p.uid_temporal||('#'+p.id);
     var qtdItens=(p.itens||[]).length;
-    var ref=p.endereco_entrega||'Balcao';
+    var ref=p.endereco_entrega||'Balcão';
     var card=document.createElement('div'); card.className='pronto-item';
-    card.innerHTML='<div class="pronto-num">'+num+'</div><div class="pronto-info"><strong>'+(p.cliente_nome||'Cliente')+'</strong><small>'+ref+' - '+qtdItens+' item(s)</small></div><button class="btn-entregar" onclick="marcarEntregue('+p.id+', this)">Entreguei</button>';
+    card.innerHTML='<div class="pronto-num">'+num+'</div>'
+      +'<div class="pronto-info"><strong>'+(p.cliente_nome||'Cliente')+'</strong>'
+      +'<small>'+ref+' — '+qtdItens+' item(s)</small></div>'
+      +'<button class="btn-entregar" onclick="marcarEntregue('+p.id+', this)">Entreguei</button>';
     lista.appendChild(card);
   });
   document.getElementById('banner-pronto').classList.add('show');
+
+  // Atualiza rodapé fixo
+  _atualizarFooterPronto();
 }
-function fecharBannerPronto(){ document.getElementById('banner-pronto').classList.remove('show'); pararAlarmePronto(); }
+
+function _atualizarFooterPronto() {
+  var footer = document.getElementById('footer-pronto');
+  if (!footer) return;
+  var itens = document.querySelectorAll('#pronto-lista .pronto-item');
+  if (!itens.length) { footer.style.display='none'; return; }
+  footer.style.display = 'flex';
+  footer.querySelector('#footer-pronto-txt').textContent =
+    '🔔 ' + itens.length + ' pedido(s) pronto(s) para entregar';
+}
+
+function fecharBannerPronto(){
+  document.getElementById('banner-pronto').classList.remove('show');
+  pararAlarmePronto();
+  // Footer permanece visível enquanto houver pedidos prontos
+  _atualizarFooterPronto();
+}
 
 async function marcarEntregue(pedidoId, btnEl){
   btnEl.disabled=true; btnEl.textContent='...';
@@ -801,7 +832,8 @@ async function marcarEntregue(pedidoId, btnEl){
   var res=await supa.from('pedidos').update({status:'entregue',tempo_entregue:agora}).eq('id',pedidoId);
   if (res.error){ btnEl.disabled=false; btnEl.textContent='Entreguei'; toast('Erro ao marcar'); return; }
   btnEl.closest('.pronto-item').remove();
-  toast('Pedido marcado como entregue!');
+  toast('Pedido entregue!');
+  _atualizarFooterPronto();
   if (!document.querySelectorAll('#pronto-lista .pronto-item').length) fecharBannerPronto();
 }
 

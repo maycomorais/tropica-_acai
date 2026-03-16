@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin — Restaurante</title>
+    <title>Painel Administrativo</title>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link
@@ -13,7 +13,99 @@
     <link rel="stylesheet" href="admin.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <base target="_blank">
-</head>
+  <style>
+  /* ── Builder item rows (açaí, suco, sorvete, combo) ── */
+  .builder-item-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .builder-item-row .bir-fields {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .builder-item-row .bir-label {
+    font-size: 0.72rem;
+    color: #555;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .builder-item-row .bir-remove {
+    flex-shrink: 0;
+    margin-top: 22px;
+  }
+  .img-preview-mini {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
+    margin-top: 4px;
+  }
+  /* ── Produto card actions mobile ── */
+  .produto-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  .produto-card-actions .btn {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .builder-item-row .bir-fields {
+      grid-template-columns: 1fr 1fr;
+    }
+    .produto-card-actions .btn { font-size: 0.75rem; }
+  }
+  /* ── Builder sections mobile ── */
+  .builder-section { padding-top: 4px; }
+  .etapa-header {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .etapa-header .form-control { flex: 1; min-width: 120px; }
+  .etapa-ingredientes {
+    width: 100%;
+    min-height: 56px;
+    resize: vertical;
+  }
+  .etapa-item {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  /* ── Pizza novo builder ── */
+  .pizza-tamanho-row {
+    background: #fff;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  .pizza-sabor-row {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+  </style>
   <body>
     <audio id="som-campainha" preload="auto" loop>
       <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg" />
@@ -353,6 +445,25 @@
 
               <div class="pdv-total-box">
                 <div class="pdv-total-row">
+                  <span>Subtotal:</span>
+                  <span>Gs <span id="balcao-subtotal">0</span></span>
+                </div>
+                <!-- Desconto manual -->
+                <div style="display:flex;gap:6px;align-items:center;margin:6px 0;padding:8px 10px;background:#fff8e6;border-radius:8px;border:1px solid #fde68a">
+                  <span style="font-size:0.8rem;font-weight:600;color:#78350f;white-space:nowrap">🏷️ Desconto</span>
+                  <select id="pdv-desconto-tipo" style="font-size:0.82rem;padding:5px 6px;border:1px solid #fde68a;border-radius:6px;background:#fff;flex-shrink:0" onchange="atualizarCarrinhoPDV()">
+                    <option value="fixo">Gs (fixo)</option>
+                    <option value="percentual">% (perc.)</option>
+                  </select>
+                  <input type="number" id="pdv-desconto-val" min="0" step="1000" placeholder="0"
+                    style="flex:1;font-size:0.88rem;padding:5px 8px;border:1px solid #fde68a;border-radius:6px;text-align:center"
+                    oninput="atualizarCarrinhoPDV()">
+                </div>
+                <div class="pdv-total-row" id="pdv-row-desconto" style="display:none;color:#e67e22;font-size:0.88rem">
+                  <span>– Desconto:</span>
+                  <span>Gs <span id="balcao-desconto">0</span></span>
+                </div>
+                <div class="pdv-total-row" style="font-weight:800;font-size:1.05rem">
                   <span>Total:</span>
                   <span>Gs <span id="balcao-total">0</span></span>
                 </div>
@@ -383,7 +494,7 @@
                   </div>
                 </div>
                 <button class="btn btn-success btn-lancar-cozinha" onclick="salvarPedidoBalcao()">
-                  🚀 LANÇAR NA COZINHA
+                  🚀 EFETUAR PEDIDO
                 </button>
               </div>
             </div>
@@ -415,6 +526,7 @@
 
       <div id="financeiro" class="tab-content">
   <h2 class="section-title">💰 Controle Financeiro</h2>
+  <div id="badge-caixa-operador" style="font-size:0.82rem;font-weight:600;padding:6px 12px;background:var(--color-background-secondary);border-radius:8px;margin-bottom:12px;color:var(--color-text-secondary)"></div>
 
   <!-- ===== FILTROS ===== -->
   <div class="filtro-bar">
@@ -805,36 +917,92 @@
           </button>
         </div>
 
-        <!-- ── PROMOÇÃO / BANNER ─────────────────────────────── -->
+        <!-- ── PROMOÇÃO / BANNERS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-tags"></i> Promoção do Dia (Banner)</div>
-          <p style="font-size:0.83rem;color:#888;margin-bottom:12px">Ao clicar no banner, o cliente abre o modal do produto para comprar.</p>
-          <div class="form-group">
-            <label>ID do Produto Promocional</label>
-            <input type="text" id="cfg-banner-id" class="form-control" placeholder="Ex: 42">
+          <div class="cfg-section-title"><i class="fas fa-tags"></i> Banners Promocionais</div>
+          <p style="font-size:0.82rem;color:#888;margin-bottom:14px">Ao clicar no banner o cliente abre o produto. Defina também o desconto aplicado automaticamente.</p>
+
+          <!-- Banner 1 -->
+          <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="font-weight:700;font-size:0.88rem;margin-bottom:10px;color:#1a7a2e">🖼 Banner 1</div>
+            <div class="form-group">
+              <label>ID do Produto</label>
+              <input type="text" id="cfg-banner-id" class="form-control" placeholder="Ex: 42">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+              <div class="form-group">
+                <label>Tipo de Desconto</label>
+                <select id="cfg-banner-desc-tipo" class="form-control">
+                  <option value="percentual">% Percentual</option>
+                  <option value="fixo">Gs Fixo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Valor do Desconto</label>
+                <input type="number" id="cfg-banner-desc-valor" class="form-control" placeholder="Ex: 10 ou 5000" min="0">
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:8px">
+              <label>Foto do Banner</label>
+              <input type="file" id="cfg-banner-file" class="form-control" accept="image/*" onchange="previewBanner(this, 1)">
+            </div>
+            <div id="cfg-banner-preview-box" style="display:none;margin:8px 0;text-align:center">
+              <img id="cfg-banner-preview" src="" style="max-height:110px;border-radius:8px;border:1px solid #ddd">
+            </div>
+            <input type="hidden" id="cfg-banner-img">
+            <button class="btn btn-success" onclick="salvarBanner(1)" style="margin-top:8px;width:100%">
+              <i class="fas fa-upload"></i> Salvar Banner 1
+            </button>
           </div>
-          <div class="form-group" style="margin-top:10px">
-            <label>Foto do Banner</label>
-            <input type="file" id="cfg-banner-file" class="form-control" accept="image/*" onchange="previewBanner(this)">
+
+          <!-- Banner 2 -->
+          <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:14px">
+            <div style="font-weight:700;font-size:0.88rem;margin-bottom:10px;color:#2980b9">🖼 Banner 2</div>
+            <div class="form-group">
+              <label>ID do Produto</label>
+              <input type="text" id="cfg-banner2-id" class="form-control" placeholder="Ex: 43">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+              <div class="form-group">
+                <label>Tipo de Desconto</label>
+                <select id="cfg-banner2-desc-tipo" class="form-control">
+                  <option value="percentual">% Percentual</option>
+                  <option value="fixo">Gs Fixo</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Valor do Desconto</label>
+                <input type="number" id="cfg-banner2-desc-valor" class="form-control" placeholder="Ex: 10 ou 5000" min="0">
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:8px">
+              <label>Foto do Banner</label>
+              <input type="file" id="cfg-banner2-file" class="form-control" accept="image/*" onchange="previewBanner(this, 2)">
+            </div>
+            <div id="cfg-banner2-preview-box" style="display:none;margin:8px 0;text-align:center">
+              <img id="cfg-banner2-preview" src="" style="max-height:110px;border-radius:8px;border:1px solid #ddd">
+            </div>
+            <input type="hidden" id="cfg-banner2-img">
+            <button class="btn btn-primary" onclick="salvarBanner(2)" style="margin-top:8px;width:100%">
+              <i class="fas fa-upload"></i> Salvar Banner 2
+            </button>
           </div>
-          <div id="cfg-banner-preview-box" style="display:none;margin:10px 0;text-align:center">
-            <img id="cfg-banner-preview" src="" style="max-height:130px;border-radius:8px;border:1px solid #ddd">
-          </div>
-          <input type="hidden" id="cfg-banner-img">
-          <button class="btn btn-success" onclick="salvarBanner()" style="margin-top:10px;width:100%">
-            <i class="fas fa-upload"></i> Enviar Foto & Ativar Promoção
-          </button>
         </div>
 
         <!-- ── ADICIONAIS GLOBAIS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title"><i class="fas fa-plus-circle"></i> Adicionais Globais
             <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
-              Aparecem para <strong>todos os produtos</strong>. Ex: "Molho Shoyu Extra", "Gengibre".
+              Aparecem como opção extra no checkout. Escolha em quais categorias serão exibidos.
             </small>
           </div>
           <div id="extras-globais-lista" style="margin-bottom:12px"></div>
-          <button class="btn btn-sm" style="background:#8e44ad;color:white" onclick="addExtraGlobal()">+ Adicionar Adicional Global</button>
+          <button class="btn btn-sm" style="background:#8e44ad;color:white" onclick="addExtraGlobal()">+ Adicionar Adicional</button>
+          <div style="margin-top:14px;padding:10px;background:var(--color-background-secondary);border-radius:8px">
+            <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:8px">📂 Exibir nas categorias:</label>
+            <p style="font-size:0.78rem;color:#888;margin-bottom:8px">Se nenhuma estiver marcada, aparece em todas.</p>
+            <div id="extras-globais-cats-lista" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+          </div>
           <button class="btn btn-primary" onclick="salvarExtrasGlobais()" style="margin-top:12px;width:100%">
             <i class="fas fa-save"></i> Salvar Adicionais Globais
           </button>
@@ -864,50 +1032,72 @@
           <div class="cfg-section-title">
             <i class="fas fa-motorcycle"></i> Tabela de Frete por KM
             <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
-              Faixas de 1 em 1 km. Defina o valor ao <strong>cliente</strong> e ao <strong>motoboy</strong>. Acima de 20km exibe "A combinar".
+              Defina o valor cobrado ao <strong>cliente</strong> e o repasse ao <strong>motoboy</strong>. Marque "Combinar" para desabilitar uma faixa.
             </small>
           </div>
+
+          <!-- Limite de distância -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:#fff8e6;border-radius:8px;border:1px solid #fde68a">
+            <label style="font-size:0.85rem;font-weight:600;white-space:nowrap">🛑 Limite de entrega:</label>
+            <input type="number" id="cfg-limite-distancia" class="form-control" placeholder="Sem limite" min="1" max="50" step="0.5"
+              style="max-width:130px;border:1.5px solid #f59e0b;text-align:center">
+            <span style="font-size:0.82rem;color:#78350f">km (deixar vazio = sem limite)</span>
+          </div>
+
           <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
               <thead>
-                <tr style="background:#f4f6f8">
-                  <th style="padding:10px 8px;text-align:left;border-bottom:2px solid #e0e0e0;white-space:nowrap">Faixa (km)</th>
-                  <th style="padding:10px 8px;text-align:center;border-bottom:2px solid #e0e0e0;color:#2980b9">💰 Valor Loja (Gs)</th>
-                  <th style="padding:10px 8px;text-align:center;border-bottom:2px solid #e0e0e0;color:#27ae60">🛵 Valor Motoboy (Gs)</th>
+                <tr style="background:var(--color-background-secondary)">
+                  <th style="padding:8px;text-align:left;border-bottom:2px solid var(--color-border-secondary);white-space:nowrap">Faixa</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#2980b9">💰 Cliente (Gs)</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#27ae60">🛵 Motoboy (Gs)</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#e67e22">Combinar</th>
                 </tr>
               </thead>
               <tbody id="tabela-frete-body"></tbody>
               <tfoot>
                 <tr style="background:#fff8e6">
-                  <td style="padding:10px 8px;font-weight:700;border-top:2px dashed #e0e0e0">Acima de 20 km</td>
-                  <td colspan="2" style="padding:10px 8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed #e0e0e0">🤝 A Combinar</td>
+                  <td style="padding:8px;font-weight:700;border-top:2px dashed var(--color-border-secondary);font-size:0.82rem">Acima de 20 km</td>
+                  <td colspan="3" style="padding:8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed var(--color-border-secondary)">🤝 A Combinar</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
-          <div style="margin-top:18px;padding:14px;background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px">
-            <div style="font-weight:700;font-size:0.9rem;color:#155c24;margin-bottom:10px">
-              ⛽ Ajuda de Custo de Combustível (por motoboy/dia)
-            </div>
+          <div style="margin-top:14px;padding:12px;background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px">
+            <div style="font-weight:700;font-size:0.88rem;color:#155c24;margin-bottom:8px">⛽ Custos do Motoboy</div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <div>
-                <label style="font-size:0.82rem;color:#555">Combustível (Gs)</label>
-                <input type="number" id="cfg-combustivel" class="form-control"
-                       placeholder="Ex: 20000" min="0" step="1000"
-                       style="max-width:180px;border:1.5px solid #27ae60;text-align:center">
+                <label style="font-size:0.78rem;color:#555">Combustível/dia (Gs)</label>
+                <input type="number" id="cfg-combustivel" class="form-control" placeholder="20000" min="0" step="1000"
+                  style="max-width:150px;border:1.5px solid #27ae60;text-align:center">
               </div>
               <div>
-                <label style="font-size:0.82rem;color:#555">Taxa base motoboy/entrega (Gs)</label>
-                <input type="number" id="cfg-taxa-motoboy-base" class="form-control"
-                       placeholder="Ex: 5000" min="0" step="500"
-                       style="max-width:180px;border:1.5px solid #2980b9;text-align:center">
+                <label style="font-size:0.78rem;color:#555">Taxa base/entrega (Gs)</label>
+                <input type="number" id="cfg-taxa-motoboy-base" class="form-control" placeholder="5000" min="0" step="500"
+                  style="max-width:150px;border:1.5px solid #2980b9;text-align:center">
               </div>
             </div>
           </div>
 
-          <button class="btn btn-primary" onclick="salvarTabelaFrete()" style="margin-top:16px;width:100%">
-            <i class="fas fa-save"></i> Salvar Tabela de Frete e Combustível
+          <button class="btn btn-primary" onclick="salvarTabelaFrete()" style="margin-top:14px;width:100%">
+            <i class="fas fa-save"></i> Salvar Tabela de Frete
+          </button>
+        </div>
+
+        <!-- ── MAQUININHAS ────────────────────────────────────── -->
+        <div class="card cfg-card" style="margin-top:16px">
+          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> Maquininhas de Cartão
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+              Cadastre cada operadora com suas taxas por modalidade.
+            </small>
+          </div>
+          <div id="maquininhas-lista" style="margin-bottom:12px"></div>
+          <button class="btn btn-sm btn-secondary" onclick="adicionarMaquininha()" style="margin-bottom:10px">
+            <i class="fas fa-plus"></i> Adicionar Maquininha
+          </button>
+          <button class="btn btn-primary" onclick="salvarMaquininhas()" style="width:100%">
+            <i class="fas fa-save"></i> Salvar Maquininhas
           </button>
         </div>
 
@@ -1096,8 +1286,8 @@
           <textarea id="prod-desc" class="form-control" rows="2"></textarea>
         </div>
         <div class="form-group" style="display: flex; gap: 10px">
-          <div style="flex: 1">
-            <label>Preço base (Gs) <small style="color:#888">— para Pizza, é o mínimo (tamanho P)</small></label>
+          <div id="box-prod-preco" style="flex: 1">
+            <label>Preço base (Gs)</label>
             <input type="number" id="prod-preco" class="form-control" />
           </div>
           <div style="flex: 1">
@@ -1233,69 +1423,193 @@
           </div>
         </div>
 
-        <!-- ── BUILDER: PIZZA ── -->
+        <!-- ── BUILDER: PIZZA (tipos dinâmicos) ── -->
         <div id="builder-pizza" class="builder-section" style="display:none">
-          <h4 style="color:#e74c3c">🍕 Configuração da Pizza</h4>
+          <h4 style="color:#e74c3c;margin-bottom:12px">🍕 Configuração da Pizza</h4>
 
-          <div class="pizza-config-grid">
-            <div class="form-group">
-              <label>Máx. de sabores por pizza</label>
-              <select id="pizza-max-sabores" class="form-control">
-                <option value="1">1 sabor</option>
-                <option value="2" selected>2 sabores</option>
-                <option value="3">3 sabores</option>
-                <option value="4">4 sabores</option>
-              </select>
+          <!-- Tipos de Pizza -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#e74c3c">Tipos de Pizza</h5>
+              <button class="btn btn-sm btn-danger" onclick="addPizzaTipo()">+ Tipo</button>
             </div>
-            <div class="form-group">
-              <label>Tipos de massa oferecidos</label>
-              <div style="display:flex; gap:12px; margin-top:6px; flex-wrap:wrap">
-                <label style="cursor:pointer"><input type="checkbox" id="pizza-tipo-salgada" checked> Salgada</label>
-                <label style="cursor:pointer"><input type="checkbox" id="pizza-tipo-doce"> Doce</label>
-              </div>
+            <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#991b1b;margin-bottom:8px">
+              💡 Crie os tipos (ex: Tradicional, Especial, Vegana, Doce...). O preço de cada tamanho será definido por tipo.
             </div>
-            <div class="form-group">
-              <label>Bordas recheadas?</label>
-              <div style="display:flex; gap:12px; margin-top:6px">
-                <label style="cursor:pointer"><input type="checkbox" id="pizza-tem-borda" onchange="toggleBordaPreco()"> Sim, oferecer bordas</label>
-              </div>
-            </div>
+            <div id="pizza-tipos-lista" style="display:flex;flex-direction:column;gap:6px"></div>
           </div>
 
-          <!-- Bordas Recheadas — lista com nome + preço -->
-          <div id="pizza-borda-preco-box" style="display:none; margin-top:14px">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-              <h5 style="margin:0">🧀 Bordas disponíveis</h5>
-              <button class="btn btn-sm btn-success" onclick="addPizzaBorda()">+ Borda</button>
+          <!-- Bordas -->
+          <div style="margin-bottom:18px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px">
+              <input type="checkbox" id="pizza-tem-borda" onchange="toggleBordaPreco()" style="width:16px;height:16px">
+              <span style="font-weight:600">🧀 Oferecer bordas recheadas?</span>
+            </label>
+            <div id="pizza-borda-preco-box" style="display:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <h5 style="margin:0">Bordas disponíveis</h5>
+                <button class="btn btn-sm btn-success" onclick="addPizzaBorda()">+ Borda</button>
+              </div>
+              <div style="background:#fff8e1;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#7d5a00;margin-bottom:8px">
+                💡 Nome da borda e seu preço único (ex: Cheddar → Gs 8.000).
+              </div>
+              <div id="pizza-bordas-lista"></div>
             </div>
-            <div style="background:#fff8e1; border-radius:8px; padding:8px 12px; font-size:0.78rem; color:#7d5a00; margin-bottom:8px">
-              💡 Adicione cada tipo de borda com seu preço. Ex: Cheddar → Gs 8.000 | Catupiry → Gs 9.000 | Chocolate → Gs 10.000
-            </div>
-            <div id="pizza-bordas-lista"></div>
           </div>
 
           <!-- Tamanhos -->
-          <div style="margin-top:16px">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-              <h5 style="margin:0">Tamanhos disponíveis</h5>
-              <button class="btn btn-sm btn-success" onclick="addPizzaTamanho()">+ Adicionar Tamanho</button>
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0">Tamanhos</h5>
+              <button class="btn btn-sm btn-success" onclick="addPizzaTamanho()">+ Tamanho</button>
             </div>
-            <div style="background:#fff3f3; border-radius:8px; padding:10px; margin-bottom:8px; font-size:0.78rem; color:#888">
-              💡 Preencha: Nome, Fatias, Diâmetro (cm) e o preço por categoria (Tradicional, Especial, Doce) + o valor da borda para cada tamanho.
+            <div style="background:#fff3f3;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#888;margin-bottom:8px">
+              💡 Para cada tamanho, defina o preço por tipo de pizza criado acima.
             </div>
-            <div id="pizza-tamanhos-lista">
-              <!-- Tamanhos gerados pelo JS -->
-            </div>
+            <div id="pizza-tamanhos-lista"></div>
           </div>
 
-          <!-- Sabores cadastrados -->
-          <div style="margin-top:16px">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-              <h5 style="margin:0">Sabores cadastrados <small style="color:#888; font-weight:normal">(o cliente escolhe deste menu)</small></h5>
+          <!-- Sabores -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0">Sabores <small style="color:#888;font-weight:normal">(o cliente escolhe deste menu)</small></h5>
               <button class="btn btn-sm btn-success" onclick="addPizzaSabor()">+ Sabor</button>
             </div>
-            <div id="pizza-sabores-lista" style="max-height:220px; overflow-y:auto; border:1px solid #eee; border-radius:8px; padding:8px">
-              <p style="color:#aaa; font-size:0.82rem; text-align:center; margin:10px 0">Clique em "+ Sabor" para adicionar</p>
+            <div id="pizza-sabores-lista" style="max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px">
+              <p style="color:#aaa;font-size:0.82rem;text-align:center;margin:10px 0">Clique em "+ Sabor" para adicionar</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BUILDER: AÇAÍ ── -->
+        <div id="builder-acai" class="builder-section" style="display:none">
+          <h4 style="color:#7c3aed;margin-bottom:12px">🍇 Configuração do Açaí</h4>
+
+          <!-- Tamanhos com imagem -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#7c3aed">Tamanhos</h5>
+              <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="addAcaiTamanho()">+ Tamanho</button>
+            </div>
+            <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#5b21b6;margin-bottom:8px">
+              💡 Ex: 300ml, 500ml, 700ml — cada um com imagem e preço próprio.
+            </div>
+            <div id="acai-tamanhos-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Acompanhamentos -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#7c3aed">Acompanhamentos</h5>
+              <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="addAcaiAcompanhamento()">+ Acompanhamento</button>
+            </div>
+            <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#5b21b6;margin-bottom:8px">
+              💡 Ex: Granola, Leite Condensado, Paçoca. Preço extra = 0 se incluído.
+            </div>
+            <div id="acai-acomp-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Etapas de montagem (opcional) -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#7c3aed">Etapas de montagem <small style="font-weight:400;color:#888">(frutas, coberturas...)</small></h5>
+              <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="addAcaiEtapa()">+ Etapa</button>
+            </div>
+            <div id="acai-etapas-container" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Variações (ex: Tradicional, Premium) -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#7c3aed">Variações <small style="font-weight:400;color:#888">(opcional)</small></h5>
+              <button class="btn btn-sm" style="background:#7c3aed;color:#fff" onclick="addVariacaoSimples({}, 'acai-variacoes-lista')">+ Variação</button>
+            </div>
+            <div id="acai-variacoes-lista" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+        </div>
+
+        <!-- ── BUILDER: SUCO ── -->
+        <div id="builder-suco" class="builder-section" style="display:none">
+          <h4 style="color:#f59e0b;margin-bottom:12px">🍊 Configuração do Suco</h4>
+
+          <!-- Tamanhos -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#f59e0b">Tamanhos</h5>
+              <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="addSucoTamanho()">+ Tamanho</button>
+            </div>
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#92400e;margin-bottom:8px">
+              💡 Ex: 300ml — Gs 8.000 | 500ml — Gs 11.000
+            </div>
+            <div id="suco-tamanhos-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Etapas (frutas, adicionais) -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#f59e0b">Etapas <small style="font-weight:400;color:#888">(frutas, adicionais...)</small></h5>
+              <button class="btn btn-sm" style="background:#f59e0b;color:#fff" onclick="addSucoEtapa()">+ Etapa</button>
+            </div>
+            <div id="suco-etapas-container" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+        </div>
+
+        <!-- ── BUILDER: SORVETE ── -->
+        <div id="builder-sorvete" class="builder-section" style="display:none">
+          <h4 style="color:#0ea5e9;margin-bottom:12px">🍦 Configuração do Sorvete</h4>
+
+          <!-- Tamanhos / Bolas -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#0ea5e9">Tamanhos / Quantidade de Bolas</h5>
+              <button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="addSorveteTamanho()">+ Tamanho</button>
+            </div>
+            <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:8px 12px;font-size:0.78rem;color:#0369a1;margin-bottom:8px">
+              💡 Ex: 1 Bola — Gs 5.000 | 2 Bolas — Gs 9.000 | Casquinha Dupla — Gs 11.000
+            </div>
+            <div id="sorvete-tamanhos-lista" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Sabores -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#0ea5e9">Sabores</h5>
+              <button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="addSorveteSabor()">+ Sabor</button>
+            </div>
+            <div id="sorvete-sabores-lista" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px"></div>
+          </div>
+
+          <!-- Etapas (coberturas, caldas) -->
+          <div style="margin-bottom:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#0ea5e9">Etapas <small style="font-weight:400;color:#888">(coberturas, caldas — opcional)</small></h5>
+              <button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="addSorveteEtapa()">+ Etapa</button>
+            </div>
+            <div id="sorvete-etapas-container" style="display:flex;flex-direction:column;gap:8px"></div>
+          </div>
+
+          <!-- Variações (casquinha, copinho) -->
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <h5 style="margin:0;color:#0ea5e9">Variações <small style="font-weight:400;color:#888">(casquinha, copinho... — opcional)</small></h5>
+              <button class="btn btn-sm" style="background:#0ea5e9;color:#fff" onclick="addVariacaoSimples({}, 'sorvete-variacoes-lista')">+ Variação</button>
+            </div>
+            <div id="sorvete-variacoes-lista" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+        </div>
+
+        <!-- ── BUILDER: COMBO ── -->
+        <div id="builder-combo" class="builder-section" style="display:none">
+          <h4 style="color:#f59e0b;margin-bottom:12px">⭐ Configuração do Combo</h4>
+          <div class="form-group">
+            <label>Descrição do combo</label>
+            <textarea id="combo-descricao" class="form-control" rows="3"
+              placeholder="Ex: 1 lanche + 1 batata média + 1 refrigerante 350ml"></textarea>
+          </div>
+          <div style="margin-top:12px">
+            <label style="font-weight:600;display:block;margin-bottom:8px">Produtos inclusos <small style="color:#888;font-weight:400">(opcional — marque os produtos que compõem o combo)</small></label>
+            <div id="combo-produtos-selecionados" style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px;font-size:0.87rem">
+              <div style="text-align:center;color:#aaa;font-size:0.82rem;padding:12px">Selecione o tipo Combo para carregar a lista de produtos.</div>
             </div>
           </div>
         </div>
@@ -1305,7 +1619,7 @@
           <h4 style="color:#0891b2;margin-bottom:8px">⚖️ Venda por Kg</h4>
           <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#0e7490;margin-bottom:14px;line-height:1.5">
             O preço é cobrado proporcionalmente ao peso.<br>
-            No PDV, o garçom digita os gramas ou usa a <strong>balança Toledo Prix 3</strong> via USB Serial.
+            No PDV, o atendente digita os gramas ou usa a <strong>balança Toledo Prix 3</strong> via USB Serial.
           </div>
           <div class="form-group">
             <label class="form-label">Preço por kg (Gs)</label>
@@ -1315,15 +1629,9 @@
               style="font-size:1.1rem;font-weight:700;border:2px solid #0891b2">
             <small style="color:#666;font-size:0.78rem">100g de um produto a Gs 15.000/kg = Gs 1.500</small>
           </div>
-          <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#0369a1;margin-top:8px">
-            <strong>🔌 Balança Toledo Prix 3 Fit</strong><br>
-            Protocolo: <code>9600 8N1</code> via USB Serial.<br>
-            No PDV, clique em "Conectar Balança" — o peso é lido automaticamente ao pressionar PRINT na balança.<br><br>
-            <strong>⚠️ Compatibilidade:</strong> Requer Google Chrome ou Microsoft Edge (Web Serial API).
-          </div>
         </div>
 
-        <hr class="modal-divisor"/> -->
+        <hr class="modal-divisor"/>
         <!-- Estoque vinculado -->
         <div class="form-group" style="background:#f0fff4;border:1px solid #a7f3d0;border-radius:10px;padding:12px;margin-bottom:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -1452,6 +1760,15 @@
     </div>
 
     <!-- ===== MODAL CAIXA (faltava no HTML) ===== -->
+    <!-- Banner bloqueio de caixa por sangria -->
+    <div id="banner-caixa-bloqueado" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9990;background:#e74c3c;color:#fff;padding:12px 16px;text-align:center;font-weight:700;font-size:0.9rem">
+      ⛔ <span id="banner-sangria-msg">Caixa bloqueado por sangria.</span>
+      <span id="btn-solicitar-reabertura" style="margin-left:12px;background:rgba(255,255,255,0.2);padding:4px 12px;border-radius:6px;cursor:pointer"
+        onclick="autorizarReaberturaCaixa(document.getElementById('user-email')?.innerText||'')">
+        Autorizar Reabertura
+      </span>
+    </div>
+
     <div id="modal-caixa" class="modal-overlay" style="display:none">
       <div class="modal-content" style="max-width:420px">
         <h3 id="titulo-caixa">Operação de Caixa</h3>
@@ -1460,9 +1777,27 @@
           <label>Valor (Gs)</label>
           <input type="number" id="valor-caixa" class="form-control" placeholder="Ex: 50000" min="1">
         </div>
+        <!-- Tipo de despesa (só aparece quando tipo=despesa) -->
+        <div id="box-tipo-despesa" class="form-group" style="display:none">
+          <label>Categoria da Despesa</label>
+          <select id="tipo-despesa-sel" class="form-control" onchange="document.getElementById('box-desc-outro').style.display=this.value==='outro'?'block':'none'">
+            <option value="despesas_gerais">📦 Despesas Gerais</option>
+            <option value="contas_fixas">🏠 Contas Fixas (água, luz, aluguel...)</option>
+            <option value="pagamento_fornecedor">🤝 Pagamento de Fornecedor</option>
+            <option value="pagamento_funcionario">👷 Pagamento de Funcionário</option>
+            <option value="pagamento_terceiros">👥 Pagamento a Terceiros</option>
+            <option value="manutencao">🔧 Manutenção</option>
+            <option value="retirada">💵 Retirada / Pro-Labore</option>
+            <option value="motoboy">🛵 Pagamento Motoboy</option>
+            <option value="outro">✏️ Outro (especificar)</option>
+          </select>
+          <div id="box-desc-outro" style="display:none;margin-top:8px">
+            <input type="text" id="desc-outro-despesa" class="form-control" placeholder="Descreva o tipo de despesa">
+          </div>
+        </div>
         <div class="form-group">
-          <label>Descrição</label>
-          <input type="text" id="desc-caixa" class="form-control" placeholder="Ex: Pagamento fornecedor">
+          <label>Observação</label>
+          <input type="text" id="desc-caixa" class="form-control" placeholder="Detalhes opcionais">
         </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" onclick="fecharModal('modal-caixa')">Cancelar</button>

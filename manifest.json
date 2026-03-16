@@ -1,43 +1,35 @@
 {
-  "name": "Açaí Tropical",
-  "short_name": "Açaí Tropical",
-  "description": "Food Park - Delivery rápido",
+  "name": "",
+  "short_name": "",
+  "description": "",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#1d1d1d",
+  "theme_color": "#1a7a2e",
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg",
+      "src": "",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg",
+      "src": "",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "categories": [
-    "food",
-    "shopping"
-  ],
+  "categories": ["food", "shopping"],
   "shortcuts": [
     {
       "name": "Fazer Pedido",
       "short_name": "Pedido",
       "url": "/index.html",
-      "icons": [
-        {
-          "src": "https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg",
-          "sizes": "96x96"
-        }
-      ]
+      "icons": [{ "src": "", "sizes": "96x96" }]
     }
   ]
 }

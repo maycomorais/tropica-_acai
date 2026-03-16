@@ -113,6 +113,7 @@
 
     <div class="totais">
       <div>Subtotal: <span id="subtotal">Gs 0</span></div>
+      <div id="row-desconto" style="display:none;color:#e74c3c">Desconto: -<span id="desconto">Gs 0</span></div>
       <div id="row-frete" style="display:none">Frete: <span id="frete">Gs 0</span></div>
       <div class="total-final">TOTAL: <span id="total-geral">Gs 0</span></div>
     </div>
@@ -133,6 +134,7 @@
 
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script src="supabaseClient.js"></script>
+  <script>
     window.onload = function () {
       // Tenta carregar nome do restaurante do banco
       (async function() {
@@ -193,18 +195,32 @@
                : pesoG + 'g')
             : null;
 
-          var tipo_item = item.t || item.tipo     || '';
+          // variação/tipo: campo t, tipo ou variacao
+          var variacao  = item.t || item.variacao || item.tipo || '';
           var preparo   = item.pr || item.preparo || '';
-          var montagem  = item.m || item.montagem || [];
-          var obs       = item.o || item.obs      || '';
+          // montagem: campo m, montagem — pode ser array de strings ou array de objetos
+          var montagemRaw = item.m || item.montagem || [];
+          var obs       = item.o || item.obs || '';
 
           var det = '';
-          if (tipo_item && tipo_item !== nome && tipo_item !== 'Padrão' && tipo_item !== 'Montado')
-            det += '<span class="det">▸ ' + tipo_item + '</span>';
+
+          // Variação (tamanho de pizza, size de shake, etc.)
+          if (variacao && variacao !== nome && variacao !== 'Padrão' && variacao !== 'Montado')
+            det += '<span class="det">▸ ' + variacao + '</span>';
+
+          // Preparo
           if (preparo)
             det += '<span class="det">🍳 ' + preparo + '</span>';
-          if (Array.isArray(montagem) && montagem.length > 0)
-            montagem.forEach(function(l) { det += '<span class="det">· ' + l + '</span>'; });
+
+          // Montagem/etapas/sabores — normaliza: cada item pode ser string ou objeto {nome}
+          if (Array.isArray(montagemRaw) && montagemRaw.length > 0) {
+            montagemRaw.forEach(function(l) {
+              var txt = (typeof l === 'object' && l !== null) ? (l.nome || JSON.stringify(l)) : String(l);
+              if (txt) det += '<span class="det">· ' + txt + '</span>';
+            });
+          }
+
+          // Obs
           if (obs)
             det += '<span class="det-obs">⚠ ' + obs + '</span>';
 
@@ -220,9 +236,17 @@
 
         // Totais
         var v = p.valores || {};
-        var frete = v.frete || v.frete_cobrado_cliente || 0;
-        document.getElementById('subtotal').textContent    = 'Gs ' + (v.sub || v.subtotal || 0).toLocaleString('es-PY');
+        var frete    = v.frete || v.frete_cobrado_cliente || 0;
+        var desconto = v.desconto || v.desconto_cupom || 0;
+        var subtotal = v.sub || v.subtotal || 0;
+
+        document.getElementById('subtotal').textContent    = 'Gs ' + subtotal.toLocaleString('es-PY');
         document.getElementById('total-geral').textContent = 'Gs ' + (v.total || v.total_geral || 0).toLocaleString('es-PY');
+
+        if (desconto > 0) {
+          document.getElementById('row-desconto').style.display = '';
+          document.getElementById('desconto').textContent = 'Gs ' + desconto.toLocaleString('es-PY');
+        }
         if (frete > 0) {
           document.getElementById('row-frete').style.display = '';
           document.getElementById('frete').textContent = 'Gs ' + frete.toLocaleString('es-PY');

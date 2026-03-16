@@ -245,31 +245,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Carrega dados salvos (Nome, Tel, Último Pedido)
   carregarDadosLocal();
 
-  try {
-    // 2. Renderiza o Menu vindo do Banco de Dados
-    await renderMenu();
+  // 2. Renderiza o Menu vindo do Banco de Dados
+  await renderMenu();
 
-    // 3. Verifica Horário de Funcionamento e Banner
-    await verificarHorario();
-    
-    // 4. Restaura tracking se houver pedido ativo
-    restaurarTrackingSeExistir();
+  // 3. Verifica Horário de Funcionamento e Banner
+  await verificarHorario();
+  
+  // 4. Restaura tracking se houver pedido ativo
+  restaurarTrackingSeExistir();
 
-    // Restaura timer se página foi recarregada durante entrega
-    restaurarTimerSeNecessario();
-    
-    // 5. Carrega extras globais (adicionais que aparecem em todos os produtos)
-    await carregarExtrasGlobais();
-  } catch (e) {
-    console.error('Erro na inicialização do app:', e);
-  } finally {
-    // Garante que o overlay SEMPRE some, mesmo se houver erro
-    const overlay = document.getElementById('loading-overlay');
+  // Restaura timer se página foi recarregada durante entrega
+  restaurarTimerSeNecessario();
+  
+  // 5. Carrega extras globais (adicionais que aparecem em todos os produtos)
+  await carregarExtrasGlobais();
+
+  const overlay = document.getElementById('loading-overlay');
     if (overlay) {
       overlay.style.opacity = '0';
       setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
-  }
 });
 
 // Carrega os extras globais da tabela configuracoes
@@ -405,7 +400,6 @@ async function verificarHorario() {
   }
   
   // Aplica personalização visual
-  const logoVal = data.logo_url || data.icone_url || '';
   const nomeExib = data.nome_restaurante || data.nome_loja || '';
   if (nomeExib) {
     const h1 = document.querySelector('.store-details h1');
@@ -428,6 +422,7 @@ async function verificarHorario() {
   if (data.cor_primaria) {
     document.documentElement.style.setProperty('--primary', data.cor_primaria);
   }
+  const logoVal = data.logo_url || data.icone_url || '';
   if (logoVal) {
     document.querySelectorAll('.logo-area img, link[rel="apple-touch-icon"]').forEach(el => {
       el.src = logoVal;
@@ -526,7 +521,7 @@ async function renderMenu() {
   content.innerHTML = '';
 
   // Busca Categorias, Subcategorias e Produtos ativos
-  const { data: categsDb } = await supa.from('categorias').select('*').eq('ativa', true).order('ordem')
+  const { data: categsDb } = await supa.from('categorias').select('*').eq('ativo', true).order('ordem');
   let subcatsDb = [];
   try {
     const { data: _subs } = await supa.from('subcategorias').select('*').order('categoria_slug,ordem');
@@ -538,8 +533,8 @@ async function renderMenu() {
       .or('somente_balcao.is.null,somente_balcao.eq.false');
 
   if (!produtos || !categsDb) {
-    console.error('Erro ao carregar menu do banco — verifique RLS nas tabelas categorias e produtos');
-    // Não trava: deixa o overlay ser ocultado normalmente pelo DOMContentLoaded
+    console.error('Erro ao carregar menu do banco');
+    
     return;
   }
 
@@ -569,6 +564,7 @@ async function renderMenu() {
       montagem: p.montagem_config,
       e_montavel: p.e_montavel,
       subcategoria_slug: sub || null,
+      categoria_slug: cat || '',   // ← necessário para filtro de bebidas no motoboy
     };
 
     if (sub) {
@@ -1751,42 +1747,88 @@ function adicionarUpsell(item) {
 // ==========================================
 // CUPOM DE DESCONTO
 // ==========================================
-function aplicarCupom() {
+async function aplicarCupom() {
   const codigo = document.getElementById('cupom-codigo')?.value?.trim().toUpperCase();
   const msgBox = document.getElementById('cupom-msg');
-  
+
   if (!codigo) {
     msgBox.innerHTML = '<span style="color:#e74c3c">Digite um código</span>';
     msgBox.style.display = 'block';
     return;
   }
-  
-  // Cupons de exemplo - você pode buscar do banco de dados
-  const cupons = {
-    'BEMVINDO10': { tipo: 'percentual', valor: 10, min: 50000 },
-    'CANTINHO20': { tipo: 'percentual', valor: 20, min: 100000 },
-    'FRETEGRATIS': { tipo: 'frete', valor: 0, min: 0 }
-  };
-  
-  const cupom = cupons[codigo];
-  
-  if (!cupom) {
-    msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom inválido</span>';
-    msgBox.style.display = 'block';
-    cupomAplicado = null;
-  } else {
-    const subtotal = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
-    if (subtotal < cupom.min) {
-      msgBox.innerHTML = `<span style="color:#e74c3c">Valor mínimo: Gs ${cupom.min.toLocaleString('es-PY')}</span>`;
-      msgBox.style.display = 'block';
+
+  msgBox.innerHTML = '<span style="color:#888">🔍 Validando...</span>';
+  msgBox.style.display = 'block';
+
+  try {
+    const { data: cupom, error } = await supa
+      .from('cupons')
+      .select('id, codigo, tipo, valor, minimo, limite_uso, usos_realizados, ativo, validade')
+      .eq('codigo', codigo)
+      .eq('ativo', true)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!cupom) {
+      msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom inválido ou inativo</span>';
       cupomAplicado = null;
-    } else {
-      cupomAplicado = { codigo, ...cupom };
-      msgBox.innerHTML = '<span style="color:#27ae60">✅ Cupom aplicado!</span>';
-      msgBox.style.display = 'block';
+      atualizarTotalCheckout();
+      return;
     }
+
+    // Validade
+    if (cupom.validade) {
+      const hoje = new Date(); hoje.setHours(0,0,0,0);
+      const val  = new Date(cupom.validade + 'T00:00:00');
+      if (val < hoje) {
+        msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom expirado</span>';
+        cupomAplicado = null;
+        atualizarTotalCheckout();
+        return;
+      }
+    }
+
+    // Limite de usos
+    if (cupom.limite_uso != null && (cupom.usos_realizados || 0) >= cupom.limite_uso) {
+      msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom esgotado</span>';
+      cupomAplicado = null;
+      atualizarTotalCheckout();
+      return;
+    }
+
+    // Mínimo de compra
+    const subtotal = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
+    const minimo   = parseFloat(cupom.minimo) || 0;
+    if (subtotal < minimo) {
+      msgBox.innerHTML = `<span style="color:#e74c3c">Valor mínimo: Gs ${minimo.toLocaleString('es-PY')}</span>`;
+      cupomAplicado = null;
+      atualizarTotalCheckout();
+      return;
+    }
+
+    // Frete grátis — mas preserva frete_motoboy no banco para o financeiro
+    cupomAplicado = {
+      id:     cupom.id,
+      codigo: cupom.codigo,
+      tipo:   cupom.tipo,
+      valor:  parseFloat(cupom.valor) || 0,
+      min:    minimo,
+      usos_realizados: cupom.usos_realizados || 0,
+    };
+
+    const labelDesconto = cupom.tipo === 'percentual'
+      ? `${cupom.valor}% OFF`
+      : cupom.tipo === 'frete'
+        ? 'Frete Grátis'
+        : `Gs ${parseFloat(cupom.valor).toLocaleString('es-PY')} OFF`;
+
+    msgBox.innerHTML = `<span style="color:#27ae60">✅ Cupom aplicado! ${labelDesconto}</span>`;
+  } catch (e) {
+    msgBox.innerHTML = '<span style="color:#e74c3c">Erro ao validar cupom</span>';
+    console.error('Cupom:', e);
   }
-  
+
   atualizarTotalCheckout();
 }
 
@@ -2293,10 +2335,13 @@ async function enviarZap() {
   let pedidoDbId = null;
   let numeroPedido = null;
   
-  // Pedido 100% bebidas → entra direto como pronto (não vai para cozinha)
+  // Pedido 100% bebidas/açaí/shake/suco/sorvete → entra direto como pronto
+  const _CATS_SEM_COZINHA = ['bebida','drink','acai','açaí','shake','suco','sorvete'];
   const _soBebidas = carrinho.every(i => {
-    const cat = (i.categoria_slug || i.cat || '').toLowerCase();
-    return cat.includes('bebida') || cat.includes('drink');
+    const cat  = (i.categoria_slug || i.cat || '').toLowerCase();
+    const cfg  = i.montagem || {};
+    const tipo = (cfg && !Array.isArray(cfg) && cfg.__tipo) ? cfg.__tipo : '';
+    return _CATS_SEM_COZINHA.some(t => cat.includes(t) || tipo === t);
   });
 
   {
@@ -2314,15 +2359,18 @@ async function enviarZap() {
                    : '',
       itens: carrinho.map((i) => ({
         n: i.nome,
-        nome: i.nome,             // alias legível para admin/motoboy
+        nome: i.nome,
         p: i.preco,
         q: i.qtd,
-        qtd: i.qtd,               // alias legível
+        qtd: i.qtd,
         t: i.variacao || '',
+        variacao: i.variacao || '',
         pr: i.preparo || '',
-        m: i.montagem,
-        o: i.obs,
-        categoria_slug: i.categoria_slug || i.cat || ''  // para filtro de bebidas no motoboy
+        m: (i.montagem || []).map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m)).filter(Boolean),
+        montagem: (i.montagem || []).map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m)).filter(Boolean),
+        o: i.obs || '',
+        obs: i.obs || '',
+        categoria_slug: i.categoria_slug || i.cat || '',
       })),
       endereco_entrega: ref,
       geo_lat: localCliente ? localCliente.lat.toString() : null,
@@ -2392,7 +2440,7 @@ async function enviarZap() {
   const idDisplay = numeroPedido || 'TEMP';
   
   // 3. Monta Mensagem WhatsApp
-  let msg = `🇧🇷 PEDIDO #${idDisplay} - CANTINHO BRASILEIRO\n`;
+  let msg = `🛒 PEDIDO #${idDisplay} — ${(NOME_RESTAURANTE_APP || 'Restaurante').toUpperCase()}\n`;
   msg += `--------------------------\n`;
   msg += `👤 Cliente: ${nome}\n`;
   msg += `📱 Tel: ${telCompleto}\n`;
@@ -2420,9 +2468,15 @@ async function enviarZap() {
   carrinho.forEach((item) => {
     msg += `${item.qtd}x ${item.nome}`;
     if (item.variacao) msg += ` — ${item.variacao}`;
-    if (item.preparo) msg += ` [${item.preparo}]`;
+    if (item.preparo)  msg += ` [${item.preparo}]`;
     msg += `\n`;
-    if (item.montagem && item.montagem.length > 0) msg += `   + ${item.montagem.join(', ')}\n`;
+    if (item.montagem && item.montagem.length > 0) {
+      const montagemStr = item.montagem
+        .map(m => (typeof m === 'object' && m !== null) ? (m.nome || '') : String(m))
+        .filter(Boolean)
+        .join(', ');
+      if (montagemStr) msg += `   + ${montagemStr}\n`;
+    }
     if (item.obs) msg += `   Obs: ${item.obs}\n`;
   });
 

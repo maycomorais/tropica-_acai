@@ -20,10 +20,13 @@ let _perfilNome   = null;   // nome_display do usuário logado
 let audioHabilitado = false; // Controle de permissão do navegador
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Recupera a última aba ou define padrão
-  let lastTab = localStorage.getItem('simbora_lastTab');
-  if (!lastTab || !document.getElementById(lastTab)) {
-    lastTab = 'pedidos';
+  // Recupera a última aba — mas só restaura depois do auth carregar
+  // Para não disparar alert('Acesso restrito') antes de perfilUsuario estar definido,
+  // começa sempre no dashboard e restaura a aba real após o login
+  let lastTab = localStorage.getItem('app_lastTab');
+  const _restrictedTabs = ['inventario', 'financeiro', 'adminmaster'];
+  if (!lastTab || !document.getElementById(lastTab) || _restrictedTabs.includes(lastTab)) {
+    lastTab = 'dashboard';
   }
   showTab(lastTab);
 
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // === SISTEMA DE AUTO-REFRESH (10 SEGUNDOS) ===
   // Backup caso o Realtime falhe
   setInterval(() => {
-    const abaAtual = localStorage.getItem('simbora_lastTab');
+    const abaAtual = localStorage.getItem('app_lastTab');
     // true = modo silencioso (sem recarregar som se já estiver tocando)
     if (abaAtual === 'pedidos') carregarPedidos(true);
     if (abaAtual === 'cozinha') carregarCozinha();
@@ -150,7 +153,7 @@ function showTab(tabId, event) {
     realTabId = 'pedidos';
   }
 
-  localStorage.setItem('simbora_lastTab', realTabId);
+  localStorage.setItem('app_lastTab', realTabId);
 
   // 2. Reset visual
   document.querySelectorAll('.tab-content').forEach((t) => t.classList.remove('active'));
@@ -195,7 +198,8 @@ function showTab(tabId, event) {
     }
   }
   if (realTabId === 'inventario') {
-    if (perfilUsuario === 'dono' || perfilUsuario === 'gerente') carregarInventario();
+    if (!perfilUsuario) return; // auth not loaded yet — wait
+    if (perfilUsuario === 'dono' || perfilUsuario === 'gerente' || perfilUsuario === 'adminMaster') carregarInventario();
     else { alert('Acesso restrito.'); showTab('pedidos', null); }
   }
 }
@@ -277,7 +281,7 @@ async function salvarFeatures() {
   document.querySelectorAll('[data-feat-tipo]').forEach(el => { tipos[el.dataset.featTipo] = el.checked; });
   document.querySelectorAll('[data-feat-func]').forEach(el => { funcs[el.dataset.featFunc] = el.checked; });
   const features = { tabs, tipos_produto: tipos, funcionalidades: funcs };
-  const { error } = await supa.from('configuracoes').update({ features_ativas: features }).eq('id', 1);
+  const { error } = await supa.from('configuracoes').update({ features_ativas: features }).gt('id', 0);
   if (error) return alert('Erro: ' + error.message);
   FEATURES_ATIVAS = features;
   alert('✅ Features salvas!');
@@ -346,7 +350,7 @@ function iniciarRealtime() {
       }
       // Atualiza tela — silencioso=true em updates para não re-tocar alarme
       const silencioso = payload.eventType === 'UPDATE';
-      const abaAtual = localStorage.getItem('simbora_lastTab');
+      const abaAtual = localStorage.getItem('app_lastTab');
       if (abaAtual === 'pedidos') carregarPedidos(silencioso);
       if (abaAtual === 'cozinha') carregarCozinha();
       if (abaAtual === 'dashboard') carregarDashboard();
@@ -518,12 +522,12 @@ async function carregarPedidos(silencioso = false) {
         if (p.tipo_entrega === 'delivery') {
           const jsonSeguro = encodeURIComponent(JSON.stringify(p));
           checkbox = `<input type="checkbox" class="check-pedido" value="${jsonSeguro}" style="width:20px; height:20px;">`;
-          acoes = `${btnPrint} ${btnCancelar} <span style="color:#155724; font-weight:bold; font-size:0.9rem; margin-left:5px;"><i class="fas fa-motorcycle"></i> Aguardando Rota</span>`;
+          acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})" title="Avisar cliente via WhatsApp"><i class="fab fa-whatsapp"></i></button> <span style="color:#155724; font-weight:bold; font-size:0.9rem; margin-left:5px;"><i class="fas fa-motorcycle"></i> Aguardando Rota</span>`;
         } else {
           const icone = p.tipo_entrega === 'balcao' ? 'fa-store' : 'fa-hand-holding';
           const tipo = p.tipo_entrega === 'balcao' ? 'BALCÃO' : 'RETIRADA';
           checkbox = `<div style="text-align:center; color:#e67e22; font-size:1.2rem"><i class="fas ${icone}" title="${tipo}"></i></div>`;
-          acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})">Baixar</button>`;
+          acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})" title="Avisar cliente via WhatsApp"><i class="fab fa-whatsapp"></i></button> <button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})">Baixar</button>`;
         }
       }
 
@@ -592,7 +596,8 @@ async function carregarPedidos(silencioso = false) {
                 ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
                 : '';
           cardAcoes = `<button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})"><i class="fas fa-check"></i> Entregar</button>
-                        <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i> Imprimir</button>
+                        <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})"><i class="fab fa-whatsapp"></i></button>
+                        <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i></button>
                         ${_btnCancelBalcao}`;
         } else if (p.status === 'pronto_entrega') {
           const _btnCancelPronto =
@@ -604,7 +609,8 @@ async function carregarPedidos(silencioso = false) {
           cardAcoes = `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:#155724;font-weight:600;">
                         <input type="checkbox" class="check-pedido" value="${jsonSeguro}" style="width:18px;height:18px;"> Incluir na Rota
                     </label>
-                    <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i> Imprimir</button>
+                    <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})"><i class="fab fa-whatsapp"></i> Avisar</button>
+                    <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i></button>
                     ${_btnCancelPronto}`;
         }
 
@@ -772,7 +778,7 @@ async function mudarStatus(id, novoStatus) {
 
   if (typeof pararAlarme === 'function') pararAlarme();
 
-  const abaAtual = localStorage.getItem('simbora_lastTab');
+  const abaAtual = localStorage.getItem('app_lastTab');
   if (abaAtual === 'cozinha') carregarCozinha();
   else if (abaAtual === 'pedidos') carregarPedidos();
   else if (abaAtual === 'pdv') carregarMonitorMesas();
@@ -962,227 +968,178 @@ async function calcularFinanceiro() {
   const abaFin = document.getElementById('financeiro');
   if (!abaFin || !abaFin.classList.contains('active')) return;
 
-  console.log('💰 Calculando Financeiro...');
-
-  // Pega elementos do DOM
-  const elInicio = document.getElementById('fin-inicio');
-  const elFim = document.getElementById('fin-fim');
-  const elTipo = document.getElementById('fin-tipo');
-  const elFactura = document.getElementById('fin-factura'); // NOVO filtro
-
+  const elInicio  = document.getElementById('fin-inicio');
+  const elFim     = document.getElementById('fin-fim');
+  const elTipo    = document.getElementById('fin-tipo');
+  const elFactura = document.getElementById('fin-factura');
   if (!elInicio || !elFim || !elTipo) return;
 
-  const inicio = elInicio.value;
-  const fim = elFim.value;
-  const tipoFiltro = elTipo.value;
-  const facturaFiltro = elFactura ? elFactura.value : 'todos'; // NOVO
-
-  let dataInicio, dataFim;
-
   const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
-  const dia = String(hoje.getDate()).padStart(2, '0');
+  const ano  = hoje.getFullYear();
+  const mes  = String(hoje.getMonth()+1).padStart(2,'0');
+  const dia  = String(hoje.getDate()).padStart(2,'0');
+  if (!elInicio.value) elInicio.value = `${ano}-${mes}-${dia}`;
+  if (!elFim.value)    elFim.value    = `${ano}-${mes}-${dia}`;
 
-  // Define período
-  if (inicio && fim) {
-    dataInicio = inicio + ' 00:00:00';
-    dataFim = fim + ' 23:59:59';
-  } else {
-    if (!inicio) elInicio.value = `${ano}-${mes}-${dia}`;
-    if (!fim) elFim.value = `${ano}-${mes}-${dia}`;
+  const inicio = elInicio.value, fim = elFim.value;
+  const tipoFiltro    = elTipo.value;
+  const facturaFiltro = elFactura ? elFactura.value : 'todos';
 
-    dataInicio = `${ano}-${mes}-${dia} 00:00:00`;
-    dataFim = `${ano}-${mes}-${dia} 23:59:59`;
-  }
+  // UTC correction for PY (UTC-4)
+  const _tz = 4*60*60*1000;
+  const utcI = new Date(new Date(inicio+'T00:00:00').getTime()+_tz).toISOString();
+  const utcF = new Date(new Date(fim+'T23:59:59').getTime()+_tz).toISOString();
 
-  // ========================================
-  // 1. BUSCA PEDIDOS (CORRIGIDO)
-  // ========================================
-  // Paraguay = UTC-4 → shift local dates to UTC for correct Supabase filtering
-  // e.g. local 2026-02-26 00:00 = UTC 2026-02-26 04:00
-  const _tzOffsetMs = 4 * 60 * 60 * 1000; // UTC-4 in ms
-  const _localToUTC = (localDateStr, isEnd) => {
-    const d = new Date(localDateStr + (isEnd ? 'T23:59:59' : 'T00:00:00'));
-    return new Date(d.getTime() + _tzOffsetMs).toISOString();
-  };
-  const utcInicio = dataInicio.includes('T') ? dataInicio : _localToUTC(dataInicio.split(' ')[0], false);
-  const utcFim    = dataFim.includes('T')    ? dataFim    : _localToUTC(dataFim.split(' ')[0], true);
+  // ── Determina se é visão geral ou caixa próprio ────────────────
+  const ehGestor = ['dono','gerente','adminMaster'].includes(perfilUsuario);
+  const emailAtual = document.getElementById('user-email')?.innerText || '';
 
-  // Financeiro inclui todos os status exceto pendente e cancelado
-  // (em_preparo = PDV em andamento; pronto/saiu/entregue = delivery em curso ou finalizado)
-  let query = supa
-    .from('pedidos')
-    .select('*, motoboys(nome)')
-    .in('status', ['entregue', 'em_preparo', 'pronto_entrega', 'saiu_entrega'])
-    .gte('created_at', utcInicio)
-    .lte('created_at', utcFim);
+  let query = supa.from('pedidos').select('*, motoboys(nome)')
+    .in('status',['entregue','em_preparo','pronto_entrega','saiu_entrega'])
+    .gte('created_at', utcI).lte('created_at', utcF);
+  if (tipoFiltro !== 'todos') query = query.eq('forma_pagamento', tipoFiltro);
 
-  // Filtro por forma de pagamento
-  if (tipoFiltro !== 'todos') {
-    query = query.eq('forma_pagamento', tipoFiltro); // ← CORRIGIDO: campo certo
-  }
+  const { data: pedidos } = await query;
+  let peds = pedidos || [];
 
-  const { data: pedidos, error } = await query;
-  if (error) {
-    console.error('Erro ao buscar pedidos:', error);
-    return;
-  }
+  if (facturaFiltro === 'com_factura')
+    peds = peds.filter(p => p.dados_factura?.ruc || p.dados_factura?.ci);
+  else if (facturaFiltro === 'sem_factura')
+    peds = peds.filter(p => !p.dados_factura?.ruc && !p.dados_factura?.ci);
 
-  // ========================================
-  // 2. FILTRA FACTURA (SE NECESSÁRIO)
-  // ========================================
-  let pedidosFiltrados = pedidos || [];
+  // ── Movimentações de caixa ─────────────────────────────────────
+  let caixaQuery = supa.from('movimentacoes_caixa').select('*')
+    .gte('created_at', inicio+' 00:00:00')
+    .lte('created_at', fim+' 23:59:59');
+  if (!ehGestor) caixaQuery = caixaQuery.eq('usuario_email', emailAtual);
 
-  if (facturaFiltro === 'com_factura') {
-    pedidosFiltrados = pedidosFiltrados.filter(
-      (p) => p.dados_factura && (p.dados_factura.ruc || p.dados_factura.ci),
-    );
-  } else if (facturaFiltro === 'sem_factura') {
-    pedidosFiltrados = pedidosFiltrados.filter(
-      (p) => !p.dados_factura || (!p.dados_factura.ruc && !p.dados_factura.ci),
-    );
-  }
+  const { data: caixa } = await caixaQuery;
 
-  // ========================================
-  // 3. BUSCA MOVIMENTAÇÕES DE CAIXA
-  // ========================================
-  const { data: caixa } = await supa
-    .from('movimentacoes_caixa')
-    .select('*')
-    .gte('created_at', dataInicio)
-    .lte('created_at', dataFim);
+  // Verifica bloqueio de caixa (sangria limite)
+  _verificarBloqueioCaixa(emailAtual);
 
-  // ========================================
-  // 4. CÁLCULOS
-  // ========================================
-  const safeNum = (v) => {
+  // ── Cálculos ───────────────────────────────────────────────────
+  const safeNum = v => {
     if (!v) return 0;
     if (typeof v === 'number') return v;
-    let limpo = v
-      .toString()
-      .replace(/[^\d,-]/g, '')
-      .replace(',', '.');
-    return parseFloat(limpo) || 0;
+    return parseFloat(v.toString().replace(/[^\d.,-]/g,'').replace(',','.')) || 0;
   };
-  const fmt = (n) => 'Gs ' + n.toLocaleString('es-PY');
+  const fmt = n => 'Gs ' + n.toLocaleString('es-PY');
 
-  let faturamento = 0;
-  let totalPix = 0;
-  let totalTransf = 0;
-  let totalCartao = 0;
-  let totalEfetivo = 0;
-  let custoEntregas = 0;
-  let qtdPedidos = 0;
+  let faturamento=0, totalPix=0, totalTransf=0, totalCartao=0, totalEfetivo=0;
+  let custoEntregas=0, qtdPedidos=0;
   const motoMap = {};
 
-  pedidosFiltrados.forEach((p) => {
-    const valorPedido = safeNum(p.total_geral);
-    faturamento += valorPedido;
-    qtdPedidos++;
-
-    const pag = (p.forma_pagamento || '').toLowerCase();
-
-    if (pag.includes('pix')) totalPix += valorPedido;
-    else if (pag.includes('transfer')) totalTransf += valorPedido;
-    else if (pag.includes('cartao') || pag.includes('cartão')) totalCartao += valorPedido;
-    else if (pag.includes('efetivo') || pag.includes('dinheiro')) totalEfetivo += valorPedido;
+  peds.forEach(p => {
+    const val = safeNum(p.total_geral);
+    faturamento += val; qtdPedidos++;
+    const pag = (p.forma_pagamento||'').toLowerCase();
+    if      (pag.includes('pix'))                     totalPix     += val;
+    else if (pag.includes('transfer'))                totalTransf  += val;
+    else if (pag.includes('cartao')||pag.includes('cartão')) totalCartao += val;
+    else if (pag.includes('efetivo')||pag.includes('dinheiro')) totalEfetivo += val;
 
     if (p.tipo_entrega === 'delivery') {
-      // Usa frete_motoboy salvo no pedido (configurado via tabela_frete).
-      // Fallback para TAXA_MOTOBOY fixo apenas em pedidos antigos sem o campo.
-      const taxaEntrega = safeNum(p.frete_motoboy) || (typeof TAXA_MOTOBOY !== 'undefined' ? TAXA_MOTOBOY : 5000);
-      custoEntregas += taxaEntrega;
-      const nomeMoto = p.motoboys?.nome || 'Sem Motoboy';
-      if (!motoMap[nomeMoto]) {
-        motoMap[nomeMoto] = { entregas: 0, frete_total: 0 };
-        // Adiciona combustível 1× por motoboy único no período
-        custoEntregas += typeof AJUDA_COMBUSTIVEL !== 'undefined' ? AJUDA_COMBUSTIVEL : 20000;
-      }
-      motoMap[nomeMoto].entregas++;
-      motoMap[nomeMoto].frete_total += taxaEntrega;
+      const taxa = safeNum(p.frete_motoboy) || TAXA_MOTOBOY || 0;
+      custoEntregas += taxa;
+      const nm = p.motoboys?.nome || 'Sem Motoboy';
+      if (!motoMap[nm]) { motoMap[nm]={entregas:0,frete_total:0}; custoEntregas+=AJUDA_COMBUSTIVEL||0; }
+      motoMap[nm].entregas++; motoMap[nm].frete_total+=taxa;
     }
   });
 
-  // Movimentações de caixa (despesas e sangrias reduzem; suprimentos/abertura aumentam)
-  let totalSaidas = 0; // despesa + sangria
-  let totalEntradas = 0; // suprimento + abertura
-  if (caixa) {
-    caixa.forEach((c) => {
-      const v = safeNum(c.valor);
-      if (c.tipo === 'despesa' || c.tipo === 'sangria') totalSaidas += v;
-      if (c.tipo === 'suprimento' || c.tipo === 'abertura') totalEntradas += v;
-    });
-  }
+  let totalSaidas=0, totalEntradas=0, totalSangria=0;
+  (caixa||[]).forEach(c => {
+    const v = safeNum(c.valor);
+    if (c.tipo==='despesa')                        totalSaidas  += v;
+    if (c.tipo==='sangria')                        { totalSaidas+=v; totalSangria+=v; }
+    if (c.tipo==='suprimento'||c.tipo==='abertura') totalEntradas += v;
+  });
 
-  // Guarda estado para fecharCaixaResumo()
-  _caixaState = {
-    faturamento,
-    custoEntregas,
-    totalSaidas,
-    totalEntradas,
-    totalPix,
-    totalTransf,
-    totalCartao,
-    totalEfetivo,
-    qtdPedidos,
-  };
-
-  // ========================================
-  // 5. ATUALIZA INTERFACE
-  // ========================================
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.innerText = val;
-  };
-
-  setVal('card-faturamento', fmt(faturamento));
-  setVal('card-custo-moto', fmt(custoEntregas));
+  _caixaState = { faturamento, custoEntregas, totalSaidas, totalEntradas,
+    totalPix, totalTransf, totalCartao, totalEfetivo, qtdPedidos, totalSangria };
 
   const lucro = faturamento + totalEntradas - custoEntregas - totalSaidas;
-  setVal('card-lucro', fmt(lucro));
+  const setV = (id,v) => { const el=document.getElementById(id); if(el) el.innerText=v; };
+  setV('card-faturamento',  fmt(faturamento));
+  setV('card-custo-moto',   fmt(custoEntregas));
+  setV('card-lucro',        fmt(lucro));
+  setV('total-pix',         fmt(totalPix));
+  setV('total-transf',      fmt(totalTransf));
+  setV('total-cartao',      fmt(totalCartao));
+  setV('total-efetivo',     fmt(totalEfetivo));
+  setV('card-qtd-pedidos',  qtdPedidos);
+  setV('card-ticket-medio', fmt(qtdPedidos>0 ? faturamento/qtdPedidos : 0));
 
-  setVal('total-pix', fmt(totalPix));
-  setVal('total-transf', fmt(totalTransf)); // Agora funciona
-  setVal('total-cartao', fmt(totalCartao));
-  setVal('total-efetivo', fmt(totalEfetivo));
+  // Identificação do caixa atual
+  const badgeCaixa = document.getElementById('badge-caixa-operador');
+  if (badgeCaixa) {
+    badgeCaixa.textContent = ehGestor
+      ? '📊 Visão geral — todos os caixas'
+      : `💼 Seu caixa — ${emailAtual}`;
+  }
 
-  // NOVOS campos (se existirem no HTML)
-  setVal('card-qtd-pedidos', qtdPedidos);
-  const ticketMedio = qtdPedidos > 0 ? faturamento / qtdPedidos : 0;
-  setVal('card-ticket-medio', fmt(ticketMedio));
-
-  // ========================================
-  // 6. TABELA MOTOBOYS
-  // ========================================
-  const tbodyMoto = document.getElementById('lista-financeiro-motoboys');
-  if (tbodyMoto) {
-    tbodyMoto.innerHTML = '';
-    if (Object.keys(motoMap).length === 0) {
-      tbodyMoto.innerHTML =
-        '<tr><td colspan="4" style="text-align:center; color:#999">Nenhuma entrega no período</td></tr>';
+  // Tabela motoboys
+  const tbM = document.getElementById('lista-financeiro-motoboys');
+  if (tbM) {
+    tbM.innerHTML = '';
+    if (!Object.keys(motoMap).length) {
+      tbM.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega no período</td></tr>';
     } else {
-      for (const [nome, dados] of Object.entries(motoMap)) {
-        const qtd = dados.entregas;
-        const freteTotal = dados.frete_total;
-        const combustivel = typeof AJUDA_COMBUSTIVEL !== 'undefined' ? AJUDA_COMBUSTIVEL : 20000;
-        const totalMoto = freteTotal + combustivel;
-        tbodyMoto.innerHTML += `
-                    <tr>
-                        <td data-label="Nome">${nome}</td>
-                        <td data-label="Entregas">${qtd}</td>
-                        <td data-label="Taxa">Frete: Gs ${freteTotal.toLocaleString('es-PY')} + comb. Gs ${combustivel.toLocaleString('es-PY')}</td>
-                        <td data-label="Total a Pagar"><strong>Gs ${totalMoto.toLocaleString('es-PY')}</strong></td>
-                    </tr>`;
+      for (const [nome, d] of Object.entries(motoMap)) {
+        const comb = AJUDA_COMBUSTIVEL||0;
+        const tot = d.frete_total + comb;
+        tbM.innerHTML += `<tr>
+          <td>${nome}</td><td>${d.entregas}</td>
+          <td style="font-size:0.82rem">Frete: ${fmt(d.frete_total)} + comb. ${fmt(comb)}</td>
+          <td><strong>${fmt(tot)}</strong></td></tr>`;
       }
     }
   }
+}
 
-  console.log('✅ Financeiro atualizado:', {
-    pedidos: qtdPedidos,
-    faturamento: fmt(faturamento),
-    lucro: fmt(lucro),
+// ── Verifica bloqueio por sangria limite ───────────────────────────
+async function _verificarBloqueioCaixa(emailAtual) {
+  const { data: cfg } = await supa.from('configuracoes').select('sangria_limite, caixa_status').maybeSingle();
+  if (!cfg?.sangria_limite) return;
+
+  const hoje = new Date();
+  const dStr = hoje.toISOString().split('T')[0];
+  const { data: movs } = await supa.from('movimentacoes_caixa')
+    .select('tipo, valor').eq('usuario_email', emailAtual)
+    .gte('created_at', dStr + ' 00:00:00').lte('created_at', dStr + ' 23:59:59');
+
+  let efetivo = 0;
+  (movs||[]).forEach(m => {
+    const v = parseFloat(m.valor)||0;
+    if (m.tipo==='efetivo'||m.tipo==='abertura'||m.tipo==='suprimento') efetivo+=v;
+    if (m.tipo==='sangria') efetivo-=v;
   });
+
+  const status = cfg.caixa_status || {};
+  const bloqueado = status[emailAtual]?.bloqueado;
+  const banner = document.getElementById('banner-caixa-bloqueado');
+
+  if (!bloqueado && efetivo >= cfg.sangria_limite) {
+    // Bloqueia
+    const novoStatus = { ...status, [emailAtual]: { bloqueado: true, bloqueado_em: new Date().toISOString(), autorizado_por: null } };
+    await supa.from('configuracoes').update({ caixa_status: novoStatus }).gt('id', 0);
+    if (banner) { banner.style.display='block'; banner.querySelector('#banner-sangria-msg').textContent = `Caixa bloqueado: efetivo atingiu o limite de sangria (Gs ${cfg.sangria_limite.toLocaleString('es-PY')}). Solicite autorização de um gestor.`; }
+    return;
+  }
+  if (banner) banner.style.display = bloqueado ? 'block' : 'none';
+}
+
+async function autorizarReaberturaCaixa(emailAlvo) {
+  if (!['dono','gerente','adminMaster'].includes(perfilUsuario)) { alert('Acesso negado.'); return; }
+  if (!confirm(`Autorizar reabertura do caixa de ${emailAlvo}?`)) return;
+  const { data: cfg } = await supa.from('configuracoes').select('caixa_status').maybeSingle();
+  const status = { ...(cfg?.caixa_status||{}) };
+  const emailGestor = document.getElementById('user-email')?.innerText || '';
+  status[emailAlvo] = { bloqueado: false, autorizado_por: emailGestor, autorizado_em: new Date().toISOString() };
+  await supa.from('configuracoes').update({ caixa_status: status }).gt('id', 0);
+  alert('✅ Caixa reaberto!');
+  calcularFinanceiro();
 }
 
 async function exportarFinanceiro() {
@@ -1490,44 +1447,57 @@ function abrirModalCaixa(tipo) {
   document.getElementById('modal-caixa').style.display = 'flex';
   document.getElementById('tipo-caixa').value = tipo;
 
-  let titulo = 'Operação';
-  if (tipo === 'abertura') titulo = '🟢 Abertura de Caixa';
-  if (tipo === 'suprimento') titulo = '➕ Adicionar Dinheiro';
-  if (tipo === 'sangria') titulo = '💸 Sangria (Retirada)';
-  if (tipo === 'despesa') titulo = '🧾 Pagar Despesa';
-
-  document.getElementById('titulo-caixa').innerText = titulo;
+  const titulos = { abertura:'🟢 Abrir Caixa', suprimento:'➕ Suprimento', sangria:'💸 Sangria', despesa:'🧾 Despesa' };
+  document.getElementById('titulo-caixa').innerText = titulos[tipo] || 'Operação';
   document.getElementById('valor-caixa').value = '';
-  document.getElementById('desc-caixa').value = '';
+  document.getElementById('desc-caixa').value  = '';
+
+  // Mostra/oculta seletor de tipo de despesa
+  const despesaBox = document.getElementById('box-tipo-despesa');
+  if (despesaBox) despesaBox.style.display = tipo === 'despesa' ? 'block' : 'none';
   document.getElementById('valor-caixa').focus();
 }
 
 async function salvarMovimentacaoCaixa() {
-  const tipo = document.getElementById('tipo-caixa').value;
-  const valor = document.getElementById('valor-caixa').value;
-  const desc = document.getElementById('desc-caixa').value;
+  const tipo  = document.getElementById('tipo-caixa').value;
+  const valor = parseFloat(document.getElementById('valor-caixa').value);
+  const desc  = document.getElementById('desc-caixa').value.trim();
+  if (!valor || valor <= 0) { alert('Digite um valor válido.'); return; }
 
-  if (!valor || valor <= 0) return alert('Digite um valor válido.');
+  const emailAtual = document.getElementById('user-email')?.innerText || '';
 
-  // Pega email do usuario logado (simulado ou do html)
-  const userEmail = document.getElementById('user-email').innerText || 'admin';
-
-  const { error } = await supa.from('movimentacoes_caixa').insert([
-    {
-      tipo: tipo,
-      valor: valor,
-      descricao: desc,
-      usuario_email: userEmail,
-    },
-  ]);
-
-  if (error) {
-    alert('Erro ao salvar: ' + error.message);
-  } else {
-    alert('Operação registrada com sucesso!');
-    fecharModal('modal-caixa');
-    calcularFinanceiro(); // Atualiza os números
+  // Bloquear se caixa bloqueado (apenas para tipos que movimentam efetivo)
+  const { data: cfg } = await supa.from('configuracoes').select('caixa_status').maybeSingle();
+  const status = cfg?.caixa_status || {};
+  if (status[emailAtual]?.bloqueado && tipo !== 'sangria') {
+    alert('⛔ Caixa bloqueado por sangria. Solicite autorização de um gestor para reabrir.');
+    return;
   }
+
+  // Tipo de despesa
+  let tipoDespesa   = null;
+  let descOutro     = null;
+  if (tipo === 'despesa') {
+    tipoDespesa = document.getElementById('tipo-despesa-sel')?.value || 'despesas_gerais';
+    if (tipoDespesa === 'outro') {
+      descOutro = document.getElementById('desc-outro-despesa')?.value?.trim() || '';
+      if (!descOutro) { alert('Descreva o tipo da despesa.'); return; }
+    }
+  }
+
+  const insert = {
+    tipo, valor,
+    descricao: desc,
+    usuario_email: emailAtual,
+    tipo_despesa:   tipoDespesa,
+    descricao_outro: descOutro,
+  };
+
+  const { error } = await supa.from('movimentacoes_caixa').insert([insert]);
+  if (error) { alert('Erro: ' + error.message); return; }
+  alert('✅ Operação registrada!');
+  fecharModal('modal-caixa');
+  calcularFinanceiro();
 }
 
 async function fecharCaixaResumo() {
@@ -1636,15 +1606,37 @@ function enviarRotaZap() {
       msg += `👤 ${p.cliente_nome} | 📞 ${p.cliente_telefone || ''}\n`;
 
       if (p.itens && Array.isArray(p.itens)) {
-        // Bebidas: categoria_slug === 'bebidas' (campo salvo a partir de agora)
-        // Fallback: campos abreviados n/q para pedidos antigos
-        const bebidas = p.itens.filter((i) => {
+        // Separa bebidas (para levar imediatamente) do restante
+        const bebidas    = p.itens.filter(i => {
           const cat = (i.categoria_slug || i.cat || '').toLowerCase();
-          return cat === 'bebidas' || cat.includes('bebida');
+          return cat === 'bebidas' || cat.includes('bebida') || cat.includes('drink');
         });
+        const naoFoodKds = p.itens.filter(i => {
+          const cat = (i.categoria_slug || i.cat || '').toLowerCase();
+          return !(cat === 'bebidas' || cat.includes('bebida') || cat.includes('drink'));
+        });
+
+        // Helper: formata um item com variação + montagem
+        const _fmtItem = (b) => {
+          let txt = `${b.qtd || b.q || 1}x ${b.nome || b.n}`;
+          const v = b.variacao || b.t || '';
+          if (v) txt += ` (${v})`;
+          const mont = b.montagem || b.m || [];
+          if (Array.isArray(mont) && mont.length) {
+            const itensStr = mont.map(x => (typeof x === 'object' ? x.nome || '' : x)).filter(Boolean).join(', ');
+            if (itensStr) txt += ` [${itensStr}]`;
+          }
+          if (b.obs || b.o) txt += ` ⚠ ${b.obs || b.o}`;
+          return txt;
+        };
+
         if (bebidas.length > 0) {
-          const lista = bebidas.map((b) => `${b.qtd || b.q || 1}x ${b.nome || b.n}`).join(', ');
+          const lista = bebidas.map(_fmtItem).join(', ');
           msg += `🥤 *LEVAR:* ${lista}\n`;
+        }
+        // Nota sobre outros itens (já ficam na cozinha, info útil para motoboy saber o que pegar)
+        if (naoFoodKds.length > 0) {
+          msg += `📦 *Itens:* ` + naoFoodKds.map(_fmtItem).join(' | ') + `\n`;
         }
       }
 
@@ -1831,6 +1823,9 @@ function renderizarCardsProdutos(lista) {
         <button class="btn btn-sm btn-primary" onclick='editarProduto(${pJson})'>
           <i class="fas fa-edit"></i> Editar
         </button>
+        <button class="btn btn-sm btn-info" onclick="duplicarProduto(${p.id})" title="Duplicar produto">
+          <i class="fas fa-copy"></i>
+        </button>
         <button class="btn btn-sm ${p.ativo ? 'btn-warning' : 'btn-success'}"
           onclick="pausarProduto(${p.id}, ${p.ativo})"
           title="${p.ativo ? 'Pausar produto' : 'Reativar produto'}">
@@ -1849,20 +1844,7 @@ function editarProduto(p) {
   abrirModalProduto(p);
 }
 
-async function deletarProduto(id) {
-  if (
-    !confirm(
-      '⚠️ ATENÇÃO: Deletar este produto?\n\nEsta ação não pode ser desfeita. O produto será removido permanentemente do sistema.',
-    )
-  )
-    return;
-  const { error } = await supa.from('produtos').delete().eq('id', id);
-  if (error) alert('❌ Erro ao deletar: ' + error.message);
-  else {
-    alert('✅ Produto deletado!');
-    carregarProdutos();
-  }
-}
+// (deletarProduto defined below alongside pausarProduto)
 
 function previewUpload(input) {
   if (input.files && input.files[0]) {
@@ -1897,10 +1879,10 @@ async function salvarProduto() {
     // Monta o config completo
     let configFinal = { __tipo: tipo };
 
-    const usaMontavel = ['montavel', 'acai', 'suco'];
-    if (usaMontavel.includes(tipo)) {
+    // ── MONTÁVEL GENÉRICO ─────────────────────────────────────────
+    if (tipo === 'montavel') {
       const etapas = [];
-      document.querySelectorAll('.etapa-item').forEach((div) => {
+      document.querySelectorAll('#builder-montavel .etapa-item').forEach((div) => {
         etapas.push({
           titulo: div.querySelector('.step-titulo').value,
           max: parseInt(div.querySelector('.step-max').value),
@@ -1914,7 +1896,7 @@ async function salvarProduto() {
       configFinal.etapas = etapas;
     }
 
-    // Shake dedicado: tamanhos + sabores
+    // ── SHAKE ─────────────────────────────────────────────────────
     if (tipo === 'shake') {
       const tamanhos = [];
       document.querySelectorAll('.shake-tamanho-row').forEach((row) => {
@@ -1931,69 +1913,162 @@ async function salvarProduto() {
         if (nome) sabores.push({ nome, preco, img });
       });
       configFinal.shake = { tamanhos, sabores };
-      // preco base = menor tamanho
       const precos = tamanhos.map(t => t.preco).filter(p => p > 0);
-      if (precos.length > 0) {
-        document.getElementById('prod-preco').value = Math.min(...precos);
-      }
+      if (precos.length > 0) document.getElementById('prod-preco').value = Math.min(...precos);
     }
 
+    // ── PIZZA (NOVO: tipos dinâmicos) ─────────────────────────────
     if (tipo === 'pizza') {
-      const tamanhos = [];
-      document.querySelectorAll('.pizza-tamanho-row').forEach((row) => {
-        const pTrad = parseFloat(row.querySelector('[data-f="preco_tradicional"]')?.value) || 0;
-        const pEsp = parseFloat(row.querySelector('[data-f="preco_especial"]')?.value) || 0;
-        const pDoce = parseFloat(row.querySelector('[data-f="preco_doce"]')?.value) || 0;
-        const pBordaRow      = parseFloat(row.querySelector('[data-f="borda_preco"]')?.value) || 0;
-        const pBordaEspRow   = parseFloat(row.querySelector('[data-f="borda_preco_especial"]')?.value) || 0;
-        const pBordaDoceRow  = parseFloat(row.querySelector('[data-f="borda_preco_doce"]')?.value) || 0;
-        const maxSabRow = parseInt(row.querySelector('[data-f="max_sabores"]')?.value) || null;
-        tamanhos.push({
-          nome: row.querySelector('[data-f="nome"]').value,
-          fatias: parseInt(row.querySelector('[data-f="fatias"]').value) || 0,
-          cm: parseInt(row.querySelector('[data-f="cm"]').value) || 0,
-          preco_tradicional: pTrad,
-          preco_especial: pEsp,
-          preco_doce: pDoce,
-          borda_preco: pBordaRow,
-          borda_preco_especial: pBordaEspRow || null,
-          borda_preco_doce: pBordaDoceRow || null,
-          max_sabores: maxSabRow,
-          preco: Math.min(...[pTrad, pEsp, pDoce].filter((v) => v > 0)) || pTrad,
-        });
+      // Tipos de pizza criados pelo usuário
+      const tipos_pizza = [];
+      document.querySelectorAll('.pizza-tipo-row').forEach(row => {
+        const nome = row.querySelector('.pizza-tipo-nome').value.trim();
+        if (nome) tipos_pizza.push({ nome });
       });
+
+      // Bordas (nome + preço único)
+      const bordas = [];
+      document.querySelectorAll('.pizza-borda-row').forEach(row => {
+        const nome = row.querySelector('[data-f="bnome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="bpreco"]')?.value) || 0;
+        if (nome) bordas.push({ nome, preco });
+      });
+
+      // Tamanhos com preço dinâmico por tipo
+      const tamanhos = [];
+      document.querySelectorAll('.pizza-tamanho-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        if (!nome) return;
+        const fatias = parseInt(row.querySelector('[data-f="fatias"]').value) || 0;
+        const cm = parseInt(row.querySelector('[data-f="cm"]').value) || 0;
+        const maxSab = parseInt(row.querySelector('[data-f="max_sabores"]').value) || 2;
+        const precos = {};
+        row.querySelectorAll('[data-f="preco_tipo"]').forEach(inp => {
+          if (inp.dataset.tipo) precos[inp.dataset.tipo] = parseFloat(inp.value) || 0;
+        });
+        const precoMin = Math.min(...Object.values(precos).filter(v => v > 0)) || 0;
+        tamanhos.push({ nome, fatias, cm, max_sabores: maxSab, precos, preco: precoMin });
+      });
+
+      // Sabores
       const sabores = [];
-      document.querySelectorAll('.pizza-sabor-row').forEach((row) => {
+      document.querySelectorAll('.pizza-sabor-row').forEach(row => {
+        const nome = row.querySelector('[data-f="snome"]').value.trim();
+        if (!nome) return;
         sabores.push({
-          nome: row.querySelector('[data-f="snome"]').value,
+          nome,
           desc: row.querySelector('[data-f="sdesc"]')?.value?.trim() || '',
           tipo: row.querySelector('[data-f="stipo"]').value,
           img: row.querySelector('[data-f="simg"]')?.value || '',
           preco: 0,
         });
       });
-      const bordas = [];
-      document.querySelectorAll('.pizza-borda-row').forEach((row) => {
-        const nome = row.querySelector('[data-f="bnome"]').value.trim();
-        const tipo = row.querySelector('[data-f="btipo"]')?.value || 'Tradicional';
-        if (nome) bordas.push({ nome, tipo });
-      });
 
-      configFinal.pizza = {
-        max_sabores: parseInt(document.getElementById('pizza-max-sabores').value) || 2,
-        tipos: [
-          document.getElementById('pizza-tipo-salgada').checked ? 'Salgada' : null,
-          document.getElementById('pizza-tipo-doce').checked ? 'Doce' : null,
-        ].filter(Boolean),
-        tem_borda: bordas.length > 0,
-        bordas,
-        borda_preco: 0,
-        tamanhos,
-        sabores,
-      };
+      configFinal = { __tipo: 'pizza', tipos_pizza, tamanhos, sabores, bordas, tem_borda: bordas.length > 0 };
+      const todosPrecos = tamanhos.flatMap(t => Object.values(t.precos)).filter(v => v > 0);
+      if (todosPrecos.length > 0) document.getElementById('prod-preco').value = Math.min(...todosPrecos);
     }
 
-    // Extras
+    // ── AÇAÍ ──────────────────────────────────────────────────────
+    if (tipo === 'acai') {
+      const tamanhos = [];
+      document.querySelectorAll('.acai-tamanho-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="preco"]').value) || 0;
+        const img = row.querySelector('[data-f="img"]')?.value?.trim() || '';
+        if (nome) tamanhos.push({ nome, preco, img });
+      });
+      const acompanhamentos = [];
+      document.querySelectorAll('.acai-acomp-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="preco"]').value) || 0;
+        const img = row.querySelector('[data-f="img"]')?.value?.trim() || '';
+        if (nome) acompanhamentos.push({ nome, preco, img });
+      });
+      const etapas = [];
+      document.querySelectorAll('#acai-etapas-container .etapa-item').forEach(div => {
+        etapas.push({
+          titulo: div.querySelector('.step-titulo').value,
+          max: parseInt(div.querySelector('.step-max').value),
+          itens: div.querySelector('.step-itens').value.split(',').map(s => s.trim()).filter(s => s),
+        });
+      });
+      const variacoes = [];
+      document.querySelectorAll('#acai-variacoes-lista .variacao-acai-row').forEach(row => {
+        const nome = row.querySelector('[data-f="vnome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="vpreco"]').value) || 0;
+        if (nome) variacoes.push({ nome, preco });
+      });
+      configFinal = { __tipo: 'acai', tamanhos, acompanhamentos, etapas, variacoes };
+      const precoMin = tamanhos.map(t => t.preco).filter(p => p > 0);
+      if (precoMin.length > 0) document.getElementById('prod-preco').value = Math.min(...precoMin);
+    }
+
+    // ── SUCO ──────────────────────────────────────────────────────
+    if (tipo === 'suco') {
+      const tamanhos = [];
+      document.querySelectorAll('.suco-tamanho-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="preco"]').value) || 0;
+        if (nome) tamanhos.push({ nome, preco });
+      });
+      const etapas = [];
+      document.querySelectorAll('#suco-etapas-container .etapa-item').forEach(div => {
+        etapas.push({
+          titulo: div.querySelector('.step-titulo').value,
+          max: parseInt(div.querySelector('.step-max').value),
+          itens: div.querySelector('.step-itens').value.split(',').map(s => s.trim()).filter(s => s),
+        });
+      });
+      configFinal = { __tipo: 'suco', tamanhos, etapas };
+      const precoMin = tamanhos.map(t => t.preco).filter(p => p > 0);
+      if (precoMin.length > 0) document.getElementById('prod-preco').value = Math.min(...precoMin);
+    }
+
+    // ── SORVETE ───────────────────────────────────────────────────
+    if (tipo === 'sorvete') {
+      const tamanhos = [];
+      document.querySelectorAll('.sorvete-tamanho-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        const qtd_bolas = parseInt(row.querySelector('[data-f="qtd_bolas"]')?.value) || null;
+        const preco = parseFloat(row.querySelector('[data-f="preco"]').value) || 0;
+        if (nome) tamanhos.push({ nome, qtd_bolas, preco });
+      });
+      const sabores = [];
+      document.querySelectorAll('.sorvete-sabor-row').forEach(row => {
+        const nome = row.querySelector('[data-f="nome"]').value.trim();
+        const img = row.querySelector('[data-f="img"]')?.value?.trim() || '';
+        const preco = parseFloat(row.querySelector('[data-f="preco"]')?.value) || 0;
+        if (nome) sabores.push({ nome, img, preco });
+      });
+      const etapas = [];
+      document.querySelectorAll('#sorvete-etapas-container .etapa-item').forEach(div => {
+        etapas.push({
+          titulo: div.querySelector('.step-titulo').value,
+          max: parseInt(div.querySelector('.step-max').value),
+          itens: div.querySelector('.step-itens').value.split(',').map(s => s.trim()).filter(s => s),
+        });
+      });
+      const variacoes = [];
+      document.querySelectorAll('#sorvete-variacoes-lista .variacao-acai-row').forEach(row => {
+        const nome = row.querySelector('[data-f="vnome"]').value.trim();
+        const preco = parseFloat(row.querySelector('[data-f="vpreco"]').value) || 0;
+        if (nome) variacoes.push({ nome, preco });
+      });
+      configFinal = { __tipo: 'sorvete', tamanhos, sabores, etapas, variacoes };
+      const precoMin = tamanhos.map(t => t.preco).filter(p => p > 0);
+      if (precoMin.length > 0) document.getElementById('prod-preco').value = Math.min(...precoMin);
+    }
+
+    // ── COMBO ─────────────────────────────────────────────────────
+    if (tipo === 'combo') {
+      const descricao_livre = document.getElementById('combo-descricao')?.value?.trim() || '';
+      const itens_combo = [...document.querySelectorAll('#combo-produtos-selecionados input[type="checkbox"]:checked')]
+        .map(el => parseInt(el.value)).filter(Boolean);
+      configFinal = { __tipo: 'combo', descricao_livre, itens_combo };
+    }
+
+    // Extras por produto
     const temExtras = document.getElementById('prod-tem-extras').checked;
     if (temExtras) {
       const extras = [];
@@ -2016,10 +2091,10 @@ async function salvarProduto() {
       if (preparoOpcoes.length > 0) configFinal.preparo_opcoes = preparoOpcoes;
     }
 
-    // Variações de sabor
+    // Variações de sabor (tipo variacoes puro)
     if (tipo === 'variacoes') {
       const variacoes = [];
-      document.querySelectorAll('.variacao-row').forEach((row) => {
+      document.querySelectorAll('#variacoes-lista .variacao-row').forEach((row) => {
         const nome = row.querySelector('[data-f="vnome"]').value.trim();
         const preco = parseFloat(row.querySelector('[data-f="vpreco"]').value) || 0;
         const img = row.querySelector('[data-f="vimg"]').value.trim() || '';
@@ -2030,22 +2105,24 @@ async function salvarProduto() {
       configFinal.variacoes = variacoes;
     }
 
-    // Compatibilidade retroativa: mantém e_montavel para indicar tipo
-    const isM = usaMontavel.includes(tipo) || tipo === 'shake';
-
-    // Para tipo kg: salva preco_kg em montagem_config
+    // Kg: apenas preco_kg, sem prod-preco
     if (tipo === 'kg') {
       const precoKg = parseFloat(document.getElementById('prod-preco-kg')?.value) || 0;
       if (!precoKg) { alert('⚠️ Informe o preço por kg!'); return; }
       configFinal = { __tipo: 'kg', preco_kg: precoKg };
     }
 
-    // Para variações: preco = menor valor entre as variações (usado no "A partir de")
+    // Preço base calculado
     let precoBase = parseFloat(document.getElementById('prod-preco').value) || 0;
     if (tipo === 'variacoes' && configFinal.variacoes && configFinal.variacoes.length > 0) {
       const precos = configFinal.variacoes.map((v) => v.preco).filter((p) => p > 0);
       if (precos.length > 0) precoBase = Math.min(...precos);
     }
+    if (tipo === 'kg') precoBase = parseFloat(document.getElementById('prod-preco-kg')?.value) || 0;
+
+    // e_montavel: sinaliza que o produto tem etapas de montagem
+    const tiposComMontagem = ['montavel','acai','suco','sorvete'];
+    const isM = tiposComMontagem.includes(tipo) || tipo === 'shake';
 
     const temEstoque = document.getElementById('prod-tem-estoque')?.checked || false;
     const inventarioId = temEstoque ? (parseInt(document.getElementById('prod-inventario-id')?.value) || null) : null;
@@ -2101,10 +2178,27 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
   document.getElementById('shake-sabores-lista') && (document.getElementById('shake-sabores-lista').innerHTML = '');
   document.getElementById('pizza-tamanhos-lista').innerHTML = '';
   document.getElementById('pizza-bordas-lista').innerHTML = '';
+  document.getElementById('pizza-tipos-lista') && (document.getElementById('pizza-tipos-lista').innerHTML = '');
   document.getElementById('pizza-borda-preco-box').style.display = 'none';
   document.getElementById('pizza-tem-borda').checked = false;
   document.getElementById('pizza-sabores-lista').innerHTML =
     '<p style="color:#aaa;font-size:0.82rem;text-align:center;margin:10px 0">Clique em "+ Sabor" para adicionar</p>';
+  // Reset açaí
+  const _acaiT = document.getElementById('acai-tamanhos-lista'); if (_acaiT) _acaiT.innerHTML = '';
+  const _acaiA = document.getElementById('acai-acomp-lista'); if (_acaiA) _acaiA.innerHTML = '';
+  const _acaiE = document.getElementById('acai-etapas-container'); if (_acaiE) _acaiE.innerHTML = '';
+  const _acaiV = document.getElementById('acai-variacoes-lista'); if (_acaiV) _acaiV.innerHTML = '';
+  // Reset suco
+  const _sucoT = document.getElementById('suco-tamanhos-lista'); if (_sucoT) _sucoT.innerHTML = '';
+  const _sucoE = document.getElementById('suco-etapas-container'); if (_sucoE) _sucoE.innerHTML = '';
+  // Reset sorvete
+  const _sorvT = document.getElementById('sorvete-tamanhos-lista'); if (_sorvT) _sorvT.innerHTML = '';
+  const _sorvS = document.getElementById('sorvete-sabores-lista'); if (_sorvS) _sorvS.innerHTML = '';
+  const _sorvE = document.getElementById('sorvete-etapas-container'); if (_sorvE) _sorvE.innerHTML = '';
+  const _sorvV = document.getElementById('sorvete-variacoes-lista'); if (_sorvV) _sorvV.innerHTML = '';
+  // Reset combo
+  const _combDesc = document.getElementById('combo-descricao'); if (_combDesc) _combDesc.value = '';
+  window._comboItensPresel = [];
   const variacoesLista = document.getElementById('variacoes-lista');
   if (variacoesLista) variacoesLista.innerHTML = '';
   // CORREÇÃO: Limpa o file input para não reutilizar imagem anterior
@@ -2141,34 +2235,75 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
       if (tipo === 'montavel' && cfg.etapas) {
         cfg.etapas.forEach((e) => addBuilderStep(e.titulo, e.max, e.itens));
       }
-      if (tipo === 'pizza' && cfg.pizza) {
-        const p = cfg.pizza;
-        document.getElementById('pizza-max-sabores').value = p.max_sabores || 2;
-        document.getElementById('pizza-tipo-salgada').checked = (p.tipos || []).includes('Salgada');
-        document.getElementById('pizza-tipo-doce').checked = (p.tipos || []).includes('Doce');
-        // Carrega bordas (novo formato: lista; retrocompat: borda_preco único)
-        const bordas =
-          p.bordas && p.bordas.length > 0
-            ? p.bordas
-            : p.tem_borda && p.borda_preco
-              ? [{ nome: 'Borda Recheada', preco: p.borda_preco }]
-              : [];
+      // ── PIZZA: novo formato (tipos_pizza dinâmico) ──
+      if (tipo === 'pizza') {
+        const pizzaCfg = cfg.pizza || cfg; // suporta formato antigo (cfg.pizza) e novo (cfg direto)
+        // Tipos
+        const tiposPizza = cfg.tipos_pizza || (cfg.pizza?.tipos || []).map(n => ({ nome: n })) || [];
+        document.getElementById('pizza-tipos-lista').innerHTML = '';
+        tiposPizza.forEach(t => addPizzaTipo(t.nome));
+        if (tiposPizza.length === 0) {
+          // retrocompat: sem tipos definidos → cria Tradicional
+          addPizzaTipo('Tradicional');
+        }
+        // Bordas (novo: nome+preco; antigo: nome+tipo)
+        const bordas = (pizzaCfg.bordas || []).map(b => ({
+          nome: b.nome,
+          preco: b.preco ?? pizzaCfg.borda_preco ?? 0,
+        }));
         document.getElementById('pizza-tem-borda').checked = bordas.length > 0;
         document.getElementById('pizza-bordas-lista').innerHTML = '';
         toggleBordaPreco();
-        bordas.forEach((b) => addPizzaBorda(b));
-        (p.tamanhos || []).forEach((t) => addPizzaTamanho(t));
-        if (p.sabores && p.sabores.length > 0) {
+        bordas.forEach(b => addPizzaBorda(b));
+        // Tamanhos
+        (pizzaCfg.tamanhos || []).forEach(t => addPizzaTamanho(t));
+        // Sabores
+        if (pizzaCfg.sabores && pizzaCfg.sabores.length > 0) {
           document.getElementById('pizza-sabores-lista').innerHTML = '';
-          p.sabores.forEach((s) => addPizzaSabor(s));
+          pizzaCfg.sabores.forEach(s => addPizzaSabor(s));
         }
       }
+      // ── SHAKE ──
       if (tipo === 'shake' && cfg.shake) {
         _popularShakeBuilder(cfg.shake);
       }
-      if (tipo === 'almoco' && cfg.almoco) {
-        // Tipo almoco legado: tratar como simples (builder removido)
-        tipo = 'padrao';
+      // ── AÇAÍ ──
+      if (tipo === 'acai') {
+        document.getElementById('acai-tamanhos-lista').innerHTML = '';
+        document.getElementById('acai-acomp-lista').innerHTML = '';
+        document.getElementById('acai-etapas-container').innerHTML = '';
+        document.getElementById('acai-variacoes-lista').innerHTML = '';
+        (cfg.tamanhos || []).forEach(t => addAcaiTamanho(t));
+        (cfg.acompanhamentos || []).forEach(a => addAcaiAcompanhamento(a));
+        (cfg.etapas || []).forEach(e => addAcaiEtapa(e.titulo, e.max, e.itens));
+        (cfg.variacoes || []).forEach(v => addVariacaoSimples(v, 'acai-variacoes-lista'));
+      }
+      // ── SUCO ──
+      if (tipo === 'suco') {
+        document.getElementById('suco-tamanhos-lista').innerHTML = '';
+        document.getElementById('suco-etapas-container').innerHTML = '';
+        (cfg.tamanhos || []).forEach(t => addSucoTamanho(t));
+        (cfg.etapas || []).forEach(e => {
+          addSucoEtapa(e.titulo, e.max, e.itens);
+        });
+      }
+      // ── SORVETE ──
+      if (tipo === 'sorvete') {
+        document.getElementById('sorvete-tamanhos-lista').innerHTML = '';
+        document.getElementById('sorvete-sabores-lista').innerHTML = '';
+        document.getElementById('sorvete-etapas-container').innerHTML = '';
+        document.getElementById('sorvete-variacoes-lista').innerHTML = '';
+        (cfg.tamanhos || []).forEach(t => addSorveteTamanho(t));
+        (cfg.sabores || []).forEach(s => addSorveteSabor(s));
+        (cfg.etapas || []).forEach(e => addSorveteEtapa(e.titulo, e.max, e.itens));
+        (cfg.variacoes || []).forEach(v => addVariacaoSimples(v, 'sorvete-variacoes-lista'));
+      }
+      // ── COMBO ──
+      if (tipo === 'combo') {
+        const comboDesc = document.getElementById('combo-descricao');
+        if (comboDesc) comboDesc.value = cfg.descricao_livre || '';
+        // os checkboxes de produtos são carregados async pelo _carregarComboSelect
+        window._comboItensPresel = cfg.itens_combo || [];
       }
       // Variações de sabor
       if (tipo === 'variacoes' && cfg.variacoes) {
@@ -2230,23 +2365,21 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
 
 // Mapa: tipo semântico → qual builder exibir
 const BUILDER_MAP = {
-  padrao: '',
-  bebida: '',
-  lanche: '',
-  combo: '',
-  sorvete: '',
-  pizza: 'builder-pizza',
+  padrao:   '',
+  bebida:   '',
+  lanche:   '',
+  combo:    'builder-combo',
+  sorvete:  'builder-sorvete',
+  pizza:    'builder-pizza',
   montavel: 'builder-montavel',
-  acai: 'builder-montavel',
-  shake: 'builder-shake',
-  suco: 'builder-montavel',
-  variacoes: 'builder-variacoes',
-  kg: 'builder-kg',
+  acai:     'builder-acai',
+  shake:    'builder-shake',
+  suco:     'builder-suco',
+  variacoes:'builder-variacoes',
+  kg:       'builder-kg',
 };
 const BUILDER_HINTS = {
-  acai: '🍇 Crie etapas: "Tamanho", "Complementos", "Frutas", "Coberturas".',
-  shake: '🥤 Crie etapas: "Tamanho" e "Sabor base".',
-  suco: '🍊 Crie etapas: "Fruta", "Tamanho" e "Adicionais".',
+  shake: '🥤 Defina tamanhos (P/M/G) e sabores disponíveis.',
 };
 
 const _TIPO_BADGE_LABELS = {
@@ -2280,6 +2413,10 @@ function selecionarTipoBuilder(tipo) {
     if (el) el.style.display = 'block';
   }
 
+  // Para kg: o preço é definido no builder (prod-preco-kg), oculta o campo principal
+  const precoBox = document.getElementById('box-prod-preco');
+  if (precoBox) precoBox.style.display = tipo === 'kg' ? 'none' : '';
+
   // Atualiza badge de tipo no modal
   const badge = document.getElementById('modal-tipo-badge');
   if (badge) badge.textContent = _TIPO_BADGE_LABELS[tipo] || tipo;
@@ -2299,6 +2436,9 @@ function selecionarTipoBuilder(tipo) {
   if (lancheHint) {
     lancheHint.style.display = tipo === 'lanche' || tipo === 'combo' ? 'block' : 'none';
   }
+
+  // Para açaí/suco/sorvete: carrega lista de produtos no combo se necessário
+  if (tipo === 'combo') _carregarComboSelect();
 }
 
 // Abre modal com tipo pré-selecionado (vindo do seletor externo)
@@ -2348,7 +2488,7 @@ function addVariacao(dados = {}) {
   row.style.cssText = `background:${pausado ? '#fff5f5' : '#fff'};border:1px solid ${pausado ? '#fca5a5' : '#e9d5ff'};border-radius:10px;padding:12px;display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;opacity:${pausado ? '0.7' : '1'}`;
   row.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:6px">
-      <input data-f="vnome" class="form-control" value="${dados.nome || ''}" placeholder="Nome da variação (ex: Salmon y Cream Cheese)" style="font-weight:600">
+      <input data-f="vnome" class="form-control" value="${dados.nome || ''}" placeholder="Nome da variação (ex: Ex: Variação Premium)" style="font-weight:600">
       <div style="display:flex;gap:8px;align-items:center">
         <span style="font-size:0.8rem;color:#777;white-space:nowrap">Gs</span>
         <input data-f="vpreco" type="number" class="form-control" value="${dados.preco || ''}" placeholder="Preço" style="max-width:140px">
@@ -2367,10 +2507,60 @@ function addVariacao(dados = {}) {
   lista.appendChild(row);
 }
 
-// ─── PIZZA BUILDER ───────────────────────────────────
+// ─── PIZZA BUILDER (tipos dinâmicos) ───────────────────────────
+
 function toggleBordaPreco() {
   const tem = document.getElementById('pizza-tem-borda').checked;
   document.getElementById('pizza-borda-preco-box').style.display = tem ? 'block' : 'none';
+}
+
+// Adiciona um tipo de pizza (ex: Tradicional, Especial, Vegana...)
+function addPizzaTipo(nome = '') {
+  const lista = document.getElementById('pizza-tipos-lista');
+  if (!lista) return;
+  const row = document.createElement('div');
+  row.className = 'pizza-tipo-row';
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px';
+  row.innerHTML = `
+    <input class="form-control pizza-tipo-nome" value="${nome}" placeholder="Ex: Tradicional, Especial, Vegana"
+      oninput="_pizzaRefreshTamanhoPrecos()" style="flex:1">
+    <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-tipo-row').remove();_pizzaRefreshTamanhoPrecos()">✕</button>
+  `;
+  lista.appendChild(row);
+  _pizzaRefreshTamanhoPrecos();
+}
+
+// Lê os tipos atuais da lista
+function _pizzaTiposAtuais() {
+  return [...document.querySelectorAll('.pizza-tipo-nome')]
+    .map(i => i.value.trim()).filter(Boolean);
+}
+
+// Reconstrói as colunas de preço em todos os tamanhos quando tipos mudam
+function _pizzaRefreshTamanhoPrecos() {
+  const tipos = _pizzaTiposAtuais();
+  document.querySelectorAll('.pizza-tamanho-row').forEach(row => {
+    const box = row.querySelector('.pizza-tamanho-precos-dinamico');
+    if (!box) return;
+    // Preserva valores existentes
+    const valoresExistentes = {};
+    box.querySelectorAll('[data-f="preco_tipo"]').forEach(inp => {
+      if (inp.dataset.tipo) valoresExistentes[inp.dataset.tipo] = inp.value;
+    });
+    box.innerHTML = tipos.map(t => `
+      <div>
+        <label style="font-size:0.72rem;color:#555">💰 ${t} (Gs)</label>
+        <input data-f="preco_tipo" data-tipo="${t}" type="number" class="form-control"
+          value="${valoresExistentes[t] || ''}" placeholder="0" min="0" step="500">
+      </div>`).join('');
+  });
+  // Atualiza select de tipo nos sabores
+  document.querySelectorAll('.pizza-sabor-tipo').forEach(sel => {
+    const val = sel.value;
+    sel.innerHTML = tipos.map(t =>
+      `<option value="${t}" ${t === val ? 'selected' : ''}>${t}</option>`
+    ).join('') || '<option value="">— Tipo —</option>';
+  });
 }
 
 function addPizzaBorda(dados = {}) {
@@ -2378,21 +2568,16 @@ function addPizzaBorda(dados = {}) {
   const row = document.createElement('div');
   row.className = 'pizza-borda-row';
   row.style.cssText = 'display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #eee;border-radius:8px;padding:8px 10px;margin-bottom:6px';
-  const tipoVal = dados.tipo || 'Tradicional';
   row.innerHTML = `
     <div style="flex:3">
       <label style="font-size:0.72rem;color:#888">Nome da borda</label>
       <input data-f="bnome" class="form-control" value="${dados.nome || ''}" placeholder="Ex: Cheddar, Catupiry, Chocolate">
     </div>
     <div style="flex:2">
-      <label style="font-size:0.72rem;color:#888">Tipo</label>
-      <select data-f="btipo" class="form-control">
-        <option value="Tradicional" ${tipoVal === 'Tradicional' ? 'selected' : ''}>🍕 Tradicional</option>
-        <option value="Especial" ${tipoVal === 'Especial' ? 'selected' : ''}>⭐ Especial</option>
-        <option value="Doce" ${tipoVal === 'Doce' ? 'selected' : ''}>🍫 Doce</option>
-      </select>
+      <label style="font-size:0.72rem;color:#888">Preço (Gs)</label>
+      <input data-f="bpreco" type="number" class="form-control" value="${dados.preco || ''}" placeholder="0" min="0" step="500">
     </div>
-    <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-borda-row').remove()" title="Remover" style="align-self:flex-end;margin-bottom:2px">✕</button>
+    <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-borda-row').remove()" style="align-self:flex-end;margin-bottom:2px">✕</button>
   `;
   lista.appendChild(row);
 }
@@ -2401,34 +2586,61 @@ function addPizzaTamanho(dados = {}) {
   const lista = document.getElementById('pizza-tamanhos-lista');
   const row = document.createElement('div');
   row.className = 'pizza-tamanho-row';
-  // Retrocompatibilidade: se veio só `preco` (formato antigo), usa como preco_tradicional
-  const pTrad = dados.preco_tradicional ?? dados.preco ?? '';
-  const pEsp = dados.preco_especial ?? '';
-  const pDoce = dados.preco_doce ?? '';
-  const pBorda = dados.borda_preco ?? '';
-  const maxSab = dados.max_sabores ?? '';
+  const tipos = _pizzaTiposAtuais();
+
+  // Preços existentes: novo formato (precos obj) ou antigo (preco_tradicional etc.)
+  const precosExist = dados.precos || {
+    'Tradicional': dados.preco_tradicional || dados.preco || '',
+    'Especial': dados.preco_especial || '',
+    'Doce': dados.preco_doce || '',
+  };
 
   row.innerHTML = `
-    <div class="pizza-tamanho-header">
-      <div class="pizza-tamanho-info">
-        <div><label>Nome</label><input data-f="nome" class="form-control" value="${dados.nome || ''}" placeholder="Ex: G"></div>
-        <div><label>Fatias</label><input data-f="fatias" type="number" class="form-control" value="${dados.fatias || ''}" placeholder="8"></div>
-        <div><label>Cm</label><input data-f="cm" type="number" class="form-control" value="${dados.cm || ''}" placeholder="35"></div>
-        <div><label>Máx. sabores</label><input data-f="max_sabores" type="number" min="1" max="4" class="form-control" value="${maxSab}" placeholder="2"></div>
-      </div>
-      <button class="btn btn-sm btn-danger pizza-tamanho-remove" onclick="this.closest('.pizza-tamanho-row').remove()" title="Remover">✕</button>
+    <div class="pizza-tamanho-header" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px">
+      <div style="flex:2;min-width:80px"><label style="font-size:0.72rem;color:#555">Nome</label><input data-f="nome" class="form-control" value="${dados.nome || ''}" placeholder="Ex: P, M, G, GG"></div>
+      <div style="flex:1;min-width:60px"><label style="font-size:0.72rem;color:#555">Fatias</label><input data-f="fatias" type="number" class="form-control" value="${dados.fatias || ''}" placeholder="8"></div>
+      <div style="flex:1;min-width:60px"><label style="font-size:0.72rem;color:#555">Cm</label><input data-f="cm" type="number" class="form-control" value="${dados.cm || ''}" placeholder="35"></div>
+      <div style="flex:1;min-width:70px"><label style="font-size:0.72rem;color:#555">Máx. sabores</label><input data-f="max_sabores" type="number" min="1" max="8" class="form-control" value="${dados.max_sabores || 2}"></div>
+      <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-tamanho-row').remove()" style="margin-bottom:2px">✕</button>
     </div>
-    <div class="pizza-tamanho-precos">
-      <div><label>🍕 Tradicional (Gs)</label><input data-f="preco_tradicional" type="number" class="form-control" value="${pTrad}" placeholder="60000"></div>
-      <div><label>⭐ Especial (Gs)</label><input data-f="preco_especial" type="number" class="form-control" value="${pEsp}" placeholder="65000"></div>
-      <div><label>🍫 Doce (Gs)</label><input data-f="preco_doce" type="number" class="form-control" value="${pDoce}" placeholder="60000"></div>
+    <div class="pizza-tamanho-precos-dinamico" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+      ${tipos.map(t => `
+        <div>
+          <label style="font-size:0.72rem;color:#555">💰 ${t} (Gs)</label>
+          <input data-f="preco_tipo" data-tipo="${t}" type="number" class="form-control"
+            value="${precosExist[t] || ''}" placeholder="0" min="0" step="500">
+        </div>`).join('')}
     </div>
-    <div class="pizza-tamanho-precos" style="margin-top:6px;padding-top:8px;border-top:1px dashed #e0e0e0">
-      <div><label>🧀 Borda Trad. (Gs)</label><input data-f="borda_preco" type="number" class="form-control" value="${pBorda}" placeholder="10000"></div>
-      <div><label>🧀 Borda Esp. (Gs)</label><input data-f="borda_preco_especial" type="number" class="form-control" value="${dados.borda_preco_especial ?? ''}" placeholder="12000"></div>
-      <div><label>🧀 Borda Doce (Gs)</label><input data-f="borda_preco_doce" type="number" class="form-control" value="${dados.borda_preco_doce ?? ''}" placeholder="12000"></div>
-    </div>
+  `;
+  lista.appendChild(row);
+}
 
+function addPizzaSabor(dados = {}) {
+  const lista = document.getElementById('pizza-sabores-lista');
+  const ph = lista.querySelector('p');
+  if (ph) ph.remove();
+  const tipos = _pizzaTiposAtuais();
+  const row = document.createElement('div');
+  row.className = 'pizza-sabor-row';
+  const imgSrc = dados.img || '';
+  row.innerHTML = `
+    <div class="pizza-sabor-main" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+      <input data-f="snome" class="form-control" value="${dados.nome || ''}" placeholder="Nome do sabor" style="flex:2;min-width:140px">
+      <select data-f="stipo" class="form-control pizza-sabor-tipo" style="flex:1;min-width:110px">
+        ${tipos.length ? tipos.map(t =>
+          `<option value="${t}" ${dados.tipo === t ? 'selected' : ''}>${t}</option>`
+        ).join('') : `<option value="${dados.tipo || ''}">${dados.tipo || '—'}</option>`}
+      </select>
+      <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-sabor-row').remove()">✕</button>
+    </div>
+    <textarea data-f="sdesc" class="form-control" rows="1" placeholder="Descrição (opcional)" style="margin-bottom:6px">${dados.desc || ''}</textarea>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${imgSrc ? `<img src="${imgSrc}" style="width:40px;height:40px;border-radius:6px;object-fit:cover">` : ''}
+      <input data-f="simg" type="text" class="form-control" value="${imgSrc}" placeholder="URL da imagem (opcional)" style="flex:1;font-size:0.8rem">
+      <label style="cursor:pointer;background:#e8f4fd;border:1px solid #3498db;border-radius:6px;padding:5px 8px;font-size:0.75rem;white-space:nowrap">
+        📷 <input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this, this.closest('.pizza-sabor-row'))">
+      </label>
+    </div>
   `;
   lista.appendChild(row);
 }
@@ -2438,55 +2650,227 @@ async function uploadSaborImagem(fileInput, row) {
   const file = fileInput.files[0];
   const nomeArq = `sabores/${Date.now()}-${file.name.replace(/\s+/g, '-')}`;
   fileInput.disabled = true;
-  fileInput.parentElement.querySelector('.pizza-sabor-upload-btn').textContent = '⏳';
   try {
     const { error } = await supa.storage.from('produtos').upload(nomeArq, file);
     if (error) throw error;
     const { data } = supa.storage.from('produtos').getPublicUrl(nomeArq);
-    row.querySelector('[data-f="simg"]').value = data.publicUrl;
-    const prev = row.querySelector('.pizza-sabor-img-preview');
-    prev.src = data.publicUrl;
-    prev.style.display = 'block';
+    const inp = row.querySelector('[data-f="simg"]') || row.querySelector('[data-f="img"]');
+    if (inp) inp.value = data.publicUrl;
+    const prev = row.querySelector('img.img-preview-mini');
+    if (prev) { prev.src = data.publicUrl; prev.style.display = 'block'; }
   } catch (e) {
     alert('Erro ao enviar imagem: ' + e.message);
   } finally {
     fileInput.disabled = false;
-    fileInput.parentElement.querySelector('.pizza-sabor-upload-btn').textContent = '📷';
   }
 }
 
-function addPizzaSabor(dados = {}) {
-  const lista = document.getElementById('pizza-sabores-lista');
-  const ph = lista.querySelector('p');
-  if (ph) ph.remove();
+// ─── AÇAÍ BUILDER ────────────────────────────────────────────────
+
+function addAcaiTamanho(dados = {}) {
+  const lista = document.getElementById('acai-tamanhos-lista');
   const row = document.createElement('div');
-  row.className = 'pizza-sabor-row';
-  const imgSrc = dados.img || '';
+  row.className = 'acai-tamanho-row builder-item-row';
+  const img = dados.img || '';
   row.innerHTML = `
-    <div class="pizza-sabor-main">
-      <input data-f="snome" class="form-control" value="${dados.nome || ''}" placeholder="Nome do sabor (ex: Frango Catupiry)">
-      <select data-f="stipo" class="form-control pizza-sabor-tipo">
-        <option value="Tradicional" ${!dados.tipo || dados.tipo === 'Tradicional' || dados.tipo === 'Salgada' ? 'selected' : ''}>🍕 Tradicional</option>
-        <option value="Especial" ${dados.tipo === 'Especial' ? 'selected' : ''}>⭐ Especial</option>
-        <option value="Doce" ${dados.tipo === 'Doce' ? 'selected' : ''}>🍫 Doce</option>
-      </select>
-      <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-sabor-row').remove()" title="Remover">✕</button>
+    <div class="bir-fields">
+      <div><label class="bir-label">Nome</label><input data-f="nome" class="form-control" value="${dados.nome||''}" placeholder="Ex: 300ml, Médio, G"></div>
+      <div><label class="bir-label">Preço (Gs)</label><input data-f="preco" type="number" class="form-control" value="${dados.preco||''}" placeholder="0" min="0" step="500"></div>
+      <div style="position:relative">
+        <label class="bir-label">Imagem</label>
+        <div style="display:flex;gap:4px">
+          <input data-f="img" type="text" class="form-control" value="${img}" placeholder="URL ou 📷">
+          <label style="cursor:pointer;background:#e8f4fd;border:1px solid #3498db;border-radius:6px;padding:5px 8px;font-size:0.75rem;white-space:nowrap">
+            📷<input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this,this.closest('.acai-tamanho-row'))">
+          </label>
+        </div>
+        ${img ? `<img class="img-preview-mini" src="${img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">` : '<img class="img-preview-mini" style="display:none;width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">'}
+      </div>
     </div>
-    <textarea data-f="sdesc" class="form-control pizza-sabor-desc-input" rows="2" placeholder="Descrição do sabor">${dados.desc || ''}</textarea>
-    <div class="pizza-sabor-img-row">
-      <img class="pizza-sabor-img-preview" src="${imgSrc}" style="display:${imgSrc ? 'block' : 'none'}" alt="">
-      <input data-f="simg" type="text" class="form-control" value="${imgSrc}" placeholder="URL da imagem (ou clique 📷)">
-      <label class="pizza-sabor-upload-label">
-        <span class="pizza-sabor-upload-btn">📷</span>
-        <input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this, this.closest('.pizza-sabor-row'))">
-      </label>
-    </div>
-  `;
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.acai-tamanho-row').remove()">✕</button>`;
   lista.appendChild(row);
 }
 
-// ─── EXTRAS BUILDER ──────────────────────────────────
-function toggleExtras() {
+function addAcaiAcompanhamento(dados = {}) {
+  const lista = document.getElementById('acai-acomp-lista');
+  const row = document.createElement('div');
+  row.className = 'acai-acomp-row builder-item-row';
+  const img = dados.img || '';
+  row.innerHTML = `
+    <div class="bir-fields">
+      <div><label class="bir-label">Nome</label><input data-f="nome" class="form-control" value="${dados.nome||''}" placeholder="Ex: Granola, Leite Condensado"></div>
+      <div><label class="bir-label">Preço extra (Gs)</label><input data-f="preco" type="number" class="form-control" value="${dados.preco||0}" placeholder="0 = incluído" min="0" step="100"></div>
+      <div>
+        <label class="bir-label">Imagem</label>
+        <div style="display:flex;gap:4px">
+          <input data-f="img" type="text" class="form-control" value="${img}" placeholder="URL ou 📷">
+          <label style="cursor:pointer;background:#e8f4fd;border:1px solid #3498db;border-radius:6px;padding:5px 8px;font-size:0.75rem;white-space:nowrap">
+            📷<input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this,this.closest('.acai-acomp-row'))">
+          </label>
+        </div>
+        ${img ? `<img class="img-preview-mini" src="${img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">` : '<img class="img-preview-mini" style="display:none;width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">'}
+      </div>
+    </div>
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.acai-acomp-row').remove()">✕</button>`;
+  lista.appendChild(row);
+}
+
+function addAcaiEtapa(titulo = '', max = 1, itens = []) {
+  const container = document.getElementById('acai-etapas-container');
+  const div = document.createElement('div');
+  div.className = 'etapa-item';
+  const itensStr = Array.isArray(itens) ? itens.join(', ') : itens;
+  div.innerHTML = `
+    <div class="etapa-header">
+      <input type="text" class="form-control step-titulo" value="${titulo}" placeholder="Título da etapa (ex: Frutas)">
+      <input type="number" class="form-control step-max" value="${max}" style="width:70px" title="Máx. seleções">
+      <button class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">✕</button>
+    </div>
+    <textarea class="etapa-ingredientes step-itens" placeholder="Itens separados por vírgula. Ex: Morango, Banana, Uva">${itensStr}</textarea>`;
+  container.appendChild(div);
+}
+
+// ─── SUCO BUILDER ────────────────────────────────────────────────
+
+function addSucoTamanho(dados = {}) {
+  const lista = document.getElementById('suco-tamanhos-lista');
+  const row = document.createElement('div');
+  row.className = 'suco-tamanho-row builder-item-row';
+  row.innerHTML = `
+    <div class="bir-fields">
+      <div><label class="bir-label">Nome</label><input data-f="nome" class="form-control" value="${dados.nome||''}" placeholder="Ex: 300ml, 500ml, Grande"></div>
+      <div><label class="bir-label">Preço (Gs)</label><input data-f="preco" type="number" class="form-control" value="${dados.preco||''}" placeholder="0" min="0" step="500"></div>
+    </div>
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.suco-tamanho-row').remove()">✕</button>`;
+  lista.appendChild(row);
+}
+
+function addSucoEtapa(titulo = '', max = 1, itens = []) {
+  const container = document.getElementById('suco-etapas-container');
+  const div = document.createElement('div');
+  div.className = 'etapa-item';
+  const itensStr = Array.isArray(itens) ? itens.join(', ') : itens;
+  div.innerHTML = `
+    <div class="etapa-header">
+      <input type="text" class="form-control step-titulo" value="${titulo}" placeholder="Título da etapa (ex: Fruta principal)">
+      <input type="number" class="form-control step-max" value="${max}" style="width:70px" title="Máx. seleções">
+      <button class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">✕</button>
+    </div>
+    <textarea class="etapa-ingredientes step-itens" placeholder="Ex: Laranja, Limão, Maracujá">${itensStr}</textarea>`;
+  container.appendChild(div);
+}
+
+// ─── SORVETE BUILDER ─────────────────────────────────────────────
+
+function addSorveteTamanho(dados = {}) {
+  const lista = document.getElementById('sorvete-tamanhos-lista');
+  const row = document.createElement('div');
+  row.className = 'sorvete-tamanho-row builder-item-row';
+  row.innerHTML = `
+    <div class="bir-fields">
+      <div><label class="bir-label">Nome</label><input data-f="nome" class="form-control" value="${dados.nome||''}" placeholder="Ex: 1 Bola, Duplo, 3 Bolas"></div>
+      <div><label class="bir-label">Qtd. Bolas</label><input data-f="qtd_bolas" type="number" class="form-control" value="${dados.qtd_bolas||''}" placeholder="1" min="1"></div>
+      <div><label class="bir-label">Preço (Gs)</label><input data-f="preco" type="number" class="form-control" value="${dados.preco||''}" placeholder="0" min="0" step="500"></div>
+    </div>
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.sorvete-tamanho-row').remove()">✕</button>`;
+  lista.appendChild(row);
+}
+
+function addSorveteSabor(dados = {}) {
+  const lista = document.getElementById('sorvete-sabores-lista');
+  const row = document.createElement('div');
+  row.className = 'sorvete-sabor-row builder-item-row';
+  const img = dados.img || '';
+  row.innerHTML = `
+    <div class="bir-fields">
+      <div><label class="bir-label">Sabor</label><input data-f="nome" class="form-control" value="${dados.nome||''}" placeholder="Ex: Chocolate, Morango, Baunilha"></div>
+      <div><label class="bir-label">Preço extra (Gs)</label><input data-f="preco" type="number" class="form-control" value="${dados.preco||0}" placeholder="0 = incluído" min="0" step="100"></div>
+      <div>
+        <label class="bir-label">Imagem</label>
+        <div style="display:flex;gap:4px">
+          <input data-f="img" type="text" class="form-control" value="${img}" placeholder="URL ou 📷">
+          <label style="cursor:pointer;background:#e8f4fd;border:1px solid #3498db;border-radius:6px;padding:5px 8px;font-size:0.75rem">
+            📷<input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this,this.closest('.sorvete-sabor-row'))">
+          </label>
+        </div>
+        ${img ? `<img class="img-preview-mini" src="${img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">` : '<img class="img-preview-mini" style="display:none;width:36px;height:36px;border-radius:6px;object-fit:cover;margin-top:4px">'}
+      </div>
+    </div>
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.sorvete-sabor-row').remove()">✕</button>`;
+  lista.appendChild(row);
+}
+
+function addSorveteEtapa(titulo = '', max = 1, itens = []) {
+  const container = document.getElementById('sorvete-etapas-container');
+  const div = document.createElement('div');
+  div.className = 'etapa-item';
+  const itensStr = Array.isArray(itens) ? itens.join(', ') : itens;
+  div.innerHTML = `
+    <div class="etapa-header">
+      <input type="text" class="form-control step-titulo" value="${titulo}" placeholder="Título da etapa (ex: Cobertura)">
+      <input type="number" class="form-control step-max" value="${max}" style="width:70px" title="Máx. seleções">
+      <button class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">✕</button>
+    </div>
+    <textarea class="etapa-ingredientes step-itens" placeholder="Ex: Calda de Chocolate, Caramelo, Granulado">${itensStr}</textarea>`;
+  container.appendChild(div);
+}
+
+// ─── VARIAÇÃO SIMPLES (para açaí / sorvete) ──────────────────────
+// Igual a addVariacao mas sem foto, para listas secundárias
+function addVariacaoSimples(dados = {}, listaId) {
+  const lista = document.getElementById(listaId);
+  if (!lista) return;
+  const row = document.createElement('div');
+  row.className = 'variacao-acai-row builder-item-row';
+  row.innerHTML = `
+    <div class="bir-fields">
+      <div><label class="bir-label">Nome</label><input data-f="vnome" class="form-control" value="${dados.nome||''}" placeholder="Ex: Tradicional, Premium"></div>
+      <div><label class="bir-label">Preço extra (Gs)</label><input data-f="vpreco" type="number" class="form-control" value="${dados.preco||0}" placeholder="0" min="0" step="100"></div>
+    </div>
+    <button class="btn btn-sm btn-danger bir-remove" onclick="this.closest('.variacao-acai-row').remove()">✕</button>`;
+  lista.appendChild(row);
+}
+
+// ─── COMBO BUILDER ───────────────────────────────────────────────
+
+async function _carregarComboSelect() {
+  const container = document.getElementById('combo-produtos-selecionados');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:10px;color:#aaa;font-size:0.82rem">Carregando produtos...</div>';
+  const { data } = await supa.from('produtos').select('id, nome, preco, categoria_slug').eq('ativo', true).order('nome');
+  if (!data || !data.length) {
+    container.innerHTML = '<div style="color:#aaa;font-size:0.82rem">Nenhum produto cadastrado.</div>';
+    return;
+  }
+  const presel = window._comboItensPresel || [];
+  container.innerHTML = data.map(p => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;border:1px solid ${presel.includes(p.id)?'#1a7a2e':'#eee'};background:${presel.includes(p.id)?'#f0fff4':'#fff'};margin-bottom:4px;transition:all 0.15s"
+      onmousedown="this.style.borderColor='#1a7a2e';this.style.background='#f0fff4'">
+      <input type="checkbox" value="${p.id}" ${presel.includes(p.id)?'checked':''} style="width:16px;height:16px"
+        onchange="this.closest('label').style.borderColor=this.checked?'#1a7a2e':'#eee';this.closest('label').style.background=this.checked?'#f0fff4':'#fff'">
+      <span style="flex:1;font-size:0.87rem;font-weight:600">${p.nome}</span>
+      <span style="font-size:0.78rem;color:#888">${p.categoria_slug||''}</span>
+      <span style="font-size:0.8rem;color:#27ae60;font-weight:700;white-space:nowrap">Gs ${(p.preco||0).toLocaleString('es-PY')}</span>
+    </label>`).join('');
+}
+
+// ─── DUPLICAR PRODUTO ────────────────────────────────────────────
+
+async function duplicarProduto(id) {
+  if (!confirm('Duplicar este produto? Uma cópia será criada com o nome "(Cópia) ..."')) return;
+  const { data: p, error } = await supa.from('produtos').select('*').eq('id', id).single();
+  if (error || !p) { alert('Erro ao buscar produto.'); return; }
+  const copia = { ...p };
+  delete copia.id;
+  delete copia.created_at;
+  delete copia.updated_at;
+  copia.nome = `(Cópia) ${p.nome}`;
+  copia.ativo = false; // entra como pausado para revisão
+  const { error: errIns } = await supa.from('produtos').insert([copia]);
+  if (errIns) { alert('Erro ao duplicar: ' + errIns.message); return; }
+  alert('✅ Produto duplicado! A cópia foi criada pausada para revisão.');
+  carregarProdutos();
+}
   const ativo = document.getElementById('prod-tem-extras').checked;
   document.getElementById('extras-area').style.display = ativo ? 'block' : 'none';
 }
@@ -2527,7 +2911,7 @@ function addExtraGlobal(dados = {}) {
   row.className = 'extra-row';
   row.style.marginBottom = '8px';
   row.innerHTML = `
-    <input data-f="gnome" class="form-control" value="${dados.nome || ''}" placeholder="Ex: Shoyu Extra, Cream Cheese">
+    <input data-f="gnome" class="form-control" value="${dados.nome || ''}" placeholder="Ex: Ex: Adicional Extra">
     <input data-f="gpreco" type="number" class="form-control" value="${dados.preco || 0}" placeholder="Preço (0 = Grátis)">
     <button class="btn btn-sm btn-danger" onclick="this.closest('.extra-row').remove()" title="Remover">✕</button>
   `;
@@ -2542,17 +2926,17 @@ async function salvarExtrasGlobais() {
     if (nome) extras.push({ nome, preco });
   });
 
-  const { error } = await supa.from('configuracoes').update({ extras_globais: extras }).eq('id', 1);
-  if (error) {
-    // Verifica se é erro de coluna não existente
-    if (error.message && (error.message.includes('extras_globais') || error.code === 'PGRST204' || error.code === '42703')) {
-      alert('⚠️ A coluna "extras_globais" não existe no banco de dados.');
-    } else {
-      alert('Erro ao salvar adicionais globais: ' + error.message);
-    }
-  } else {
-    alert('✅ Adicionais globais salvos com sucesso!');
-  }
+  // Categorias selecionadas (null = todas)
+  const catChips = document.querySelectorAll('#extras-globais-cats-lista input[type="checkbox"]:checked');
+  const catsArr  = [...catChips].map(c => c.value);
+  const catsVal  = catsArr.length === 0 ? null : catsArr;
+
+  const { error } = await supa.from('configuracoes').update({
+    extras_globais: extras,
+    extras_globais_categorias: catsVal,
+  }).gt('id', 0);
+  if (error) { alert('Erro ao salvar adicionais globais: ' + error.message); return; }
+  alert('✅ Adicionais globais salvos!');
 }
 
 async function carregarExtrasGlobaisAdmin() {
@@ -2560,24 +2944,23 @@ async function carregarExtrasGlobaisAdmin() {
   if (!lista) return;
   lista.innerHTML = '';
   try {
-    const { data, error } = await supa.from('configuracoes').select('extras_globais').single();
-
-    // Se der erro de coluna não encontrada, apenas ignora
-    if (error) {
-      if (error.message && (error.message.includes('extras_globais') || error.code === 'PGRST204')) {
-        console.log('ℹ️ Coluna extras_globais não existe. Crie a coluna no banco para usar esta funcionalidade.');
-      } else {
-        console.warn('Erro ao carregar extras globais:', error.message);
-      }
-      return;
-    }
-
-    if (data?.extras_globais && Array.isArray(data.extras_globais)) {
+    const { data, error } = await supa.from('configuracoes').select('extras_globais, extras_globais_categorias').single();
+    if (error) { console.warn('Extras globais:', error.message); return; }
+    if (data?.extras_globais && Array.isArray(data.extras_globais))
       data.extras_globais.forEach(ex => addExtraGlobal(ex));
+
+    // Carrega categorias para o seletor
+    const { data: cats } = await supa.from('categorias').select('slug, nome_exibicao').eq('ativa', true).order('ordem');
+    const catsContainer = document.getElementById('extras-globais-cats-lista');
+    if (catsContainer && cats) {
+      const selCats = data?.extras_globais_categorias || null;
+      catsContainer.innerHTML = cats.map(c => `
+        <label style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--color-background-secondary);border-radius:6px;cursor:pointer;font-size:0.82rem">
+          <input type="checkbox" value="${c.slug}" ${!selCats || selCats.includes(c.slug) ? 'checked' : ''} style="width:15px;height:15px">
+          ${c.nome_exibicao || c.slug}
+        </label>`).join('');
     }
-  } catch (e) { 
-    console.log('ℹ️ Extras globais não disponíveis:', e.message);
-  }
+  } catch (e) { console.log('Extras globais:', e.message); }
 }
 
 // =========================================
@@ -2647,7 +3030,7 @@ async function _confirmarEncerramentoDelivery() {
   const { error } = await supa.from('configuracoes').update({
     delivery_aberto: false,
     aviso_delivery: texto,
-  }).eq('id', 1);
+  }).gt('id', 0);
 
   if (error) {
     // Tenta com upsert se update falhou (configuracoes pode não ter a linha)
@@ -2680,7 +3063,7 @@ async function reabrirDelivery() {
   const { error } = await supa.from('configuracoes').update({
     delivery_aberto: true,
     aviso_delivery: '',
-  }).eq('id', 1);
+  }).gt('id', 0);
 
   if (error) {
     alert('Erro: ' + error.message);
@@ -2791,7 +3174,7 @@ async function _confirmarEstenderHorario() {
 
   const { error } = await supa.from('configuracoes').update({
     horario_extra_hoje: { data: hoje, minutos }
-  }).eq('id', 1);
+  }).gt('id', 0);
 
   if (error) {
     const { error: e2 } = await supa.from('configuracoes').upsert({
@@ -2811,7 +3194,7 @@ async function _confirmarEstenderHorario() {
 
 async function removerExtensaoHorario() {
   if (!confirm('Remover a extensão de horário de hoje?')) return;
-  await supa.from('configuracoes').update({ horario_extra_hoje: null }).eq('id', 1);
+  await supa.from('configuracoes').update({ horario_extra_hoje: null }).gt('id', 0);
   alert('✅ Extensão removida.');
 }
 
@@ -2822,7 +3205,7 @@ async function carregarStatusDelivery() {
   try {
     const { data } = await supa.from('configuracoes')
       .select('delivery_aberto, aviso_delivery, horario_extra_hoje')
-      .eq('id', 1).single();
+      .gt('id', 0).single();
 
     if (!data) return;
 
@@ -3766,15 +4149,20 @@ function _renderGradeSemanal(horariosSalvos = {}) {
   if (!container) return;
   container.innerHTML = '';
 
-  const ICONES_DIA = {
-    seg: '☀️',
-    ter: '☀️',
-    qua: '☀️',
-    qui: '☀️',
-    sex: '🌟',
-    sab: '🎉',
-    dom: '🌙',
-  };
+  // Botão "Aplicar a todos"
+  const applyBar = document.createElement('div');
+  applyBar.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:10px;flex-wrap:wrap';
+  applyBar.innerHTML = `
+    <span style="font-size:0.82rem;font-weight:600;color:var(--color-text-secondary)">⚡ Aplicar horário a todos os dias:</span>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="time" id="apply-all-abre" style="padding:5px 8px;border:1.5px solid var(--color-border-secondary);border-radius:6px;font-size:0.85rem">
+      <span style="font-size:0.8rem;color:var(--color-text-secondary)">→</span>
+      <input type="time" id="apply-all-fecha" style="padding:5px 8px;border:1.5px solid var(--color-border-secondary);border-radius:6px;font-size:0.85rem">
+      <button onclick="_aplicarHorarioTodos()" class="btn btn-sm btn-primary">Aplicar a todos</button>
+    </div>`;
+  container.appendChild(applyBar);
+
+  const ICONES_DIA = { seg:'☀️', ter:'☀️', qua:'☀️', qui:'☀️', sex:'🌟', sab:'🎉', dom:'🌙' };
 
   DIAS_SEMANA.forEach(({ key, label }) => {
     const dia = horariosSalvos[key] || { fechado: false, turnos: [{ abre: '', fecha: '' }] };
@@ -3886,6 +4274,28 @@ function adicionarTurno(btn) {
 
 function removerTurno(btn) {
   btn.closest('.gs-turno-row').remove();
+}
+
+function _aplicarHorarioTodos() {
+  const abre  = document.getElementById('apply-all-abre')?.value;
+  const fecha = document.getElementById('apply-all-fecha')?.value;
+  if (!abre || !fecha) { alert('Preencha os horários de abertura e fechamento.'); return; }
+  document.querySelectorAll('.gs-dia-card').forEach(row => {
+    // Desmarca "fechado"
+    const check = row.querySelector('.dia-fechado-check');
+    if (check && check.checked) {
+      check.checked = false;
+      toggleDiaFechado(check);
+    }
+    // Remove turnos extras
+    row.querySelectorAll('.gs-turno-row').forEach((t, i) => { if (i > 0) t.remove(); });
+    // Define horário do 1º turno
+    const turnoAbre  = row.querySelector('.turno-abre');
+    const turnoFecha = row.querySelector('.turno-fecha');
+    if (turnoAbre)  turnoAbre.value  = abre;
+    if (turnoFecha) turnoFecha.value = fecha;
+  });
+  alert('✅ Horário aplicado a todos os dias. Clique em Salvar para confirmar.');
 }
 
 /* ══════════════════════════════════════════════
@@ -4011,14 +4421,27 @@ async function carregarConfiguracoes() {
   s('cfg-coord-lat', data.coord_lat);
   s('cfg-coord-lng', data.coord_lng);
 
-  // Banner
+  // Banner 1
   s('cfg-banner-id',  data.banner_produto_id || '');
   s('cfg-banner-img', data.banner_imagem || '');
+  s('cfg-banner-desc-tipo',  data.banner_desconto_tipo  || 'percentual');
+  s('cfg-banner-desc-valor', data.banner_desconto_valor ?? '');
   if (data.banner_imagem) {
     const prev = document.getElementById('cfg-banner-preview');
     const box  = document.getElementById('cfg-banner-preview-box');
     if (prev) prev.src = data.banner_imagem;
     if (box)  box.style.display = 'block';
+  }
+  // Banner 2
+  s('cfg-banner2-id',  data.banner2_produto_id || '');
+  s('cfg-banner2-img', data.banner2_imagem || '');
+  s('cfg-banner2-desc-tipo',  data.banner2_desconto_tipo  || 'percentual');
+  s('cfg-banner2-desc-valor', data.banner2_desconto_valor ?? '');
+  if (data.banner2_imagem) {
+    const prev2 = document.getElementById('cfg-banner2-preview');
+    const box2  = document.getElementById('cfg-banner2-preview-box');
+    if (prev2) prev2.src = data.banner2_imagem;
+    if (box2)  box2.style.display = 'block';
   }
 
   // Visual
@@ -4054,8 +4477,10 @@ async function carregarConfiguracoes() {
   if (data.nome_alias)       NOME_ALIAS_CFG  = data.nome_alias;
 
   await carregarExtrasGlobaisAdmin();
+  await _carregarMaquininhas();
 
-  // Motoboy base + combustível
+  // Limite de distância e maquininhas
+  s('cfg-limite-distancia', data.limite_distancia_km ?? '');
   s('cfg-taxa-motoboy-base', data.taxa_motoboy_base ?? 0);
   TAXA_MOTOBOY = data.taxa_motoboy_base ?? 0;
   const combEl = document.getElementById('cfg-combustivel');
@@ -4073,6 +4498,12 @@ async function salvarConfiguracoes() {
     cotacao_real:      parseFloat(g('cfg-cotacao'))  || 1100,
     banner_produto_id: parseInt(g('cfg-banner-id'))  || null,
     banner_imagem:     g('cfg-banner-img') || '',
+    banner_desconto_tipo:  g('cfg-banner-desc-tipo')  || null,
+    banner_desconto_valor: parseFloat(g('cfg-banner-desc-valor')) || null,
+    banner2_produto_id: parseInt(g('cfg-banner2-id')) || null,
+    banner2_imagem:     g('cfg-banner2-img') || '',
+    banner2_desconto_tipo:  g('cfg-banner2-desc-tipo')  || null,
+    banner2_desconto_valor: parseFloat(g('cfg-banner2-desc-valor')) || null,
     horarios_semanais: _lerGradeSemanal(),
     // Identidade
     nome_restaurante:  g('cfg-nome-restaurante') || '',
@@ -4112,65 +4543,66 @@ async function salvarConfiguracoes() {
   else alert('✅ Configurações salvas com sucesso!');
 }
 
-function previewBanner(input) {
+function previewBanner(input, num = 1) {
   if (!input.files || !input.files[0]) return;
+  const suf = num === 2 ? '2' : '';
   const reader = new FileReader();
   reader.onload = (e) => {
-    const prev = document.getElementById('cfg-banner-preview');
-    const box = document.getElementById('cfg-banner-preview-box');
-    if (prev) {
-      prev.src = e.target.result;
-    }
-    if (box) {
-      box.style.display = 'block';
-    }
+    const prev = document.getElementById(`cfg-banner${suf}-preview`);
+    const box  = document.getElementById(`cfg-banner${suf}-preview-box`);
+    if (prev) prev.src = e.target.result;
+    if (box)  box.style.display = 'block';
   };
   reader.readAsDataURL(input.files[0]);
 }
 
-async function salvarBanner() {
-  const fileInput = document.getElementById('cfg-banner-file');
-  const prodId = document.getElementById('cfg-banner-id')?.value;
+async function salvarBanner(num = 1) {
+  const suf = num === 2 ? '2' : '';
+  const fileInput = document.getElementById(`cfg-banner${suf}-file`);
+  const prodId    = document.getElementById(`cfg-banner${suf}-id`)?.value?.trim();
+  const descTipo  = document.getElementById(`cfg-banner${suf}-desc-tipo`)?.value  || null;
+  const descValor = parseFloat(document.getElementById(`cfg-banner${suf}-desc-valor`)?.value) || null;
 
-  if (!prodId) {
-    alert('Informe o ID do produto promocional.');
-    return;
-  }
-  if (!fileInput?.files?.length) {
-    alert('Selecione uma foto para o banner.');
-    return;
-  }
+  if (!prodId) { alert('Informe o ID do produto para o banner.'); return; }
 
   const btn = event.target;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
   btn.disabled = true;
 
   try {
-    const file = fileInput.files[0];
-    const nomeArq = `banner_${Date.now()}.${file.name.split('.').pop()}`;
-    const { error: uploadErr } = await supa.storage
-      .from('produtos')
-      .upload(nomeArq, file, { upsert: true });
-    if (uploadErr) throw uploadErr;
+    let urlFinal = document.getElementById(`cfg-banner${suf}-img`)?.value || '';
 
-    const { data: urlData } = supa.storage.from('produtos').getPublicUrl(nomeArq);
-    const urlFinal = urlData.publicUrl;
+    if (fileInput?.files?.length) {
+      const file = fileInput.files[0];
+      const nomeArq = `banner${suf}_${Date.now()}.${file.name.split('.').pop()}`;
+      const { error: uploadErr } = await supa.storage.from('produtos').upload(nomeArq, file, { upsert: true });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supa.storage.from('produtos').getPublicUrl(nomeArq);
+      urlFinal = urlData.publicUrl;
+    }
 
-    // Salva a URL e o ID do produto na tabela configuracoes
-    await supa
-      .from('configuracoes')
-      .update({
-        banner_imagem: urlFinal,
-        banner_produto_id: prodId,
-      })
-      .gt('id', 0);
+    if (!urlFinal) { alert('Selecione uma foto ou informe a URL do banner.'); return; }
 
-    document.getElementById('cfg-banner-img').value = urlFinal;
-    alert('✅ Promoção ativada! O banner foi atualizado no cardápio.');
+    const updateData = {};
+    updateData[`banner${suf}_imagem`]        = urlFinal;
+    updateData[`banner${suf}_produto_id`]    = parseInt(prodId) || null;
+    updateData[`banner${suf}_desconto_tipo`] = descValor ? descTipo : null;
+    updateData[`banner${suf}_desconto_valor`]= descValor || null;
+
+    await supa.from('configuracoes').update(updateData).gt('id', 0);
+
+    const imgEl  = document.getElementById(`cfg-banner${suf}-img`);
+    const prevEl = document.getElementById(`cfg-banner${suf}-preview`);
+    const boxEl  = document.getElementById(`cfg-banner${suf}-preview-box`);
+    if (imgEl)  imgEl.value = urlFinal;
+    if (prevEl) prevEl.src  = urlFinal;
+    if (boxEl)  boxEl.style.display = 'block';
+
+    alert(`✅ Banner ${num} ativado!`);
   } catch (e) {
-    alert('Erro ao enviar: ' + e.message);
+    alert('Erro: ' + e.message);
   } finally {
-    btn.innerHTML = '<i class="fas fa-upload"></i> Enviar Foto & Ativar Promoção';
+    btn.innerHTML = '<i class="fas fa-upload"></i> Salvar Banner';
     btn.disabled = false;
   }
 }
@@ -4224,59 +4656,144 @@ function _renderTabelaFrete(savedData) {
   const tbody = document.getElementById('tabela-frete-body');
   if (!tbody) return;
   tbody.innerHTML = '';
+
   FRETE_FAIXAS.forEach((faixa, idx) => {
     const saved = (savedData && savedData[idx]) || {};
-    const valLoja   = saved.loja   ?? '';
+    const valLoja   = saved.loja    ?? '';
     const valMoto   = saved.motoboy ?? '';
-    const bg = idx % 2 === 0 ? '#fff' : '#f9f9f9';
+    const aCombinar = saved.acombinar === true;
+    const bg = idx % 2 === 0 ? 'var(--color-background-primary)' : 'var(--color-background-secondary)';
+    const rowStyle = aCombinar ? 'opacity:0.6' : '';
     tbody.innerHTML += `
-      <tr style="background:${bg}">
-        <td style="padding:8px;font-weight:600;white-space:nowrap">${faixa.label}</td>
-        <td style="padding:8px;text-align:center">
+      <tr style="background:${bg};${rowStyle}" id="frete-row-${idx}">
+        <td style="padding:8px;font-weight:600;white-space:nowrap;font-size:0.85rem">${faixa.label}</td>
+        <td style="padding:6px;text-align:center">
           <input type="number" class="form-control frete-loja" data-idx="${idx}"
-                 value="${valLoja}" placeholder="0" min="0" step="1000"
-                 style="text-align:center;max-width:130px;margin:0 auto;border:1.5px solid #2980b9">
+                 value="${aCombinar ? '' : valLoja}" placeholder="0" min="0" step="1000"
+                 ${aCombinar ? 'disabled' : ''}
+                 style="text-align:center;max-width:120px;margin:0 auto;border:1.5px solid #2980b9;${aCombinar?'opacity:0.4':''}">
         </td>
-        <td style="padding:8px;text-align:center">
+        <td style="padding:6px;text-align:center">
           <input type="number" class="form-control frete-motoboy" data-idx="${idx}"
-                 value="${valMoto}" placeholder="0" min="0" step="1000"
-                 style="text-align:center;max-width:130px;margin:0 auto;border:1.5px solid #27ae60">
+                 value="${aCombinar ? '' : valMoto}" placeholder="0" min="0" step="1000"
+                 ${aCombinar ? 'disabled' : ''}
+                 style="text-align:center;max-width:120px;margin:0 auto;border:1.5px solid #27ae60;${aCombinar?'opacity:0.4':''}">
+        </td>
+        <td style="padding:6px;text-align:center">
+          <label style="display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-size:0.78rem;color:${aCombinar?'#e67e22':'#aaa'}">
+            <input type="checkbox" class="frete-acombinar" data-idx="${idx}" ${aCombinar?'checked':''}
+              onchange="_toggleFreteRow(${idx}, this.checked)"
+              style="width:15px;height:15px">
+            Combinar
+          </label>
         </td>
       </tr>`;
   });
 }
 
+function _toggleFreteRow(idx, acombinar) {
+  const row = document.getElementById(`frete-row-${idx}`);
+  if (!row) return;
+  const lojaInp  = row.querySelector('.frete-loja');
+  const motoInp  = row.querySelector('.frete-motoboy');
+  const lbl      = row.querySelector('label');
+  row.style.opacity = acombinar ? '0.6' : '1';
+  if (lojaInp) { lojaInp.disabled = acombinar; lojaInp.style.opacity = acombinar ? '0.4' : '1'; if (acombinar) lojaInp.value = ''; }
+  if (motoInp) { motoInp.disabled = acombinar; motoInp.style.opacity = acombinar ? '0.4' : '1'; if (acombinar) motoInp.value = ''; }
+  if (lbl)     lbl.style.color = acombinar ? '#e67e22' : '#aaa';
+}
+
 async function salvarTabelaFrete() {
   const tabela = [];
   FRETE_FAIXAS.forEach((_, idx) => {
-    const loja   = parseInt(document.querySelector(`.frete-loja[data-idx="${idx}"]`)?.value)   || 0;
-    const motoboy = parseInt(document.querySelector(`.frete-motoboy[data-idx="${idx}"]`)?.value) || 0;
-    tabela.push({ loja, motoboy });
+    const acombinar = document.querySelector(`.frete-acombinar[data-idx="${idx}"]`)?.checked || false;
+    const loja   = acombinar ? 0 : (parseInt(document.querySelector(`.frete-loja[data-idx="${idx}"]`)?.value)   || 0);
+    const motoboy = acombinar ? 0 : (parseInt(document.querySelector(`.frete-motoboy[data-idx="${idx}"]`)?.value) || 0);
+    tabela.push({ loja, motoboy, acombinar });
   });
 
-  const novoCombus = parseInt(document.getElementById('cfg-combustivel')?.value) || 0;
-  const novoMotoBase = parseInt(document.getElementById('cfg-taxa-motoboy-base')?.value) || 0;
+  const novoCombus   = parseInt(document.getElementById('cfg-combustivel')?.value)        || 0;
+  const novoMotoBase = parseInt(document.getElementById('cfg-taxa-motoboy-base')?.value)   || 0;
+  const limiteKm     = parseFloat(document.getElementById('cfg-limite-distancia')?.value)  || null;
   AJUDA_COMBUSTIVEL = novoCombus;
   TAXA_MOTOBOY      = novoMotoBase;
 
-  const { error } = await supa.from('configuracoes').update({ tabela_frete: tabela, ajuda_combustivel: novoCombus, taxa_motoboy_base: novoMotoBase }).gt('id', 0);
-  if (error) {
-    if (error.code === '42703' || (error.message && (error.message.includes('tabela_frete') || error.message.includes('ajuda_combustivel')))) {
-      alert(
-        '⚠️ A coluna "tabela_frete" ainda não existe no banco.\n\n' +
-        'Execute no Supabase SQL Editor:\n\n' +
-        'ALTER TABLE configuracoes ADD COLUMN IF NOT EXISTS tabela_frete JSONB DEFAULT NULL;\n' +
-        'ALTER TABLE configuracoes ADD COLUMN IF NOT EXISTS ajuda_combustivel INTEGER DEFAULT 20000;'
-      );
-    } else {
-      alert('Erro ao salvar tabela de frete: ' + error.message);
-    }
-    return;
-  }
-  alert('✅ Tabela de frete salva com sucesso!');
+  const updateData = { tabela_frete: tabela, ajuda_combustivel: novoCombus, taxa_motoboy_base: novoMotoBase };
+  if (limiteKm) updateData.limite_distancia_km = limiteKm; else updateData.limite_distancia_km = null;
+
+  const { error } = await supa.from('configuracoes').update(updateData).gt('id', 0);
+  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  TABELA_FRETE_ADMIN = tabela;
+  alert('✅ Tabela de frete salva!');
 }
 
-async function salvarPersonalizacao() {
+// ── MAQUININHAS DE CARTÃO ─────────────────────────────────────────
+async function _carregarMaquininhas() {
+  const container = document.getElementById('maquininhas-lista');
+  if (!container) return;
+  const { data } = await supa.from('configuracoes').select('maquininhas_cartao').maybeSingle();
+  const lista = (data?.maquininhas_cartao) || [];
+  container.innerHTML = '';
+  if (!lista.length) {
+    container.innerHTML = '<p style="color:var(--color-text-secondary);font-size:0.82rem;padding:8px 0">Nenhuma maquininha cadastrada.</p>';
+    return;
+  }
+  lista.forEach((m, idx) => _renderMaquininha(m, idx, container));
+}
+
+function _renderMaquininha(m, idx, container) {
+  const row = document.createElement('div');
+  row.className = 'maquininha-row';
+  row.style.cssText = 'background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:10px;padding:12px;margin-bottom:8px';
+  row.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-weight:700;font-size:0.9rem">${m.nome || 'Maquininha ' + (idx+1)}</span>
+      <button onclick="this.closest('.maquininha-row').remove()" style="background:none;border:none;color:#e74c3c;font-size:1rem;cursor:pointer">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;font-size:0.82rem">
+      <div><label style="font-size:0.72rem;color:var(--color-text-secondary)">Nome/Operadora</label>
+        <input class="form-control maq-nome" value="${m.nome||''}" placeholder="Ex: Cielo, Rede, Sicredi"></div>
+      <div><label style="font-size:0.72rem;color:var(--color-text-secondary)">Débito (%)</label>
+        <input type="number" class="form-control maq-debito" value="${m.taxas?.debito??''}" placeholder="1.5" min="0" step="0.01"></div>
+      <div><label style="font-size:0.72rem;color:var(--color-text-secondary)">Crédito (%)</label>
+        <input type="number" class="form-control maq-credito" value="${m.taxas?.credito??''}" placeholder="2.5" min="0" step="0.01"></div>
+      <div><label style="font-size:0.72rem;color:var(--color-text-secondary)">Parcelado (%)</label>
+        <input type="number" class="form-control maq-parcelado" value="${m.taxas?.parcelado??''}" placeholder="3.0" min="0" step="0.01"></div>
+      <div><label style="font-size:0.72rem;color:var(--color-text-secondary)">PIX (%)</label>
+        <input type="number" class="form-control maq-pix" value="${m.taxas?.pix??''}" placeholder="0.99" min="0" step="0.01"></div>
+    </div>`;
+  container.appendChild(row);
+}
+
+function adicionarMaquininha() {
+  const container = document.getElementById('maquininhas-lista');
+  if (!container) return;
+  const p = container.querySelector('p');
+  if (p) p.remove();
+  _renderMaquininha({}, container.querySelectorAll('.maquininha-row').length, container);
+}
+
+async function salvarMaquininhas() {
+  const maquininhas = [];
+  document.querySelectorAll('#maquininhas-lista .maquininha-row').forEach(row => {
+    const nome = row.querySelector('.maq-nome')?.value.trim() || '';
+    if (!nome) return;
+    maquininhas.push({
+      nome,
+      taxas: {
+        debito:    parseFloat(row.querySelector('.maq-debito')?.value)    || 0,
+        credito:   parseFloat(row.querySelector('.maq-credito')?.value)   || 0,
+        parcelado: parseFloat(row.querySelector('.maq-parcelado')?.value) || 0,
+        pix:       parseFloat(row.querySelector('.maq-pix')?.value)       || 0,
+      }
+    });
+  });
+  const { error } = await supa.from('configuracoes').update({ maquininhas_cartao: maquininhas }).gt('id', 0);
+  if (error) { alert('Erro: ' + error.message); return; }
+  alert('✅ Maquininhas salvas!');
+}
+
+
   const btn = event.target;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
   btn.disabled = true;
@@ -4769,7 +5286,7 @@ function filtrarPDV(valor) {
 // Categorias que NÃO recebem o upsell de extras globais
 const _CATS_SEM_EXTRAS_GLOBAIS = ['bebidas', 'bebida', 'extras', 'extra', 'molhos', 'adicionais'];
 
-// Extras globais padrão do sushi (carregados das configurações ou hardcoded como fallback)
+// Extras globais configurados pelo admin
 let _extrasGlobaisCache = null;
 async function _getExtrasGlobais() {
   if (_extrasGlobaisCache !== null) return _extrasGlobaisCache;
@@ -4788,40 +5305,493 @@ function _deveMostrarExtrasGlobais(produto) {
 }
 
 function adicionarItemPDV(p) {
-  // Produto vendido por kg → abre modal de peso
   const cfg = p.montagem_config;
-  const isKg = cfg && !Array.isArray(cfg) && cfg.__tipo === 'kg';
-  if (isKg) {
+  const tipo = cfg && !Array.isArray(cfg) && cfg.__tipo ? cfg.__tipo : null;
+
+  // Kg → modal de peso/balança
+  if (tipo === 'kg') {
     _mostrarModalPesoPDV(p, cfg.preco_kg || p.preco || 0);
     return;
   }
 
-  // Verifica se produto tem variações
-  const tipo = cfg && !Array.isArray(cfg) && cfg.__tipo ? cfg.__tipo : null;
-  if (tipo === 'variacoes' && cfg.variacoes && cfg.variacoes.length > 0) {
-    const variacoesAtivas = cfg.variacoes.filter((v) => v.ativo !== false);
-    if (variacoesAtivas.length === 0) {
-      alert('⏸️ Todas as variações deste produto estão pausadas.');
-      return;
-    }
-    _mostrarModalVariacaoPDV(p, variacoesAtivas);
+  // Tipos com seleção obrigatória → abre modal de opções
+  if (tipo === 'variacoes' && cfg.variacoes?.length > 0) {
+    const ativas = cfg.variacoes.filter(v => v.ativo !== false);
+    if (!ativas.length) { alert('⏸️ Todas as variações estão pausadas.'); return; }
+    _mostrarModalOpcoesPDV(p, 'variacoes');
     return;
   }
-  const existe = carrinhoPDV.find((i) => i.id === p.id && !i.variacao);
+  if (tipo === 'pizza') {
+    _mostrarModalOpcoesPDV(p, 'pizza');
+    return;
+  }
+  if (tipo === 'acai') {
+    _mostrarModalOpcoesPDV(p, 'acai');
+    return;
+  }
+  if (tipo === 'shake') {
+    _mostrarModalOpcoesPDV(p, 'shake');
+    return;
+  }
+  if (tipo === 'suco') {
+    _mostrarModalOpcoesPDV(p, 'suco');
+    return;
+  }
+  if (tipo === 'sorvete') {
+    _mostrarModalOpcoesPDV(p, 'sorvete');
+    return;
+  }
+  if (tipo === 'montavel' && cfg.etapas?.length > 0) {
+    _mostrarModalOpcoesPDV(p, 'montavel');
+    return;
+  }
+
+  // Simples / Lanche / Bebida / Combo — adiciona direto
+  const existe = carrinhoPDV.find(i => i.id === p.id && !i.variacao);
   if (existe) existe.qtd++;
-  else carrinhoPDV.push({ ...p, qtd: 1 });
+  else carrinhoPDV.push({ ...p, qtd: 1, montagem: [], obs: '' });
   atualizarCarrinhoPDV();
 
-  // Upsell de extras globais (exceto bebidas e extras)
   if (_deveMostrarExtrasGlobais(p)) {
-    _getExtrasGlobais().then((extras) => {
-      if (extras && extras.length > 0) _mostrarUpsellExtrasPDV(p, extras);
+    _getExtrasGlobais().then(extras => {
+      if (extras?.length > 0) _mostrarUpsellExtrasPDV(p, extras);
     });
   }
 }
 
-// Cache seguro de produto — evita JSON.stringify em onclick (causava crash com montagem_config)
-// ── Modal de peso para produtos vendidos por kg ───────────────────
+// ── Modal unificado de opções para PDV ────────────────────────────
+// Cobre: variacoes, pizza, acai, shake, suco, sorvete, montavel
+function _mostrarModalOpcoesPDV(produto, tipo) {
+  document.getElementById('pdv-opcoes-modal')?.remove();
+
+  const cfg = produto.montagem_config || {};
+  const cacheKey = 'pdv_' + (produto.id || Date.now());
+  window._pdvProdCache[cacheKey] = produto;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pdv-opcoes-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:99999;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:20px 16px 32px;box-shadow:0 -8px 40px rgba(0,0,0,0.2)';
+
+  // Header
+  modal.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:#1a1a1a">${produto.nome}</div>
+        <div style="font-size:0.8rem;color:#888">Gs ${(produto.preco||0).toLocaleString('es-PY')}</div>
+      </div>
+      <button onclick="document.getElementById('pdv-opcoes-modal').remove()"
+        style="background:#f3f4f6;border:none;border-radius:50%;width:32px;height:32px;font-size:1.1rem;cursor:pointer;color:#666">✕</button>
+    </div>
+    <div id="_pdv-modal-corpo"></div>
+    <div id="_pdv-obs-row" style="margin-top:12px">
+      <label style="font-size:0.8rem;font-weight:600;color:#555">Observações</label>
+      <input type="text" id="_pdv-obs-input" class="form-control" placeholder="Ex: sem cebola, bem passado..." style="margin-top:4px">
+    </div>
+    <button id="_pdv-modal-add" onclick="_pdvModalConfirmar('${cacheKey}')"
+      style="width:100%;padding:14px;background:var(--primary,#1a7a2e);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:800;cursor:pointer;margin-top:16px">
+      ✅ Adicionar ao Pedido
+    </button>`;
+
+  const corpo = () => modal.querySelector('#_pdv-modal-corpo');
+
+  // ── VARIAÇÕES ────────────────────────────────────────────────
+  if (tipo === 'variacoes') {
+    const ativas = (cfg.variacoes || []).filter(v => v.ativo !== false);
+    corpo().innerHTML = `<p style="font-size:0.82rem;color:#555;margin-bottom:10px;font-weight:600">Escolha a variação:</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${ativas.map((v,i) => `
+          <label style="display:flex;align-items:center;gap:12px;border:2px solid #e5e7eb;border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .15s"
+            onclick="this.closest('div').querySelectorAll('label').forEach(l=>l.style.borderColor='#e5e7eb');this.style.borderColor='var(--primary)';this.style.background='#f0fff4'">
+            <input type="radio" name="_pdv_var" value="${i}" style="width:18px;height:18px" ${i===0?'checked':''}>
+            ${v.img||produto.imagem_url ? `<img src="${v.img||produto.imagem_url}" style="width:44px;height:44px;border-radius:8px;object-fit:cover" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1"><div style="font-weight:700;font-size:0.9rem">${v.nome}</div></div>
+            <div style="font-weight:700;color:var(--primary)">Gs ${(v.preco||produto.preco||0).toLocaleString('es-PY')}</div>
+          </label>`).join('')}
+      </div>`;
+  }
+
+  // ── PIZZA ────────────────────────────────────────────────────
+  else if (tipo === 'pizza') {
+    const tamanhos = cfg.tamanhos || [];
+    const tipos_pizza = cfg.tipos_pizza || [];
+    const sabores = cfg.sabores || [];
+    const bordas = cfg.bordas || [];
+
+    let html = '';
+    if (tamanhos.length) {
+      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">📐 Tamanho:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${tamanhos.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#e74c3c':'#e5e7eb'};border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#e74c3c';this.style.background='#fff5f5';_pdvPizzaAtualizarPreco()">
+              <input type="radio" name="_pdv_pizza_tam" value="${i}" style="display:none" ${i===0?'checked':''}>
+              <div>${t.nome}</div><div style="font-size:0.72rem;color:#888">${t.fatias||''}${t.fatias?' fatias':''} ${t.cm||''}${t.cm?' cm':''}</div>
+            </label>`).join('')}
+        </div></div>`;
+    }
+
+    if (tipos_pizza.length > 1) {
+      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🍕 Tipo:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${tipos_pizza.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#e74c3c':'#e5e7eb'};border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#e74c3c';this.style.background='#fff5f5';_pdvPizzaFiltrarSabores()">
+              <input type="radio" name="_pdv_pizza_tipo" value="${t.nome}" style="display:none" ${i===0?'checked':''}>
+              ${t.nome}
+            </label>`).join('')}
+        </div></div>`;
+    }
+
+    const maxSabDefault = tamanhos[0]?.max_sabores || 2;
+    html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🍽️ Sabores <span id="_pdv_pizza_maxlabel">(até ${maxSabDefault})</span>:</p>
+      <div id="_pdv_sabores_lista" style="display:flex;flex-direction:column;gap:6px">
+        ${sabores.map(s => `
+          <label style="display:flex;align-items:center;gap:10px;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .15s"
+            data-tipo-sabor="${s.tipo||''}"
+            onclick="var cb=this.querySelector('input');if(!cb.checked){var t=parseInt(document.getElementById('_pdv_pizza_maxlabel').textContent.match(/\d+/)?.[0]||2);var chk=document.querySelectorAll('#_pdv_sabores_lista input:checked').length;if(chk>=t){alert('Máx. '+t+' sabores');return;}cb.checked=true;this.style.borderColor='#e74c3c';this.style.background='#fff5f5';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
+            <input type="checkbox" value="${s.nome}" style="display:none">
+            ${s.img ? `<img src="${s.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1;font-size:0.88rem;font-weight:600">${s.nome}</div>
+            ${s.desc ? `<div style="font-size:0.75rem;color:#888">${s.desc}</div>` : ''}
+          </label>`).join('')}
+      </div></div>`;
+
+    if (bordas.length) {
+      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🧀 Borda (opcional):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <label style="border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;transition:all .15s"
+            onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4'">
+            <input type="radio" name="_pdv_pizza_borda" value="" style="display:none" checked> Sem borda
+          </label>
+          ${bordas.map(b => `
+            <label style="border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4'">
+              <input type="radio" name="_pdv_pizza_borda" value="${b.nome}" style="display:none">
+              ${b.nome} ${b.preco ? `(+Gs ${(b.preco).toLocaleString('es-PY')})` : ''}
+            </label>`).join('')}
+        </div></div>`;
+    }
+
+    html += `<div id="_pdv_pizza_preco_box" style="background:#fff5f5;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;text-align:center;margin-bottom:8px">
+      <span style="font-size:0.8rem;color:#888">Total estimado:</span>
+      <div id="_pdv_pizza_preco_val" style="font-size:1.3rem;font-weight:800;color:#e74c3c">Gs —</div>
+    </div>`;
+
+    corpo().innerHTML = html;
+
+    // Expõe dados para o calcular preço
+    window._pdvPizzaCfg = cfg;
+
+    window._pdvPizzaAtualizarPreco = function() {
+      const tamIdx = parseInt(modal.querySelector('input[name="_pdv_pizza_tam"]:checked')?.value ?? 0);
+      const tam = cfg.tamanhos?.[tamIdx];
+      if (!tam) return;
+      const tipoSel = modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value || (cfg.tipos_pizza?.[0]?.nome || 'Tradicional');
+      const precoBase = tam.precos?.[tipoSel] || tam.preco || 0;
+      const bordaVal = modal.querySelector('input[name="_pdv_pizza_borda"]:checked')?.value || '';
+      const bordaPreco = bordaVal ? (cfg.bordas?.find(b => b.nome === bordaVal)?.preco || 0) : 0;
+      const el = modal.querySelector('#_pdv_pizza_preco_val');
+      if (el) el.textContent = 'Gs ' + (precoBase + bordaPreco).toLocaleString('es-PY');
+      // Atualiza max sabores
+      const maxLbl = modal.querySelector('#_pdv_pizza_maxlabel');
+      if (maxLbl) maxLbl.textContent = `(até ${tam.max_sabores || 2})`;
+    };
+    window._pdvPizzaFiltrarSabores = function() {
+      const tipoSel = modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value || '';
+      modal.querySelectorAll('#_pdv_sabores_lista label').forEach(l => {
+        const tl = l.dataset.tipoSabor;
+        l.style.display = (!tl || !tipoSel || tl === tipoSel || cfg.tipos_pizza?.length <= 1) ? '' : 'none';
+      });
+      _pdvPizzaAtualizarPreco();
+    };
+    _pdvPizzaAtualizarPreco();
+  }
+
+  // ── AÇAÍ ────────────────────────────────────────────────────
+  else if (tipo === 'acai') {
+    let html = '';
+    if (cfg.tamanhos?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#7c3aed;margin-bottom:6px">🍇 Tamanho:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          ${cfg.tamanhos.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#7c3aed':'#e5e7eb'};border-radius:10px;padding:8px 10px;cursor:pointer;text-align:center;min-width:70px;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#7c3aed';this.style.background='#f5f3ff'">
+              <input type="radio" name="_pdv_acai_tam" value="${i}" style="display:none" ${i===0?'checked':''}>
+              ${t.img ? `<img src="${t.img}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;display:block;margin:0 auto 4px" onerror="this.style.display='none'">` : ''}
+              <div style="font-weight:700;font-size:0.85rem">${t.nome}</div>
+              <div style="font-size:0.75rem;color:#7c3aed;font-weight:600">Gs ${(t.preco||0).toLocaleString('es-PY')}</div>
+            </label>`).join('')}
+        </div>`;
+    }
+    if (cfg.acompanhamentos?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#7c3aed;margin-bottom:6px">🥄 Acompanhamentos:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
+          ${cfg.acompanhamentos.map(a => `
+            <label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;cursor:pointer;font-size:0.83rem;font-weight:600;display:flex;align-items:center;gap:6px;transition:all .15s"
+              onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;this.style.borderColor=cb.checked?'#7c3aed':'#e5e7eb';this.style.background=cb.checked?'#f5f3ff':''">
+              <input type="checkbox" value="${a.nome}" style="display:none">
+              ${a.img ? `<img src="${a.img}" style="width:28px;height:28px;border-radius:4px;object-fit:cover" onerror="this.style.display='none'">` : ''}
+              ${a.nome} ${a.preco ? `(+Gs ${a.preco.toLocaleString('es-PY')})` : ''}
+            </label>`).join('')}
+        </div>`;
+    }
+    (cfg.etapas || []).forEach(et => {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#7c3aed;margin-bottom:6px">${et.titulo} (até ${et.max}):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${(et.itens||[]).map(it => {
+            const nome = it.nome || it;
+            return `<label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.83rem;font-weight:600;transition:all .15s"
+              onclick="var cb=this.querySelector('input');if(!cb.checked){var m=${et.max};var ch=this.closest('div').querySelectorAll('input:checked').length;if(ch>=m){alert('Máx. '+m+' itens');return;}cb.checked=true;this.style.borderColor='#7c3aed';this.style.background='#f5f3ff';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
+              <input type="checkbox" value="${nome}" style="display:none">${nome}
+            </label>`;
+          }).join('')}
+        </div>`;
+    });
+    corpo().innerHTML = html;
+  }
+
+  // ── SHAKE ────────────────────────────────────────────────────
+  else if (tipo === 'shake') {
+    const sk = cfg.shake || {};
+    let html = '';
+    if (sk.tamanhos?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#2980b9;margin-bottom:6px">📐 Tamanho:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          ${sk.tamanhos.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#2980b9':'#e5e7eb'};border-radius:10px;padding:8px 12px;cursor:pointer;font-size:0.88rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#2980b9';this.style.background='#e8f4fd'">
+              <input type="radio" name="_pdv_shake_tam" value="${i}" style="display:none" ${i===0?'checked':''}>
+              ${t.nome}${t.ml ? ` (${t.ml}ml)` : ''}<br><span style="font-size:0.75rem;color:#2980b9">Gs ${(t.preco||0).toLocaleString('es-PY')}</span>
+            </label>`).join('')}
+        </div>`;
+    }
+    if (sk.sabores?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#2980b9;margin-bottom:6px">🍓 Sabor:</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:14px">
+          ${sk.sabores.map((s,i) => `
+            <label style="border:2px solid ${i===0?'#2980b9':'#e5e7eb'};border-radius:10px;padding:8px;cursor:pointer;text-align:center;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#2980b9';this.style.background='#e8f4fd'">
+              <input type="radio" name="_pdv_shake_sabor" value="${s.nome}" style="display:none" ${i===0?'checked':''}>
+              ${s.img ? `<img src="${s.img}" style="width:44px;height:44px;border-radius:8px;object-fit:cover;display:block;margin:0 auto 4px" onerror="this.style.display='none'">` : ''}
+              <div style="font-size:0.83rem;font-weight:600">${s.nome}</div>
+              ${s.preco ? `<div style="font-size:0.72rem;color:#2980b9">+Gs ${s.preco.toLocaleString('es-PY')}</div>` : ''}
+            </label>`).join('')}
+        </div>`;
+    }
+    corpo().innerHTML = html;
+  }
+
+  // ── SUCO ────────────────────────────────────────────────────
+  else if (tipo === 'suco') {
+    let html = '';
+    if (cfg.tamanhos?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#f59e0b;margin-bottom:6px">📐 Tamanho:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          ${cfg.tamanhos.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#f59e0b':'#e5e7eb'};border-radius:10px;padding:8px 12px;cursor:pointer;font-size:0.88rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#f59e0b';this.style.background='#fffbeb'">
+              <input type="radio" name="_pdv_suco_tam" value="${i}" style="display:none" ${i===0?'checked':''}>
+              ${t.nome}<br><span style="font-size:0.75rem;color:#f59e0b">Gs ${(t.preco||0).toLocaleString('es-PY')}</span>
+            </label>`).join('')}
+        </div>`;
+    }
+    (cfg.etapas || []).forEach(et => {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#f59e0b;margin-bottom:6px">${et.titulo} (até ${et.max}):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${(et.itens||[]).map(it => {
+            const nome = it.nome||it;
+            return `<label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.83rem;font-weight:600;transition:all .15s"
+              onclick="var cb=this.querySelector('input');if(!cb.checked){var m=${et.max};var ch=this.closest('div').querySelectorAll('input:checked').length;if(ch>=m){alert('Máx. '+m+' itens');return;}cb.checked=true;this.style.borderColor='#f59e0b';this.style.background='#fffbeb';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
+              <input type="checkbox" value="${nome}" style="display:none">${nome}
+            </label>`;
+          }).join('')}
+        </div>`;
+    });
+    corpo().innerHTML = html;
+  }
+
+  // ── SORVETE ─────────────────────────────────────────────────
+  else if (tipo === 'sorvete') {
+    let html = '';
+    if (cfg.tamanhos?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#0ea5e9;margin-bottom:6px">🍦 Quantidade de Bolas:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+          ${cfg.tamanhos.map((t,i) => `
+            <label style="border:2px solid ${i===0?'#0ea5e9':'#e5e7eb'};border-radius:10px;padding:8px 12px;cursor:pointer;font-size:0.88rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'">
+              <input type="radio" name="_pdv_sorv_tam" value="${i}" style="display:none" ${i===0?'checked':''}>
+              ${t.nome}<br><span style="font-size:0.75rem;color:#0ea5e9">Gs ${(t.preco||0).toLocaleString('es-PY')}</span>
+            </label>`).join('')}
+        </div>`;
+    }
+    if (cfg.sabores?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#0ea5e9;margin-bottom:6px">🎨 Sabores:</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-bottom:14px">
+          ${cfg.sabores.map(s => `
+            <label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:7px;cursor:pointer;text-align:center;transition:all .15s"
+              onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;this.style.borderColor=cb.checked?'#0ea5e9':'#e5e7eb';this.style.background=cb.checked?'#f0f9ff':''">
+              <input type="checkbox" value="${s.nome}" style="display:none">
+              ${s.img ? `<img src="${s.img}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;display:block;margin:0 auto 4px" onerror="this.style.display='none'">` : ''}
+              <div style="font-size:0.8rem;font-weight:600">${s.nome}</div>
+              ${s.preco ? `<div style="font-size:0.7rem;color:#0ea5e9">+Gs ${s.preco.toLocaleString('es-PY')}</div>` : ''}
+            </label>`).join('')}
+        </div>`;
+    }
+    if (cfg.variacoes?.length) {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#0ea5e9;margin-bottom:6px">🍦 Servir em:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${cfg.variacoes.map((v,i) => `
+            <label style="border:2px solid ${i===0?'#0ea5e9':'#e5e7eb'};border-radius:8px;padding:7px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff'">
+              <input type="radio" name="_pdv_sorv_var" value="${v.nome}" style="display:none" ${i===0?'checked':''}>
+              ${v.nome} ${v.preco ? `(+Gs ${v.preco.toLocaleString('es-PY')})` : ''}
+            </label>`).join('')}
+        </div>`;
+    }
+    (cfg.etapas || []).forEach(et => {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#0ea5e9;margin-bottom:6px">${et.titulo} (até ${et.max}):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${(et.itens||[]).map(it => {
+            const nome = it.nome||it;
+            return `<label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.83rem;font-weight:600;transition:all .15s"
+              onclick="var cb=this.querySelector('input');if(!cb.checked){var m=${et.max};var ch=this.closest('div').querySelectorAll('input:checked').length;if(ch>=m){alert('Máx. '+m+' itens');return;}cb.checked=true;this.style.borderColor='#0ea5e9';this.style.background='#f0f9ff';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
+              <input type="checkbox" value="${nome}" style="display:none">${nome}
+            </label>`;
+          }).join('')}
+        </div>`;
+    });
+    corpo().innerHTML = html;
+  }
+
+  // ── MONTÁVEL GENÉRICO ────────────────────────────────────────
+  else if (tipo === 'montavel') {
+    let html = '';
+    (cfg.etapas || []).forEach(et => {
+      html += `<p style="font-size:0.82rem;font-weight:700;color:#e67e22;margin-bottom:6px">${et.titulo} (até ${et.max}):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+          ${(et.itens||[]).map(it => {
+            const nome = it.nome||it; const preco = it.preco||0;
+            return `<label style="border:1.5px solid #e5e7eb;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:0.83rem;font-weight:600;transition:all .15s"
+              onclick="var cb=this.querySelector('input');if(!cb.checked){var m=${et.max};var ch=this.closest('div').querySelectorAll('input:checked').length;if(ch>=m){alert('Máx. '+m+' itens');return;}cb.checked=true;this.style.borderColor='#e67e22';this.style.background='#fff8f0';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
+              <input type="checkbox" value="${nome}" style="display:none">${nome}${preco ? ` (+Gs ${preco.toLocaleString('es-PY')})` : ''}
+            </label>`;
+          }).join('')}
+        </div>`;
+    });
+    corpo().innerHTML = html || '<p style="color:#aaa;font-size:0.85rem">Nenhuma etapa configurada.</p>';
+  }
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
+// ── Confirmar seleção do modal de opções PDV ─────────────────────
+function _pdvModalConfirmar(cacheKey) {
+  const modal = document.getElementById('pdv-opcoes-modal');
+  if (!modal) return;
+  const produto = window._pdvProdCache[cacheKey];
+  if (!produto) return;
+  const cfg = produto.montagem_config || {};
+  const tipo = cfg.__tipo || '';
+  const obs = modal.querySelector('#_pdv-obs-input')?.value?.trim() || '';
+
+  let preco = produto.preco || 0;
+  const montagem = [];
+  let variacaoLabel = '';
+
+  if (tipo === 'variacoes') {
+    const idx = parseInt(modal.querySelector('input[name="_pdv_var"]:checked')?.value ?? 0);
+    const v = (cfg.variacoes||[])[idx];
+    if (v) { preco = v.preco || preco; variacaoLabel = v.nome; }
+
+  } else if (tipo === 'pizza') {
+    const tamIdx = parseInt(modal.querySelector('input[name="_pdv_pizza_tam"]:checked')?.value ?? 0);
+    const tam = (cfg.tamanhos||[])[tamIdx];
+    const tipoSel = modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value || cfg.tipos_pizza?.[0]?.nome || '';
+    const borda = modal.querySelector('input[name="_pdv_pizza_borda"]:checked')?.value || '';
+    const saboresSel = [...modal.querySelectorAll('#_pdv_sabores_lista input:checked')].map(c => c.value);
+
+    if (!saboresSel.length) { alert('Escolha pelo menos 1 sabor.'); return; }
+
+    preco = tam?.precos?.[tipoSel] || tam?.preco || preco;
+    const bordaPreco = borda ? (cfg.bordas?.find(b => b.nome === borda)?.preco || 0) : 0;
+    preco += bordaPreco;
+
+    variacaoLabel = tam?.nome || '';
+    if (tipoSel) montagem.push('Tipo: ' + tipoSel);
+    montagem.push('Sabores: ' + saboresSel.join(' / '));
+    if (borda) montagem.push('Borda: ' + borda);
+
+  } else if (tipo === 'shake') {
+    const sk = cfg.shake || {};
+    const tamIdx = parseInt(modal.querySelector('input[name="_pdv_shake_tam"]:checked')?.value ?? 0);
+    const tam = (sk.tamanhos||[])[tamIdx];
+    const saborSel = modal.querySelector('input[name="_pdv_shake_sabor"]:checked')?.value || '';
+    const saborObj = sk.sabores?.find(s => s.nome === saborSel);
+    preco = (tam?.preco || preco) + (saborObj?.preco || 0);
+    variacaoLabel = tam?.nome || '';
+    if (saborSel) montagem.push(saborSel);
+
+  } else if (tipo === 'acai') {
+    const tamIdx = parseInt(modal.querySelector('input[name="_pdv_acai_tam"]:checked')?.value ?? 0);
+    const tam = (cfg.tamanhos||[])[tamIdx];
+    preco = tam?.preco || preco;
+    variacaoLabel = tam?.nome || '';
+    modal.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
+      const nome = c.value;
+      const acomp = cfg.acompanhamentos?.find(a => a.nome === nome);
+      if (acomp?.preco) preco += acomp.preco;
+      montagem.push(nome);
+    });
+
+  } else if (tipo === 'suco') {
+    const tamIdx = parseInt(modal.querySelector('input[name="_pdv_suco_tam"]:checked')?.value ?? 0);
+    const tam = (cfg.tamanhos||[])[tamIdx];
+    preco = tam?.preco || preco;
+    variacaoLabel = tam?.nome || '';
+    modal.querySelectorAll('input[type="checkbox"]:checked').forEach(c => montagem.push(c.value));
+
+  } else if (tipo === 'sorvete') {
+    const tamIdx = parseInt(modal.querySelector('input[name="_pdv_sorv_tam"]:checked')?.value ?? 0);
+    const tam = (cfg.tamanhos||[])[tamIdx];
+    const varSel = modal.querySelector('input[name="_pdv_sorv_var"]:checked')?.value || '';
+    const varObj = cfg.variacoes?.find(v => v.nome === varSel);
+    preco = (tam?.preco || preco) + (varObj?.preco || 0);
+    variacaoLabel = tam?.nome ? `${tam.nome}${varSel ? ' — ' + varSel : ''}` : varSel;
+    modal.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
+      const nome = c.value;
+      const sabor = cfg.sabores?.find(s => s.nome === nome);
+      if (sabor?.preco) preco += sabor.preco;
+      montagem.push(nome);
+    });
+
+  } else if (tipo === 'montavel') {
+    modal.querySelectorAll('input[type="checkbox"]:checked').forEach(c => {
+      const nome = c.value;
+      const item = cfg.etapas?.flatMap(e => e.itens||[]).find(it => (it.nome||it) === nome);
+      if (item?.preco) preco += item.preco;
+      montagem.push(nome);
+    });
+  }
+
+  carrinhoPDV.push({
+    id: produto.id, nome: produto.nome,
+    img: produto.imagem_url, categoria_slug: produto.categoria_slug || '',
+    preco, qtd: 1, variacao: variacaoLabel, montagem, obs,
+  });
+  atualizarCarrinhoPDV();
+  modal.remove();
+
+  if (_deveMostrarExtrasGlobais(produto)) {
+    _getExtrasGlobais().then(extras => {
+      if (extras?.length > 0) _mostrarUpsellExtrasPDV(produto, extras);
+    });
+  }
+}
 let _toledoPort = null;  // Web Serial: porta da balança Toledo
 
 function _mostrarModalPesoPDV(produto, precoKg) {
@@ -5162,11 +6132,18 @@ function _mostrarUpsellExtrasPDV(produto, extras) {
   // Header
   const hdr = document.createElement('div');
   hdr.style.cssText =
-    'display:flex;justify-content:space-between;align-items:center;padding:12px 14px 10px;border-bottom:1px solid #f5f5f5;background:linear-gradient(135deg,#fff8f5,#fff)';
+    'display:flex;justify-content:space-between;align-items:center;padding:12px 14px 10px;border-bottom:1px solid #f5f5f5;background:var(--color-background-secondary)';
+
+  // Pega o último item do carrinho que corresponde a este produto (para mostrar a variação)
+  const ultimoItem = [...carrinhoPDV].reverse().find(i => i.id === produto.id);
+  const subtitleTxt = ultimoItem?.variacao
+    ? `${produto.nome} — ${ultimoItem.variacao}`
+    : produto.nome;
+
   hdr.innerHTML = `
     <div>
-      <div style="font-weight:700;font-size:0.85rem;color:#333">🍣 Adicionar ao pedido?</div>
-      <div style="font-size:0.73rem;color:#999;margin-top:1px">${produto.nome}</div>
+      <div style="font-weight:700;font-size:0.85rem;color:var(--color-text-primary)">➕ Adicionar ao pedido?</div>
+      <div style="font-size:0.73rem;color:var(--color-text-secondary);margin-top:1px">${subtitleTxt}</div>
     </div>`;
   const btnX = document.createElement('button');
   btnX.textContent = '✕';
@@ -5332,14 +6309,45 @@ function atualizarCarrinhoPDV() {
 
   if (totalEl) totalEl.innerText = total.toLocaleString('es-PY');
 
+  // ── Desconto ──────────────────────────────────────────────────
+  const descTipo = document.getElementById('pdv-desconto-tipo')?.value || 'fixo';
+  const descValRaw = parseFloat(document.getElementById('pdv-desconto-val')?.value || '0') || 0;
+  let desconto = 0;
+  if (descValRaw > 0) {
+    desconto = descTipo === 'percentual'
+      ? Math.round(total * descValRaw / 100)
+      : Math.round(descValRaw);
+    desconto = Math.min(desconto, total);
+  }
+  const totalComDesc = total - desconto;
+
+  // Atualiza subtotal
+  const subEl = document.getElementById('balcao-subtotal');
+  if (subEl) subEl.innerText = total.toLocaleString('es-PY');
+
+  // Linha de desconto
+  const rowDesc = document.getElementById('pdv-row-desconto');
+  const descEl  = document.getElementById('balcao-desconto');
+  if (rowDesc) rowDesc.style.display = desconto > 0 ? 'flex' : 'none';
+  if (descEl)  descEl.innerText = desconto.toLocaleString('es-PY');
+
+  // Total final
+  if (totalEl) totalEl.innerText = totalComDesc.toLocaleString('es-PY');
+
+  // Frete (delivery)
+  const frete = parseInt(document.getElementById('balcao-frete')?.value || '0') || 0;
+  const tipoEntrega = document.getElementById('balcao-tipo-entrega')?.value || 'balcao';
+  const totalFinal = totalComDesc + (tipoEntrega === 'delivery' ? frete : 0);
+  if (totalEl) totalEl.innerText = totalFinal.toLocaleString('es-PY');
+
   // Atualiza barra inferior mobile
   const mobileQtd = document.getElementById('pdv-mobile-qtd');
   const mobileTot = document.getElementById('pdv-mobile-total-val');
   const qtdTotal = carrinhoPDV.reduce((a, i) => a + i.qtd, 0);
   if (mobileQtd) mobileQtd.textContent = qtdTotal + (qtdTotal === 1 ? ' item' : ' itens');
-  if (mobileTot) mobileTot.textContent = total.toLocaleString('es-PY');
+  if (mobileTot) mobileTot.textContent = totalFinal.toLocaleString('es-PY');
 
-  atualizarInfoPagPDV(total);
+  atualizarInfoPagPDV(totalFinal);
 }
 
 function atualizarInfoPagPDV(total) {
@@ -5476,11 +6484,21 @@ async function salvarPedidoBalcao() {
   const tel  = document.getElementById('balcao-telefone').value.trim() || '';
   let pag    = document.getElementById('balcao-pag').value;
 
-  // Mesa, nome e telefone são todos opcionais no PDV.
-  // A mesa serve apenas como identificador de comanda em aberto.
   const nomeFinal = mesa
     ? `MESA ${mesa} - ${cli}`
     : (_soKg ? `BALCÃO KG - ${cli}` : `BALCÃO - ${cli}`);
+
+  // ── Desconto manual ──────────────────────────────────────────
+  const descTipo = document.getElementById('pdv-desconto-tipo')?.value || 'fixo';
+  const descValRaw = parseFloat(document.getElementById('pdv-desconto-val')?.value || '0') || 0;
+  const subtotalBruto = carrinhoPDV.reduce((a, i) => a + (i.preco || 0) * (i.qtd || 1), 0);
+  let descontoAplicado = 0;
+  if (descValRaw > 0) {
+    descontoAplicado = descTipo === 'percentual'
+      ? Math.round(subtotalBruto * descValRaw / 100)
+      : Math.round(descValRaw);
+    descontoAplicado = Math.min(descontoAplicado, subtotalBruto); // não pode ser maior que o total
+  }
 
   // ── Tratamento Multipagamento ────────────────────────────────
   let obsPagPDV = 'Pagamento no Balcão';
@@ -5565,16 +6583,18 @@ async function salvarPedidoBalcao() {
     ? (document.getElementById('balcao-endereco')?.value.trim() || 'Delivery')
     : (mesa ? `Mesa ${mesa}` : (_soKg ? 'Balcão - Venda Kg' : 'Balcão'));
 
-  const totalNovo = novosItens.reduce((acc, i) => acc + i.preco * i.qtd, 0) + fretePDV;
+  const subtotalLiquido = subtotalBruto - descontoAplicado;
+  const totalNovo = subtotalLiquido + fretePDV;
   const _agora = new Date().toISOString();
   const pedido = {
     uid_temporal: `BALC-${Math.floor(Math.random() * 1000)}`,
-    // Kg express: entra direto como entregue (venda imediata, sem cozinha)
-    status: _soKg ? 'entregue' : (_todosBebidas(carrinhoPDV) ? 'pronto_entrega' : 'em_preparo'),
+    status: _soKg ? 'entregue' : (_todosSemCozinha(carrinhoPDV) ? 'pronto_entrega' : 'em_preparo'),
     tipo_entrega: tipoEntregaPDV,
-    total_geral: totalNovo,
-    subtotal: totalNovo - fretePDV,
+    subtotal: subtotalBruto,
+    desconto_pdv_valor: descontoAplicado,
+    desconto_pdv_tipo: descontoAplicado > 0 ? descTipo : null,
     frete_cobrado_cliente: fretePDV,
+    total_geral: totalNovo,
     forma_pagamento: pag,
     itens: novosItens,
     endereco_entrega: enderecoPDV,
@@ -5583,7 +6603,6 @@ async function salvarPedidoBalcao() {
     obs_pagamento: obsPagPDV,
     garcom_id:   _perfilId   || null,
     garcom_nome: _perfilNome || null,
-    // Timestamps automáticos para PDV (já entra direto em preparo)
     tempo_recebido: _agora,
     tempo_confirmado: _agora,
     tempo_preparo_iniciado: _agora,
@@ -5616,7 +6635,7 @@ async function salvarPedidoBalcao() {
         peso_gramas: i.peso_gramas,
         _isKg: i._isKg,
       })),
-      valores: { sub: totalNovo - fretePDV, frete: fretePDV, total: totalNovo },
+      valores: { sub: subtotalBruto, desconto: descontoAplicado, frete: fretePDV, total: totalNovo },
       pagamento: { metodo: pag, obs: obsPagPDV },
       data: new Date().toLocaleString('pt-BR'),
     };
@@ -5640,6 +6659,10 @@ async function salvarPedidoBalcao() {
   if (freteMsgPDV) freteMsgPDV.innerHTML = '';
   const deliveryRowPDV = document.getElementById('pdv-delivery-row');
   if (deliveryRowPDV) deliveryRowPDV.style.display = 'none';
+  const descValEl = document.getElementById('pdv-desconto-val');
+  if (descValEl) descValEl.value = '';
+  const descTipoEl = document.getElementById('pdv-desconto-tipo');
+  if (descTipoEl) descTipoEl.value = 'fixo';
   // Reset multipagamento PDV
   const multiPartesPDV = document.getElementById('multi-partes-pdv');
   if (multiPartesPDV) multiPartesPDV.innerHTML = '';
@@ -6319,7 +7342,51 @@ async function deletarCupom(id) {
   }
 }
 
-async function confirmarEntregaFuncionario(pedidoId) {
+// ── Avisar cliente via WhatsApp que o pedido está pronto ──────────
+async function avisarClientePronto(pedidoId) {
+  const { data: p } = await supa.from('pedidos').select('cliente_nome, cliente_telefone, uid_temporal').eq('id', pedidoId).single();
+  if (!p) { alert('Pedido não encontrado.'); return; }
+
+  const tel = (p.cliente_telefone || '').replace(/\D/g, '');
+  if (!tel) { alert('Este pedido não tem número de telefone registrado.'); return; }
+
+  // Carrega nome da loja
+  const nomeRestaurante = NOME_RESTAURANTE || 'Restaurante';
+  const nomeCliente = p.cliente_nome || 'Cliente';
+  const numPedido = p.uid_temporal || pedidoId;
+
+  // Mensagem em 3 idiomas
+  const msgs = {
+    pt: `Olá, ${nomeCliente}! 🎉\nSeu pedido #${numPedido} está pronto! 🍽️\n\nObrigado por escolher ${nomeRestaurante}!`,
+    es: `¡Hola, ${nomeCliente}! 🎉\n¡Tu pedido #${numPedido} está listo! 🍽️\n\n¡Gracias por elegir ${nomeRestaurante}!`,
+    gn: `Mba'éichapa, ${nomeCliente}! 🎉\nNde pedido #${numPedido} oĩma! 🍽️\n\nAguyje ${nomeRestaurante}-pe remomba'apo haguépe!`,
+  };
+
+  // Modal de seleção de idioma
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:20px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <h4 style="margin:0;color:#25D366"><i class="fab fa-whatsapp"></i> Avisar Cliente</h4>
+        <button onclick="this.closest('[style]').remove()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#999">✕</button>
+      </div>
+      <p style="font-size:0.85rem;color:#555;margin-bottom:14px">Pedido <strong>#${numPedido}</strong> — <strong>${nomeCliente}</strong></p>
+      <p style="font-size:0.8rem;font-weight:600;color:#333;margin-bottom:10px">Escolha o idioma da mensagem:</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${Object.entries({ pt:'🇧🇷 Português', es:'🇵🇾 Español', gn:'🌿 Guarani' }).map(([k,lbl]) => `
+          <button onclick="window.open('https://wa.me/595${tel.replace(/^0/,'')}?text='+encodeURIComponent('${msgs[k].replace(/'/g,"\\'").replace(/\n/g,'%0A')}'),'_blank');this.closest('[style]').remove()"
+            style="background:#f0fff4;border:2px solid #25D366;border-radius:10px;padding:11px 14px;cursor:pointer;text-align:left;font-size:0.88rem;font-weight:600;color:#155c24;transition:all .15s"
+            onmouseover="this.style.background='#25D366';this.style.color='#fff'"
+            onmouseout="this.style.background='#f0fff4';this.style.color='#155c24'">
+            ${lbl}
+          </button>`).join('')}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
   if (!confirm('Confirmar que este pedido foi entregue ao cliente?')) {
     return;
   }
@@ -6527,14 +7594,20 @@ if (typeof fecharModal !== 'function') {
    HELPERS ESTOQUE + PDV
    ══════════════════════════════════════════════════════════════ */
 
-// Detecta se todos os itens do carrinho são bebidas (não vão pra cozinha)
-function _todosBebidas(itens) {
+// Categorias/tipos que NÃO vão para a cozinha (servido imediatamente)
+const _TIPOS_SEM_COZINHA = ['bebida', 'acai', 'shake', 'suco', 'sorvete'];
+
+function _todosSemCozinha(itens) {
   if (!itens || !itens.length) return false;
   return itens.every(i => {
     const cat = (i.categoria_slug || '').toLowerCase();
-    return cat.includes('bebida') || cat.includes('drink');
+    const tipo = i._tipo || '';
+    return _TIPOS_SEM_COZINHA.some(t => cat.includes(t) || tipo === t || cat.includes('bebida') || cat.includes('drink'));
   });
 }
+
+// Alias mantido para compatibilidade com código existente
+function _todosBebidas(itens) { return _todosSemCozinha(itens); }
 
 // Desconta estoque a partir de uma lista de itens (para UPDATE de mesa)
 async function _descontarEstoqueVendaItens(itens) {
@@ -6618,12 +7691,12 @@ function toggleSidebar() {
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
   if (btn) btn.innerHTML = collapsed ? '<i class="fas fa-bars"></i>' : '<i class="fas fa-chevron-left"></i>';
-  localStorage.setItem('simbora_sidebar_collapsed', collapsed ? '1' : '0');
+  localStorage.setItem('app_sidebar_collapsed', collapsed ? '1' : '0');
 }
 
 // Restaura estado da sidebar ao carregar
 document.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('simbora_sidebar_collapsed') === '1') {
+  if (localStorage.getItem('app_sidebar_collapsed') === '1') {
     document.querySelector('.sidebar')?.classList.add('collapsed');
     const btn = document.getElementById('btn-toggle-sidebar');
     if (btn) btn.innerHTML = '<i class="fas fa-bars"></i>';
