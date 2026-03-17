@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Turnos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabaseClient.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+
+    :root {
+      --primary: #1a7a2e;
+      --primary2: #0f5c20;
+      --preparo-bg: #1a2a3a;
+      --preparo-accent: #3b82f6;
+      --pronto-bg: #0d2b1a;
+      --pronto-accent: #22c55e;
+      --bg: #0a0f14;
+      --text: #f0f4f8;
+      --muted: #6b7a8d;
+      --card-bg: #111820;
+      --border: rgba(255,255,255,0.07);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      font-family: 'Barlow', sans-serif;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+      height: 70px;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      object-fit: contain;
+      display: none;
+    }
+
+    .header-nome {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .header-clock {
+      text-align: right;
+    }
+
+    .clock-time {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+
+    .clock-date {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── MAIN ────────────────────────────────────────────── */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: calc(100vh - 70px);
+      gap: 0;
+    }
+
+    /* ── COLUNAS ─────────────────────────────────────────── */
+    .col {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .col-preparo { border-right: 1px solid var(--border); }
+
+    .col-header {
+      padding: 18px 28px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .col-preparo .col-header { border-bottom-color: var(--preparo-accent); }
+    .col-pronto  .col-header { border-bottom-color: var(--pronto-accent); }
+
+    .col-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    .col-preparo .col-icon { background: rgba(59,130,246,0.15); }
+    .col-pronto  .col-icon { background: rgba(34,197,94,0.15); }
+
+    .col-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 1.4rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .col-preparo .col-title { color: var(--preparo-accent); }
+    .col-pronto  .col-title { color: var(--pronto-accent); }
+
+    .col-subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .col-count {
+      margin-left: auto;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+
+    .col-preparo .col-count { background: rgba(59,130,246,0.2); color: var(--preparo-accent); }
+    .col-pronto  .col-count { background: rgba(34,197,94,0.2);  color: var(--pronto-accent); }
+
+    /* ── GRID DE NÚMEROS ─────────────────────────────────── */
+    .num-grid {
+      flex: 1;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 14px;
+      align-content: start;
+      overflow-y: auto;
+    }
+
+    .num-grid::-webkit-scrollbar { width: 4px; }
+    .num-grid::-webkit-scrollbar-track { background: transparent; }
+    .num-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* ── CARTÃO DE NÚMERO ────────────────────────────────── */
+    .num-card {
+      border-radius: 14px;
+      padding: 18px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      text-align: center;
+      animation: cardIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+      position: relative;
+      overflow: hidden;
+      min-height: 100px;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: scale(0.8) translateY(10px); }
+      to   { opacity: 1; transform: scale(1)   translateY(0); }
+    }
+
+    .col-preparo .num-card {
+      background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05));
+      border: 1px solid rgba(59,130,246,0.2);
+    }
+
+    .col-pronto .num-card {
+      background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.05));
+      border: 1px solid rgba(34,197,94,0.25);
+    }
+
+    /* Pulse nos prontos */
+    .col-pronto .num-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      border: 1.5px solid rgba(34,197,94,0.4);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50%       { opacity: 0; transform: scale(1.05); }
+    }
+
+    .num-label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+    }
+
+    .num-value {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 3.2rem;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+
+    .col-preparo .num-value { color: var(--preparo-accent); }
+    .col-pronto  .num-value { color: var(--pronto-accent); }
+
+    .num-nome {
+      font-size: 0.72rem;
+      color: var(--muted);
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .num-tipo {
+      font-size: 0.62rem;
+      padding: 2px 7px;
+      border-radius: 20px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .tipo-delivery { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .tipo-balcao   { background: rgba(251,191,36,0.15);  color: #fbbf24; }
+    .tipo-retirada { background: rgba(168,85,247,0.15);  color: #c084fc; }
+
+    /* ── VAZIO ───────────────────────────────────────────── */
+    .col-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 100%;
+      color: var(--muted);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .col-empty .empty-icon {
+      font-size: 3rem;
+      opacity: 0.3;
+    }
+
+    .col-empty p { font-size: 0.9rem; }
+
+    /* ── TICKER DO RODAPÉ ────────────────────────────────── */
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 42px;
+      background: rgba(255,255,255,0.03);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    .footer-badge {
+      height: 100%;
+      padding: 0 20px;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .footer-msg {
+      flex: 1;
+      padding: 0 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 20px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    .status-dot.offline { background: #ef4444; animation: none; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── CHAMADA ESPECIAL (flash quando pronto novo) ──────── */
+    .flash-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0;
+    }
+
+    .flash-overlay.active {
+      animation: flashIn 1.2s ease-out forwards;
+    }
+
+    @keyframes flashIn {
+      0%   { opacity: 0.25; background: rgba(34,197,94,0.15); }
+      100% { opacity: 0; }
+    }
+
+    /* Responsive — TV 4K */
+    @media (min-width: 1920px) {
+      .num-value { font-size: 4rem; }
+      .num-card  { min-height: 130px; }
+      .col-title { font-size: 1.8rem; }
+      .header-nome { font-size: 2rem; }
+    }
+
+    /* Tablet */
+    @media (max-width: 768px) {
+      .main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+      .col-preparo { border-right: none; border-bottom: 1px solid var(--border); }
+      .num-value { font-size: 2.4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="flash-overlay" id="flash"></div>
+
+<div class="header">
+  <div class="header-brand">
+    <img id="tela-logo" class="header-logo" src="" alt="Logo">
+    <div>
+      <div class="header-nome" id="tela-nome">PAINEL DE TURNOS</div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:1px">Retire seu pedido quando o número aparecer em <span style="color:#22c55e;font-weight:700">PRONTO</span></div>
+    </div>
+  </div>
+  <div class="header-clock">
+    <div class="clock-time" id="clock-time">--:--</div>
+    <div class="clock-date" id="clock-date">---</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- EM PREPARO -->
+  <div class="col col-preparo">
+    <div class="col-header">
+      <div class="col-icon">🔥</div>
+      <div>
+        <div class="col-title">Em Preparo</div>
+        <div class="col-subtitle">Seu pedido está sendo preparado</div>
+      </div>
+      <div class="col-count" id="count-preparo">0</div>
+    </div>
+    <div class="num-grid" id="grid-preparo">
+      <div class="col-empty">
+        <div class="empty-icon">🍽️</div>
+        <p>Nenhum pedido em preparo</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRONTO -->
+  <div class="col col-pronto">
+    <div class="col-header">
+      <div class="col-icon">✅</div>
+      <div>
+        <div class="col-title">Pronto para Retirar</div>
+        <div class="col-subtitle">Dirija-se ao balcão</div>
+      </div>
+      <div class="col-count" id="count-pronto">0</div>
+    </div>
+    <div class="num-grid" id="grid-pronto">
+      <div class="col-empty">
+        <div class="empty-icon">🎉</div>
+        <p>Nenhum pedido pronto ainda</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-badge">📋 Turnos</div>
+  <div class="footer-msg" id="footer-aviso">Quando seu número aparecer em VERDE, dirija-se ao balcão para retirar seu pedido.</div>
+  <div class="footer-status">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-txt">Conectado</span>
+  </div>
+</div>
+
+<script>
+// ── Relógio ────────────────────────────────────────────────
+function atualizarRelogio() {
+  const agora = new Date();
+  document.getElementById('clock-time').textContent =
+    agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('clock-date').textContent =
+    agora.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+atualizarRelogio();
+setInterval(atualizarRelogio, 1000);
+
+// ── Estado anterior para detectar novos prontos ────────────
+let _prontoAnterior = new Set();
+
+// ── Carrega nome e logo do restaurante ────────────────────
+(async function() {
+  try {
+    if (!window.supa) return;
+    const { data } = await window.supa.from('configuracoes')
+      .select('nome_restaurante, logo_url, aviso_delivery, cor_primaria')
+      .maybeSingle();
+    if (!data) return;
+    if (data.nome_restaurante) {
+      document.getElementById('tela-nome').textContent =
+        data.nome_restaurante.toUpperCase() + ' — TURNOS';
+      document.title = data.nome_restaurante + ' | Turnos';
+    }
+    if (data.logo_url) {
+      const img = document.getElementById('tela-logo');
+      img.src = data.logo_url;
+      img.style.display = 'block';
+      img.style.filter = 'none';
+    }
+    if (data.aviso_delivery) {
+      document.getElementById('footer-aviso').textContent = data.aviso_delivery;
+    }
+    if (data.cor_primaria) {
+      document.documentElement.style.setProperty('--primary', data.cor_primaria);
+    }
+  } catch(e) { console.warn('Config:', e); }
+})();
+
+// ── Renderiza um card de número ────────────────────────────
+function _card(p) {
+  const uid = p.uid_temporal || ('#' + p.id);
+  const nomeLimpo = (p.cliente_nome || 'Cliente')
+    .replace(/^MESA\s+\d+\s*-\s*/i, '')
+    .replace(/^BALCÃO\s*-\s*/i, '')
+    .trim();
+
+  const tipoMap = {
+    delivery: { cls: 'tipo-delivery', label: '🛵 Delivery' },
+    balcao:   { cls: 'tipo-balcao',   label: '🏪 Balcão' },
+    retirada: { cls: 'tipo-retirada', label: '🚶 Retirada' },
+    local:    { cls: 'tipo-balcao',   label: '🍽️ Local' },
+  };
+  const tipo = tipoMap[p.tipo_entrega] || tipoMap.balcao;
+
+  return `<div class="num-card">
+    <div class="num-label">Pedido</div>
+    <div class="num-value">${uid}</div>
+    <div class="num-nome">${nomeLimpo}</div>
+    <div class="num-tipo ${tipo.cls}">${tipo.label}</div>
+  </div>`;
+}
+
+// ── Carrega e renderiza pedidos ────────────────────────────
+async function carregarPedidos() {
+  if (!window.supa) return;
+  try {
+    const { data } = await window.supa
+      .from('pedidos')
+      .select('id, uid_temporal, status, cliente_nome, tipo_entrega')
+      .in('status', ['em_preparo', 'pronto_entrega'])
+      .order('id', { ascending: true });
+
+    const pedidos = data || [];
+    const preparo = pedidos.filter(p => p.status === 'em_preparo');
+    const prontos = pedidos.filter(p => p.status === 'pronto_entrega');
+
+    // Detecta novos prontos → flash
+    const prontoIds = new Set(prontos.map(p => p.id));
+    let temNovoPronto = false;
+    prontoIds.forEach(id => { if (!_prontoAnterior.has(id)) temNovoPronto = true; });
+    _prontoAnterior = prontoIds;
+
+    if (temNovoPronto) {
+      const flash = document.getElementById('flash');
+      flash.classList.remove('active');
+      void flash.offsetWidth; // reflow
+      flash.classList.add('active');
+      // Som (opcional — pode-se remover)
+      try { new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play(); } catch(_){}
+    }
+
+    // Renderiza Em Preparo
+    const gP = document.getElementById('grid-preparo');
+    document.getElementById('count-preparo').textContent = preparo.length;
+    gP.innerHTML = preparo.length
+      ? preparo.map(_card).join('')
+      : `<div class="col-empty"><div class="empty-icon">🍽️</div><p>Nenhum pedido em preparo</p></div>`;
+
+    // Renderiza Prontos
+    const gR = document.getElementById('grid-pronto');
+    document.getElementById('count-pronto').textContent = prontos.length;
+    gR.innerHTML = prontos.length
+      ? prontos.map(_card).join('')
+      : `<div class="col-empty"><div class="empty-icon">🎉</div><p>Nenhum pedido pronto ainda</p></div>`;
+
+    setOnline(true);
+  } catch(e) {
+    console.error('Erro ao carregar pedidos:', e);
+    setOnline(false);
+  }
+}
+
+function setOnline(ok) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-txt');
+  dot.className = 'status-dot' + (ok ? '' : ' offline');
+  txt.textContent = ok ? 'Conectado' : 'Reconectando...';
+}
+
+// ── Realtime ───────────────────────────────────────────────
+function iniciarRealtime() {
+  if (!window.supa) return;
+  window.supa
+    .channel('turnos-pedidos')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+      carregarPedidos();
+    })
+    .subscribe((status) => {
+      setOnline(status === 'SUBSCRIBED');
+    });
+}
+
+// ── Init ───────────────────────────────────────────────────
+carregarPedidos();
+iniciarRealtime();
+setInterval(carregarPedidos, 15000); // fallback
+</script>
+</body>
+</html>

@@ -1,16 +1,16 @@
 // ==========================================
 // 1. CONFIGURAÇÕES & DADOS GERAIS
 // ==========================================
-const FONE_LOJA = '595992490500'; 
+const FONE_LOJA = ''; 
 const COORD_LOJA = { lat: -25.2365803, lng: -57.5380816 };
 let COTACAO_REAL = 1100;
 let autoConfirmTimer = null;
 
 // DADOS DE PAGAMENTO (Pix e Alias)
-const CHAVE_PIX = '16999647032';
-const NOME_PIX = 'Jessica Aparecida Silva Pereira';
-const DADOS_ALIAS = 'Banco: Itaú PY | Titular: Marcus de Alencar Roque Pereira';
-const ALIAS_PY = 'Alias: 0992490500';
+const CHAVE_PIX = '';
+const NOME_PIX = '';
+const DADOS_ALIAS = '';
+const ALIAS_PY = '';
 
 function iniciarTimerAutoConfirmacao(pedidoId) {
     // 4 horas em milissegundos
@@ -2328,6 +2328,7 @@ function clicarBanner(idProduto) {
 // O erro "CLOSED" no console é normal — o polling cobre.
 let _trackingChannel  = null;   // canal Realtime (bônus)
 let _pollingTracker   = null;   // setInterval de 5s (garantia)
+let _lastMotoboyId  = null;   // motoboy_id do último polling
 let _lastTrackedSt    = '';     // evita re-render sem mudança
 let _trackedId        = null;   // id do pedido em tracking
 
@@ -2373,21 +2374,30 @@ function _iniciarPollingTracking(pedidoId, uid) {
                 .eq('id', pedidoId)
                 .single();
 
-            if (!data || data.status === _lastTrackedSt) return; // sem mudança
-            _lastTrackedSt = data.status;
+            if (!data) return;
 
-            mostrarTracker(data.status, uid);
+            const statusMudou = data.status !== _lastTrackedSt;
 
-            // Atualiza também o card de busca se visível
+            // Atualiza o motoboy SEMPRE que estiver em saiu_entrega ou entregue
+            // (garante que o motoboy aparece mesmo que o status não tenha mudado nesta rodada)
             if (typeof atualizarTrackingVisual === 'function') {
                 let motoboy = null;
-                if (data.motoboy_id) {
+                if (data.motoboy_id && (data.status === 'saiu_entrega' || data.status === 'entregue')) {
                     const { data: m } = await supa.from('motoboys')
                         .select('nome, telefone').eq('id', data.motoboy_id).single();
                     motoboy = m;
                 }
-                atualizarTrackingVisual(data.status, motoboy);
+                // Sempre atualiza o visual se motoboy mudou ou status mudou
+                if (statusMudou || (data.motoboy_id && !_lastMotoboyId)) {
+                    atualizarTrackingVisual(data.status, motoboy);
+                    _lastMotoboyId = data.motoboy_id;
+                }
             }
+
+            if (!statusMudou) return; // sem mudança de status — só motoboy pode ter mudado
+            _lastTrackedSt = data.status;
+
+            mostrarTracker(data.status, uid);
 
             // Notificação push
             if ('Notification' in window && Notification.permission === 'granted' && TRACKER_STEPS[data.status]) {

@@ -105,6 +105,7 @@
     padding: 8px;
     margin-bottom: 6px;
   }
+  .lang-btn.active { opacity: 1 !important; background: rgba(255,255,255,0.35) !important; }
   </style>
   <body>
     <div id="auth-overlay" style="position:fixed;inset:0;background:#111;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:#aaa">
@@ -133,23 +134,23 @@
 
       <div class="menu">
         <div class="menu-item active" id="menu-dashboard" onclick="showTab('dashboard', event)">
-          <i class="fas fa-chart-line"></i><span class="mobile-hide sidebar-label"> Visão</span>
+          <i class="fas fa-chart-line"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.visao"> Visão</span>
         </div>
 
         <div class="menu-item" id="menu-pdv" onclick="showTab('pdv', event)" style="color: #ffca28">
-          <i class="fas fa-cash-register"></i><span class="mobile-hide sidebar-label"> PDV Balcão</span>
+          <i class="fas fa-cash-register"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.pdv"> PDV Balcão</span>
         </div>
 
         <div class="menu-item" id="menu-pedidos" onclick="showTab('pedidos', event)">
-          <i class="fas fa-clipboard-list"></i><span class="mobile-hide sidebar-label"> Pedidos</span>
+          <i class="fas fa-clipboard-list"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.pedidos"> Pedidos</span>
         </div>
 
         <div class="menu-item" id="menu-cozinha" onclick="showTab('cozinha', event)">
-          <i class="fas fa-fire"></i><span class="mobile-hide sidebar-label"> Cozinha</span>
+          <i class="fas fa-fire"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.cozinha"> Cozinha</span>
         </div>
 
         <div class="menu-item restrito-gerente" id="menu-equipe" onclick="showTab('equipe', event)">
-          <i class="fas fa-users"></i><span class="mobile-hide sidebar-label"> Equipe</span>
+          <i class="fas fa-users"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.equipe"> Equipe</span>
         </div>
 
         <div class="menu-item" onclick="showTab('produtos', event)">
@@ -165,10 +166,10 @@
         </div>
 
         <div class="menu-item restrito-gerente" id="menu-financeiro" onclick="showTab('financeiro', event)" style="display:none">
-          <i class="fas fa-wallet"></i><span class="mobile-hide sidebar-label"> Financeiro</span>
+          <i class="fas fa-wallet"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.financeiro"> Financeiro</span>
         </div>
         <div class="menu-item restrito-func" id="menu-configuracoes" onclick="showTab('configuracoes', event)">
-          <i class="fas fa-cogs"></i><span class="mobile-hide sidebar-label"> Config</span>
+          <i class="fas fa-cogs"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.config"> Config</span>
         </div>
 
         <!-- Visível apenas para adminMaster -->
@@ -179,11 +180,11 @@
       </div>
 
       <div class="menu-item" onclick="showTab('inventario', event)" id="menu-inventario" style="display:none">
-          <i class="fas fa-boxes"></i><span class="mobile-hide sidebar-label"> Estoque</span>
+          <i class="fas fa-boxes"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.estoque"> Estoque</span>
       </div>
 
       <div class="menu-item" onclick="logout()" style="margin-top: auto; background: #c0392b">
-        <i class="fas fa-sign-out-alt"></i><span class="mobile-hide "> Sair</span>
+        <i class="fas fa-sign-out-alt"></i><span class="mobile-hide " data-i18n="sidebar.sair"> Sair</span>
       </div>
     </div>
 
@@ -449,7 +450,7 @@
 
               <div class="pdv-total-box">
                 <div class="pdv-total-row">
-                  <span>Subtotal:</span>
+                  <span data-i18n="pdv.subtotal">Subtotal:</span>
                   <span>Gs <span id="balcao-subtotal">0</span></span>
                 </div>
                 <!-- Desconto manual -->
@@ -468,7 +469,7 @@
                   <span>Gs <span id="balcao-desconto">0</span></span>
                 </div>
                 <div class="pdv-total-row" style="font-weight:800;font-size:1.05rem">
-                  <span>Total:</span>
+                  <span data-i18n="pdv.total">Total:</span>
                   <span>Gs <span id="balcao-total">0</span></span>
                 </div>
                 <select id="balcao-pag" class="form-control pdv-select-pag"
@@ -582,7 +583,7 @@
   <div class="card" style="margin-bottom: 20px; padding: 20px; border: none; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);">
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px">
       <div style="width: 4px; height: 20px; background: var(--primary); border-radius: 2px"></div>
-      <h3 style="margin: 0; color: #444">Controle de Caixa</h3>
+      <h3 style="margin: 0; color: #444" data-i18n="fin.caixa_ctrl">Controle de Caixa</h3>
     </div>
 
     <div class="actions-grid">
@@ -616,15 +617,15 @@
   <!-- ===== KPIs PRINCIPAIS ===== -->
   <div class="kpi-grid">
     <div class="kpi-card">
-      <h3>Faturamento</h3>
+      <h3 data-i18n="fin.faturamento">Faturamento</h3>
       <div class="value" id="card-faturamento">Gs 0</div>
     </div>
     <div class="kpi-card">
-      <h3>Custo Entregas</h3>
+      <h3 data-i18n="fin.custo_moto">Custo Entregas</h3>
       <div class="value" id="card-custo-moto">Gs 0</div>
     </div>
     <div class="kpi-card">
-      <h3>Lucro Operacional</h3>
+      <h3 data-i18n="fin.lucro">Lucro Operacional</h3>
       <div class="value" id="card-lucro" style="color: green">Gs 0</div>
     </div>
     
@@ -793,30 +794,30 @@
 
         <!-- ── IDENTIDADE DA LOJA ─────────────────────────────── -->
         <div class="card cfg-card">
-          <div class="cfg-section-title"><i class="fas fa-store"></i> Identidade da Loja</div>
+          <div class="cfg-section-title"><i class="fas fa-store"></i> <span data-i18n="cfg.identidade">Identidade da Loja</span></div>
           <div class="cfg-grid">
             <div class="form-group">
-              <label>Nome do Restaurante <span style="color:#e74c3c">*</span></label>
+              <label data-i18n="cfg.nome_rest">Nome do Restaurante <span style="color:#e74c3c">*</span></label>
               <input type="text" id="cfg-nome-restaurante" class="form-control" placeholder="Ex: Pizzaria do João">
             </div>
             <div class="form-group">
-              <label>Descrição (tagline)</label>
+              <label data-i18n="cfg.descricao">Descrição (tagline)</label>
               <input type="text" id="cfg-descricao-loja" class="form-control" placeholder="Ex: Comida boa e rápida!">
             </div>
             <div class="form-group">
-              <label>URL do Site</label>
+              <label data-i18n="cfg.url">URL do Site</label>
               <input type="text" id="cfg-url-loja" class="form-control" placeholder="Ex: https://meurestaurante.com.py">
             </div>
             <div class="form-group">
-              <label>Telefone (exibição)</label>
+              <label data-i18n="cfg.telefone">Telefone (exibição)</label>
               <input type="text" id="cfg-telefone-loja" class="form-control" placeholder="Ex: +595 984 123 456">
             </div>
             <div class="form-group">
-              <label>WhatsApp para pedidos <small style="color:#888">(somente dígitos)</small></label>
+              <label data-i18n="cfg.whatsapp">WhatsApp para pedidos <small style="color:#888">(somente dígitos)</small></label>
               <input type="text" id="cfg-whatsapp-loja" class="form-control" placeholder="Ex: 595984123456">
             </div>
             <div class="form-group">
-              <label>Logo / Ícone</label>
+              <label data-i18n="cfg.logo">Logo / Ícone</label>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 <input type="text" id="cfg-logo-url" class="form-control" placeholder="https://... (cole URL pública aqui)" style="flex:1;min-width:200px">
                 <label style="cursor:pointer;background:#3498db;color:#fff;border-radius:8px;padding:9px 14px;font-size:0.85rem;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:6px">
@@ -831,20 +832,20 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
-            <i class="fas fa-save"></i> Salvar Identidade
+            <i class="fas fa-save"></i> <span data-i18n="cfg.salvar_id">Salvar Identidade</span>
           </button>
         </div>
 
         <!-- ── PAGAMENTO ────────────────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> Dados de Pagamento</div>
+          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> <span data-i18n="cfg.pagamento">Dados de Pagamento</span></div>
           <div class="cfg-grid">
             <div class="form-group">
-              <label>Chave Pix</label>
+              <label data-i18n="cfg.chave_pix">Chave Pix</label>
               <input type="text" id="cfg-chave-pix" class="form-control" placeholder="Ex: email@mail.com ou CPF">
             </div>
             <div class="form-group">
-              <label>Nome titular Pix</label>
+              <label data-i18n="cfg.nome_pix">Nome titular Pix</label>
               <input type="text" id="cfg-nome-pix" class="form-control" placeholder="Ex: João da Silva">
             </div>
             <div class="form-group">
@@ -857,7 +858,7 @@
             </div>
           </div>
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
-            <i class="fas fa-save"></i> Salvar Pagamento
+            <i class="fas fa-save"></i> <span data-i18n="cfg.pagamento">Salvar Pagamento</span>
           </button>
         </div>
 
@@ -866,11 +867,11 @@
           <div class="cfg-section-title"><i class="fas fa-map-marker-alt"></i> Localização & Operação</div>
           <div class="cfg-grid">
             <div class="form-group">
-              <label>Latitude da Loja</label>
+              <label data-i18n="cfg.lat">Latitude da Loja</label>
               <input type="number" id="cfg-coord-lat" class="form-control" placeholder="Ex: -25.2365803" step="0.0000001">
             </div>
             <div class="form-group">
-              <label>Longitude da Loja</label>
+              <label data-i18n="cfg.lng">Longitude da Loja</label>
               <input type="number" id="cfg-coord-lng" class="form-control" placeholder="Ex: -57.5380816" step="0.0000001">
             </div>
             <div class="form-group">
@@ -899,23 +900,23 @@
           </div>
 
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:16px">
-            <i class="fas fa-save"></i> Salvar Localização & Operação
+            <i class="fas fa-save"></i> <span data-i18n="cfg.salvar_loc">Salvar Localização & Operação</span>
           </button>
         </div>
 
         <!-- ── PERSONALIZAÇÃO VISUAL ─────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-palette"></i> Personalização Visual</div>
+          <div class="cfg-section-title"><i class="fas fa-palette"></i> <span data-i18n="cfg.visual">Personalização Visual</span></div>
           <div class="cfg-grid">
             <div class="form-group">
-              <label>Cor Principal (botões)</label>
+              <label data-i18n="cfg.cor_primaria">Cor Principal (botões)</label>
               <div style="display:flex;gap:8px;align-items:center">
                 <input type="color" id="cfg-cor-primaria" value="#1a7a2e" style="width:50px;height:40px;border:none;cursor:pointer;border-radius:4px">
                 <input type="text" id="cfg-cor-primaria-hex" class="form-control" placeholder="#1a7a2e" style="flex:1">
               </div>
             </div>
             <div class="form-group">
-              <label>Upload de Ícone</label>
+              <label data-i18n="cfg.icone_upload">Upload de Ícone</label>
               <input type="file" id="cfg-icone-file" class="form-control" accept="image/*" onchange="previewIcone(this)">
             </div>
             <!-- campo oculto para compatibilidade -->
@@ -928,13 +929,13 @@
             <input type="hidden" id="cfg-nome-loja">
           </div>
           <button class="btn btn-primary" onclick="salvarPersonalizacao()" style="margin-top:12px">
-            <i class="fas fa-paint-brush"></i> Salvar Personalização
+            <i class="fas fa-paint-brush"></i> <span data-i18n="cfg.salvar_visual">Salvar Personalização</span>
           </button>
         </div>
 
         <!-- ── PROMOÇÃO / BANNERS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-tags"></i> Banners Promocionais</div>
+          <div class="cfg-section-title"><i class="fas fa-tags"></i> <span data-i18n="cfg.banners">Banners Promocionais</span></div>
           <p style="font-size:0.82rem;color:#888;margin-bottom:14px">Ao clicar no banner o cliente abre o produto. Defina também o desconto aplicado automaticamente.</p>
 
           <!-- Banner 1 -->
@@ -1096,7 +1097,7 @@
           </div>
 
           <button class="btn btn-primary" onclick="salvarTabelaFrete()" style="margin-top:14px;width:100%">
-            <i class="fas fa-save"></i> Salvar Tabela de Frete
+            <i class="fas fa-save"></i> <span data-i18n="cfg.salvar_frete">Salvar Tabela de Frete</span>
           </button>
         </div>
 
@@ -1697,7 +1698,7 @@
         </div>
 
         <div class="modal-actions" style="margin-top:16px">
-          <button class="btn btn-primary" onclick="salvarProduto()">Salvar Produto</button>
+          <button class="btn btn-primary" onclick="salvarProduto()" data-i18n="prod.salvar">Salvar Produto</button>
           <button class="btn btn-secondary" onclick="fecharModal('modal-produto')">Cancelar</button>
         </div>
       </div>
@@ -1873,6 +1874,7 @@
 </div>
 
     <script src="supabaseClient.js"></script>
+    <script src="admin-i18n.js"></script>
     <script src="admin.js"></script>
   
     <!-- ===== MODAL GRÁFICOS ===== -->

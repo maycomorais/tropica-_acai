@@ -1,3 +1,8 @@
+// Fallback para t() caso admin-i18n.js não esteja carregado ainda
+if (typeof t === 'undefined') {
+  window.t = function(key, fallback) { return fallback || key; };
+}
+
 // =========================================
 // 1. CONSTANTES E INICIALIZAÇÃO
 // =========================================
@@ -343,7 +348,7 @@ function _aplicarVisibilidadeAbas() {
 
 // Salva features (adminMaster only)
 async function salvarFeatures() {
-  if (perfilUsuario !== "adminMaster") return alert("Acesso negado.");
+  if (perfilUsuario !== "adminMaster") return alert(t('alert.acesso_negado'));
   const tabs = {},
     tipos = {},
     funcs = {};
@@ -363,7 +368,7 @@ async function salvarFeatures() {
     .gt("id", 0);
   if (error) return alert("Erro: " + error.message);
   FEATURES_ATIVAS = features;
-  alert("✅ Features salvas!");
+  alert(t('alert.features_salvas'));
 }
 
 // Renderiza painel de features (adminMaster)
@@ -796,7 +801,7 @@ async function carregarPedidos(silencioso = false) {
 // === CANCELAMENTO WORKFLOW ===
 async function solicitarCancelamento(pedidoId) {
   const motivo = prompt(
-    "🚫 Solicitar cancelamento\n\nInforme o motivo do cancelamento:",
+    t('prompt.motivo_cancel'),
   );
   if (!motivo || !motivo.trim()) return;
 
@@ -827,7 +832,7 @@ async function solicitarCancelamento(pedidoId) {
     },
   ]);
 
-  alert("✅ Solicitação enviada! O dono será notificado para aprovar.");
+  alert(t('alert.cancel_enviado'));
   carregarPedidos();
 }
 
@@ -867,12 +872,12 @@ async function aprovarCancelamento(pedidoId) {
     .eq("pedido_id", pedidoId)
     .eq("aprovado", false);
 
-  alert("✅ Pedido cancelado com sucesso!");
+  alert(t('alert.cancelado'));
   carregarPedidos();
 }
 
 async function negarCancelamento(pedidoId) {
-  const obs = prompt("Motivo para NEGAR o cancelamento (opcional):") || "";
+  const obs = prompt(t('prompt.negar_cancel')) || "";
   const user = await supa.auth.getUser();
   const email = user?.data?.user?.email || "dono";
 
@@ -895,7 +900,7 @@ async function negarCancelamento(pedidoId) {
     .eq("pedido_id", pedidoId)
     .eq("aprovado", false);
 
-  alert("✅ Solicitação de cancelamento negada.");
+  alert(t('alert.cancel_negado'));
   carregarPedidos();
 }
 
@@ -1365,7 +1370,7 @@ async function _verificarBloqueioCaixa(emailAtual) {
 
 async function autorizarReaberturaCaixa(emailAlvo) {
   if (!["dono", "gerente", "adminMaster"].includes(perfilUsuario)) {
-    alert("Acesso negado.");
+    alert(t('alert.acesso_negado'));
     return;
   }
   if (!confirm(`Autorizar reabertura do caixa de ${emailAlvo}?`)) return;
@@ -1381,7 +1386,7 @@ async function autorizarReaberturaCaixa(emailAlvo) {
     autorizado_em: new Date().toISOString(),
   };
   await supa.from("configuracoes").update({ caixa_status: status }).gt("id", 0);
-  alert("✅ Caixa reaberto!");
+  alert(t('alert.caixa_reaberto'));
   calcularFinanceiro();
 }
 
@@ -1846,7 +1851,7 @@ async function salvarMovimentacaoCaixa() {
     alert("Erro: " + error.message);
     return;
   }
-  alert("✅ Operação registrada!");
+  alert(t('alert.operacao_registrada'));
   fecharModal("modal-caixa");
   calcularFinanceiro();
 }
@@ -1929,6 +1934,143 @@ Fechamento registrado!`);
 }
 
 // =========================================
+// EXPORTAÇÕES: CSV (Power BI) e PDF
+// =========================================
+
+async function _buscarDadosRelatorio() {
+  const elI = document.getElementById('fin-inicio');
+  const elF = document.getElementById('fin-fim');
+  const hoje = new Date().toISOString().split('T')[0];
+  const ini  = (elI?.value || hoje) + 'T00:00:00';
+  const fim  = (elF?.value || hoje) + 'T23:59:59';
+  const { data } = await supa.from('pedidos').select('*')
+    .in('status', ['entregue','em_preparo','pronto_entrega','saiu_entrega'])
+    .gte('created_at', ini).lte('created_at', fim);
+  return data || [];
+}
+
+// ── CSV rico para Power BI ────────────────────────────────
+async function exportarCSVPowerBI() {
+  const pedidos = await _buscarDadosRelatorio();
+  if (!pedidos.length) { alert('Nenhum pedido no período.'); return; }
+
+  const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const cols = [
+    'id','uid_temporal','status','tipo_entrega','created_at',
+    'cliente_nome','cliente_telefone','endereco_entrega',
+    'forma_pagamento','obs_pagamento',
+    'subtotal','desconto_cupom','frete_cobrado_cliente','total_geral',
+    'cupom_codigo','frete_motoboy','garcom_nome',
+    'tempo_recebido','tempo_confirmado','tempo_preparo_iniciado',
+    'tempo_pronto','tempo_saiu_entrega','tempo_entregue',
+    'itens_qtd','itens_nomes','ruc_factura','razao_factura'
+  ];
+
+  const rows = pedidos.map(p => {
+    const itens = Array.isArray(p.itens) ? p.itens : [];
+    const itensQtd   = itens.reduce((a,i) => a + (i.qtd || i.q || 1), 0);
+    const itensNomes = itens.map(i => `${i.qtd||i.q||1}x ${i.nome||i.n}`).join(' | ');
+    const f = p.dados_factura || {};
+    return [
+      p.id, p.uid_temporal || '', p.status, p.tipo_entrega,
+      p.created_at ? new Date(p.created_at).toLocaleString('pt-BR') : '',
+      p.cliente_nome || '', p.cliente_telefone || '', p.endereco_entrega || '',
+      p.forma_pagamento || '', p.obs_pagamento || '',
+      p.subtotal || 0, p.desconto_cupom || 0, p.frete_cobrado_cliente || 0, p.total_geral || 0,
+      p.cupom_codigo || '', p.frete_motoboy || 0, p.garcom_nome || '',
+      p.tempo_recebido || '', p.tempo_confirmado || '', p.tempo_preparo_iniciado || '',
+      p.tempo_pronto || '', p.tempo_saiu_entrega || '', p.tempo_entregue || '',
+      itensQtd, itensNomes, f.ruc || f.ci || '', f.razao || ''
+    ].map(escape).join(',');
+  });
+
+  const csv = '\uFEFF' + cols.join(',') + '\n' + rows.join('\n'); // BOM para Excel/PBI
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const hoje = new Date().toISOString().split('T')[0];
+  a.href = url; a.download = `relatorio_${hoje}_powerbi.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  alert(t('alert.csv_exportado') + ` (${pedidos.length} pedidos)`);
+}
+
+// ── PDF via janela de impressão ───────────────────────────
+async function exportarPDF() {
+  const pedidos = await _buscarDadosRelatorio();
+  if (!pedidos.length) { alert('Nenhum pedido no período.'); return; }
+
+  const elI = document.getElementById('fin-inicio');
+  const elF = document.getElementById('fin-fim');
+  const hoje = new Date().toISOString().split('T')[0];
+  const periodoLabel = `${elI?.value || hoje} a ${elF?.value || hoje}`;
+
+  const fmt = n => 'Gs ' + (n||0).toLocaleString('es-PY');
+  const total = pedidos.reduce((a,p) => a + (p.total_geral||0), 0);
+  const totalPix = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('pix')).reduce((a,p)=>a+(p.total_geral||0),0);
+  const totalEfet = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('efetivo')||(p.forma_pagamento||'').toLowerCase().includes('dinheiro')).reduce((a,p)=>a+(p.total_geral||0),0);
+  const totalCard = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('cart')).reduce((a,p)=>a+(p.total_geral||0),0);
+
+  const rows = pedidos.map(p => {
+    const tz = { timeZone: 'America/Asuncion' };
+    const hora = new Date(p.created_at).toLocaleString('pt-BR', tz);
+    const itens = (Array.isArray(p.itens) ? p.itens : []).map(i=>`${i.qtd||i.q||1}x ${i.nome||i.n}`).join(', ');
+    return `<tr>
+      <td>${p.uid_temporal||('#'+p.id)}</td>
+      <td>${hora}</td>
+      <td>${p.cliente_nome||'-'}</td>
+      <td>${itens||'-'}</td>
+      <td>${p.forma_pagamento||'-'}</td>
+      <td style="text-align:right">${fmt(p.total_geral)}</td>
+    </tr>`;
+  }).join('');
+
+  const nomeRestaurante = NOME_RESTAURANTE || 'Relatório';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Relatório ${periodoLabel}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:20px}
+    h1{font-size:16px;margin-bottom:2px}
+    .sub{font-size:11px;color:#666;margin-bottom:16px}
+    .resumo{display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+    .card{background:#f5f5f5;border-radius:6px;padding:10px 16px;min-width:130px}
+    .card .lbl{font-size:10px;color:#888;margin-bottom:3px}
+    .card .val{font-size:14px;font-weight:700}
+    table{width:100%;border-collapse:collapse;font-size:10px}
+    th{background:#1a7a2e;color:#fff;padding:6px 8px;text-align:left}
+    td{padding:5px 8px;border-bottom:1px solid #eee}
+    tr:nth-child(even) td{background:#f9f9f9}
+    td:last-child{text-align:right;font-weight:600}
+    .footer{margin-top:16px;font-size:10px;color:#888;text-align:center}
+    @media print{body{padding:6px}@page{margin:8mm}}
+  </style>
+  </head><body>
+  <h1>${nomeRestaurante} — Relatório Financeiro</h1>
+  <div class="sub">Período: ${periodoLabel} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="resumo">
+    <div class="card"><div class="lbl">Total Faturado</div><div class="val">${fmt(total)}</div></div>
+    <div class="card"><div class="lbl">Pedidos</div><div class="val">${pedidos.length}</div></div>
+    <div class="card"><div class="lbl">Ticket Médio</div><div class="val">${fmt(pedidos.length ? Math.round(total/pedidos.length) : 0)}</div></div>
+    <div class="card"><div class="lbl">Pix</div><div class="val">${fmt(totalPix)}</div></div>
+    <div class="card"><div class="lbl">Dinheiro</div><div class="val">${fmt(totalEfet)}</div></div>
+    <div class="card"><div class="lbl">Cartão</div><div class="val">${fmt(totalCard)}</div></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Data/Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">${nomeRestaurante} &nbsp;·&nbsp; ${new Date().toLocaleDateString('pt-BR')} &nbsp;·&nbsp; ${pedidos.length} registros</div>
+  <script>window.onload=()=>window.print();<\/script>
+  </body></html>`;
+
+  const w = window.open('', 'PDF', 'width=900,height=700');
+  w.document.write(html);
+  w.document.close();
+}
+
+// =========================================
 // 7. ZAP & ROTA
 // =========================================
 function enviarRotaZap() {
@@ -1936,7 +2078,7 @@ function enviarRotaZap() {
   const selMoto = document.getElementById("sel-motoboy");
 
   if (checks.length === 0 || !selMoto.value)
-    return alert("Selecione os pedidos e o motoboy!");
+    return alert(t('alert.sel_pedidos_moto'));
 
   // Pega dados do motoboy selecionado
   const opt = selMoto.options[selMoto.selectedIndex];
@@ -3431,7 +3573,7 @@ async function duplicarProduto(id) {
     alert("Erro ao duplicar: " + errIns.message);
     return;
   }
-  alert("✅ Produto duplicado! A cópia foi criada pausada para revisão.");
+  alert(t('alert.produto_duplicado'));
   carregarProdutos();
 }
 
@@ -3652,7 +3794,7 @@ async function _confirmarEncerramentoDelivery() {
   }
 
   document.getElementById("modal-encerramento-delivery")?.remove();
-  alert("✅ Delivery encerrado! O aviso já está visível para os clientes.");
+  alert(t('alert.delivery_encerrado'));
 
   // Atualiza badge no painel se existir
   const badge = document.getElementById("badge-delivery-status");
@@ -3678,7 +3820,7 @@ async function reabrirDelivery() {
     return;
   }
 
-  alert("✅ Delivery reaberto com sucesso!");
+  alert(t('alert.delivery_reaberto'));
 
   const badge = document.getElementById("badge-delivery-status");
   if (badge) {
@@ -4535,7 +4677,7 @@ async function deletarProduto(id) {
     if (error) {
       alert("❌ Erro ao deletar: " + error.message);
     } else {
-      alert("✅ Produto deletado com sucesso!");
+      alert(t('alert.produto_excluido'));
       carregarProdutos();
     }
   } catch (e) {
@@ -4798,7 +4940,7 @@ async function salvarMotoboy() {
       if (error) throw error;
     }
 
-    alert("✅ Motoboy salvo com sucesso!");
+    alert(t('alert.moto_salvo'));
     fecharModal("modal-moto");
     carregarMotoboys();
     carregarMotoboysSelect(); // Atualiza o select da Rota
@@ -5269,7 +5411,7 @@ async function salvarConfiguracoes() {
 
   const { error } = await supa.from("configuracoes").update(dados).gt("id", 0);
   if (error) alert("Erro: " + error.message);
-  else alert("✅ Configurações salvas com sucesso!");
+  else alert(t('alert.cfg_salvas'));
 }
 
 function previewBanner(input, num = 1) {
@@ -5498,7 +5640,7 @@ async function salvarTabelaFrete() {
     return;
   }
   TABELA_FRETE_ADMIN = tabela;
-  alert("✅ Tabela de frete salva!");
+  alert(t('alert.frete_salvo'));
 }
 
 // ── MAQUININHAS DE CARTÃO ─────────────────────────────────────────
@@ -7584,7 +7726,7 @@ function _coletarMultiPagamentoPDV() {
 
 async function salvarPedidoBalcao() {
   if (carrinhoPDV.length === 0 && !window._mesaAbertaId)
-    return alert("Carrinho vazio!");
+    return alert(t('alert.carrinho_vazio'));
   if (carrinhoPDV.length === 0 && window._mesaAbertaId)
     return alert("Adicione ao menos 1 novo item antes de lançar.");
 
@@ -8229,7 +8371,7 @@ async function excluirUsuario(id, email) {
 // ═══════════════════════════════════════════════════════════════
 
 async function amCriarUsuario() {
-  if (perfilUsuario !== "adminMaster") return alert("Acesso negado.");
+  if (perfilUsuario !== "adminMaster") return alert(t('alert.acesso_negado'));
   const email = document.getElementById("am-email")?.value?.trim();
   const nome = document.getElementById("am-nome")?.value?.trim();
   const senha = document.getElementById("am-senha")?.value;
