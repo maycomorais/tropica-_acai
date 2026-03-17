@@ -107,12 +107,8 @@
   }
   </style>
   <body>
-    <!-- Overlay de verificação de sessão — removido pelo admin.js após auth confirmar -->
-    <div id="auth-overlay" style="position:fixed;inset:0;background:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:#555">
-      <div style="text-align:center">
-        <div style="width:36px;height:36px;border:4px solid #e0e0e0;border-top-color:#1a7a2e;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-        Verificando sessão...
-      </div>
+    <div id="auth-overlay" style="position:fixed;inset:0;background:#111;z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:15px;color:#aaa">
+      <div style="text-align:center"><div style="width:36px;height:36px;border:3px solid #333;border-top-color:#1a7a2e;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>Verificando sessão...</div>
     </div>
     <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     <audio id="som-campainha" preload="auto" loop>
@@ -820,8 +816,18 @@
               <input type="text" id="cfg-whatsapp-loja" class="form-control" placeholder="Ex: 595984123456">
             </div>
             <div class="form-group">
-              <label>Logo / Ícone (URL da imagem)</label>
-              <input type="text" id="cfg-logo-url" class="form-control" placeholder="https://... (link público da imagem)">
+              <label>Logo / Ícone</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <input type="text" id="cfg-logo-url" class="form-control" placeholder="https://... (cole URL pública aqui)" style="flex:1;min-width:200px">
+                <label style="cursor:pointer;background:#3498db;color:#fff;border-radius:8px;padding:9px 14px;font-size:0.85rem;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:6px">
+                  <i class="fas fa-upload"></i> Enviar arquivo
+                  <input type="file" id="cfg-logo-file-identidade" accept="image/*" style="display:none" onchange="_uploadLogoIdentidade(this)">
+                </label>
+              </div>
+              <div id="cfg-logo-preview-identidade" style="display:none;margin-top:8px">
+                <img id="cfg-logo-img-identidade" src="" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:2px solid var(--primary)">
+                <small style="color:#27ae60;display:block;margin-top:4px">✅ Imagem carregada — clique em Salvar Identidade</small>
+              </div>
             </div>
           </div>
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
@@ -912,11 +918,12 @@
               <label>Upload de Ícone</label>
               <input type="file" id="cfg-icone-file" class="form-control" accept="image/*" onchange="previewIcone(this)">
             </div>
-            <div class="form-group" id="cfg-icone-preview-box" style="display:none">
-              <label>Preview</label>
-              <img id="cfg-icone-preview" src="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;border:3px solid var(--primary)">
-            </div>
             <!-- campo oculto para compatibilidade -->
+            <div class="form-group" id="cfg-icone-preview-box" style="display:none;margin-top:8px">
+              <label style="display:block;margin-bottom:6px;font-size:0.85rem;color:#aaa">Preview</label>
+              <img id="cfg-icone-preview" src="" alt="Logo preview"
+                style="width:80px;height:80px;object-fit:contain;border-radius:12px;border:2px solid #444;background:transparent;display:block">
+            </div>
             <input type="hidden" id="cfg-icone-url">
             <input type="hidden" id="cfg-nome-loja">
           </div>

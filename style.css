@@ -26,7 +26,15 @@ main.menu-container { flex: 1; }
 }
 .header-content { display: flex; justify-content: space-between; align-items: center; }
 .logo-area { display: flex; align-items: center; gap: 10px; }
-.logo-area img { width: 40px; height: 40px; border-radius: 50%; }
+.logo-area img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: contain;
+  forced-color-adjust: none;
+  -webkit-filter: none !important;
+  filter: none !important;
+}
 .store-details h1 { font-size: 1.1rem; color: var(--dark); }
 .badge-status { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; transition: all 0.3s ease; }
 .badge-status.open { color: #28a745; background: #e6ffea; }

@@ -392,7 +392,13 @@ async function verificarHorario() {
   const logoUrl = data.logo_url || data.icone_url || '';
   if (logoEl && logoUrl) {
     logoEl.src = logoUrl;
-    logoEl.style.display = 'inline-block';
+    logoEl.style.display = 'block';
+    logoEl.style.objectFit = 'contain';
+    logoEl.style.width = '44px';
+    logoEl.style.height = '44px';
+    logoEl.style.borderRadius = '50%';
+    logoEl.style.filter = 'none';
+    logoEl.style.webkitFilter = 'none';
   }
 
   if (data.cor_primaria) {
