@@ -8351,7 +8351,7 @@ async function carregarEquipe() {
       }
 
       const cargoBadge = ehAM
-        ? "🔱 Admin Master"
+        ? "🎮 Admin Master"
         : ehDono
           ? "🔑 Dono"
           : ehGerente
@@ -8495,7 +8495,7 @@ async function amCarregarUsuarios() {
 
   const cargoBadges = {
     adminMaster:
-      '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🔱 Admin Master</span>',
+      '<span style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🎮 Admin Master</span>',
     dono: '<span style="background:#f39c12;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">🔑 Dono</span>',
     gerente:
       '<span style="background:#2980b9;color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75rem">👔 Gerente</span>',
