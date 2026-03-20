@@ -14,7 +14,6 @@ let CHAVE_PIX_CFG = ""; // chave_pix
 let NOME_PIX_CFG = ""; // nome_pix
 let DADOS_ALIAS_CFG = ""; // dados_alias
 let ALIAS_QR_URL_CFG = ""; // alias_qr_url — imagem QR do Alias PY
-let CHAVE_PIX_CFG = ""; // chave pix (para PDV)
 let NOME_ALIAS_CFG = ""; // nome_alias
 let WHATSAPP_LOJA_CFG = ""; // whatsapp_loja (dígitos)
 let NOME_RESTAURANTE = ""; // nome_restaurante
