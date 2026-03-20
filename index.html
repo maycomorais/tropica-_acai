@@ -3,27 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="var(--primary, #7a1a55)">
+    <meta name="theme-color" content="var(--primary, #1a7a2e)">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Delivery">
-    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-title" content="Delivery" id="meta-app-title">
+    <link rel="manifest" href="manifest.json" id="link-manifest">
+    <!-- manifest dinâmico injetado após supabaseClient.js carregar (ver script no fim do body) -->
     <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
-    <title>Restaurante</title>
+    <title>Delivery</title>
     <!-- Open Graph / WhatsApp / Facebook -->
     <meta property="og:type"        content="website">
-    <meta property="og:url"         content="https://linkpy.online/">
-    <meta property="og:title"       content="Restaurante 🥗">
+    <meta property="og:url"         content="">
+    <meta property="og:title"       content="Delivery">
     <meta property="og:description" content="Pide tu plato favorito con entrega rápida">
-    <meta property="og:image"       content="https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg">
+    <meta property="og:image"       content="">
     <meta property="og:image:width"  content="1200">
     <meta property="og:image:height" content="630">
     <!-- Twitter Card -->
     <meta name="twitter:card"        content="summary_large_image">
-    <meta name="twitter:title"       content="Restaurante 🥗">
+    <meta name="twitter:title"       content="Delivery">
     <meta name="twitter:description" content="Pide tu plato favorito con entrega rápida">
-    <meta name="twitter:image"       content="https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg">
+    <meta name="twitter:image"       content="">
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
     <link rel="stylesheet" href="style.css">
@@ -36,7 +37,7 @@
 <body>
   <!-- Loading Overlay -->
   <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.3s;">
-    <div style="width: 60px; height: 60px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary, #7a1a55); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    <div style="width: 60px; height: 60px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary, #1a7a2e); border-radius: 50%; animation: spin 1s linear infinite;"></div>
     <p style="margin-top: 20px; color: #666; font-weight: 500;">Carregando...</p>
   </div>
   <style>
@@ -465,13 +466,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
     <div class="banner-area">
         <div class="banner-track">
-            <img src="https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&q=80" 
-                 onclick="clicarBanner(1)" 
-                 style="cursor:pointer">
-            
-            <img src="https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&q=80" 
-                 onclick="clicarBanner(2)" 
-                 style="cursor:pointer">
+            <img id="banner1-img" src="" alt="Banner 1"
+                 style="cursor:pointer;display:none">
+            <img id="banner2-img" src="" alt="Banner 2"
+                 style="cursor:pointer;display:none">
         </div>
     </div>
 
@@ -806,18 +804,18 @@ window.addEventListener('DOMContentLoaded', () => {
     </footer>
 
     <!-- ===== BANNER DE INSTALAÇÃO PWA ===== -->
-    <div id="pwa-install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:var(--primary, #7a1a55); color:white; padding:15px 20px; z-index:1000; box-shadow:0 -4px 20px rgba(0,0,0,0.2);">
+    <div id="pwa-install-banner" style="display:none; position:fixed; bottom:0; left:0; right:0; background:var(--primary, #1a7a2e); color:white; padding:15px 20px; z-index:1000; box-shadow:0 -4px 20px rgba(0,0,0,0.2);">
         <div style="display:flex; align-items:center; justify-content:space-between; max-width:600px; margin:0 auto;">
             <div style="display:flex; align-items:center; gap:15px;">
-                <img src="https://i.ibb.co/9m1Nb8MC/449324518-1004305660829216-5306299976994169445-n.jpg" style="width:45px; height:45px; border-radius:10px; background:white; padding:3px;">
+                <img id="pwa-banner-icon" src="" alt="" style="width:45px; height:45px; border-radius:10px; background:rgba(255,255,255,0.2); padding:3px; object-fit:cover; display:none">
                 <div>
-                    <div style="font-weight:700; font-size:1rem;">📲 Instalar o App</div>
-                    <div style="font-size:0.85rem; opacity:0.9;">Accede más rápido desde tu pantalla de inicio</div>
+                    <div style="font-weight:700; font-size:1rem;">📲 Instalar <span id="pwa-nome-app">o App</span></div>
+                    <div style="font-size:0.85rem; opacity:0.9;" data-lang-key="pwa-subtitle">Acesse mais rápido pela tela inicial</div>
                 </div>
             </div>
             <div style="display:flex; gap:10px;">
-                <button onclick="dismissPWAInstall()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:10px 15px; border-radius:8px; font-weight:600; cursor:pointer;">Ahora no</button>
-                <button onclick="installPWA()" style="background:white; border:none; color:var(--primary, #7a1a55); padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer;">Instalar</button>
+                <button onclick="dismissPWAInstall()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:10px 15px; border-radius:8px; font-weight:600; cursor:pointer;">Agora não</button>
+                <button onclick="installPWA()" style="background:white; border:none; color:var(--primary, #1a7a2e); padding:10px 20px; border-radius:8px; font-weight:700; cursor:pointer;">Instalar</button>
             </div>
         </div>
     </div>
@@ -825,6 +823,46 @@ window.addEventListener('DOMContentLoaded', () => {
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="supabaseClient.js"></script>
     <script src="app.js"></script>
+    <script>
+    // ── Manifest Dinâmico — roda APÓS supabaseClient.js carregar ─────────
+    (async function _injectManifest() {
+      try {
+        const res = await fetch('manifest.json');
+        const m   = await res.json();
+        // _SUPABASE_URL e _SUPABASE_KEY já estão disponíveis do supabaseClient.js
+        const supaUrl = (typeof _SUPABASE_URL !== 'undefined') ? _SUPABASE_URL : '';
+        const supaKey = (typeof _SUPABASE_KEY !== 'undefined') ? _SUPABASE_KEY : '';
+        if (!supaUrl || !supaKey) return;
+        const cfgRes = await fetch(
+          `${supaUrl}/rest/v1/configuracoes?select=nome_restaurante,cor_primaria,logo_url,icone_url&limit=1`,
+          { headers: { 'apikey': supaKey, 'Accept': 'application/json' } }
+        );
+        if (!cfgRes.ok) return;
+        const rows = await cfgRes.json();
+        const cfg  = rows?.[0] || {};
+        if (cfg.nome_restaurante) {
+          m.name       = cfg.nome_restaurante;
+          m.short_name = cfg.nome_restaurante.substring(0, 12);
+          const mt = document.getElementById('meta-app-title');
+          if (mt) mt.setAttribute('content', cfg.nome_restaurante);
+          document.title = cfg.nome_restaurante + ' — Delivery';
+        }
+        if (cfg.cor_primaria) m.theme_color = cfg.cor_primaria;
+        const iconUrl = cfg.logo_url || cfg.icone_url || '';
+        if (iconUrl) {
+          m.icons = [
+            { src: iconUrl, sizes: '192x192', type: 'image/jpeg', purpose: 'any maskable' },
+            { src: iconUrl, sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable' },
+          ];
+          if (m.shortcuts?.[0]?.icons) m.shortcuts[0].icons = [{ src: iconUrl, sizes: '96x96' }];
+        }
+        const blob    = new Blob([JSON.stringify(m)], { type: 'application/manifest+json' });
+        const blobUrl = URL.createObjectURL(blob);
+        const link    = document.getElementById('link-manifest');
+        if (link) link.setAttribute('href', blobUrl);
+      } catch(_) { /* fallback: manifest estático */ }
+    })();
+    </script>
     <script>
         // Registro do Service Worker para PWA
         if ('serviceWorker' in navigator) {
@@ -837,11 +875,19 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Captura o evento beforeinstallprompt
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Previne o prompt padrão do Chrome
             e.preventDefault();
-            // Guarda o evento para usar depois
             deferredPrompt = e;
-            // Mostra o banner customizado
+            // Atualiza nome e ícone do banner com dados já carregados pelo app.js
+            if (typeof NOME_RESTAURANTE_APP === 'string' && NOME_RESTAURANTE_APP) {
+                const el = document.getElementById('pwa-nome-app');
+                if (el) el.textContent = NOME_RESTAURANTE_APP;
+            }
+            const logoEl = document.getElementById('logo-app');
+            const bannerIcon = document.getElementById('pwa-banner-icon');
+            if (bannerIcon && logoEl?.src && !logoEl.src.endsWith('/')) {
+                bannerIcon.src = logoEl.src;
+                bannerIcon.style.display = 'block';
+            }
             if (pwaBanner) {
                 pwaBanner.style.display = 'block';
             }

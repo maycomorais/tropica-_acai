@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painel Administrativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -183,6 +182,24 @@
           <i class="fas fa-boxes"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.estoque"> Estoque</span>
       </div>
 
+      <!-- Turnos (KDS público) — abre em nova aba -->
+      <a href="turnos.html" target="_blank" rel="noopener"
+         class="menu-item" style="text-decoration:none;color:inherit"
+         title="Painel de Turnos (TV/monitor)">
+        <i class="fas fa-tv"></i>
+        <span class="mobile-hide sidebar-label" data-i18n="sidebar.turnos"> Turnos 📺</span>
+      </a>
+
+      <!-- Seletor de idioma PT / ES -->
+      <div style="display:flex;gap:6px;padding:8px 12px;justify-content:center;border-top:1px solid rgba(255,255,255,0.1);margin-top:4px">
+        <button class="lang-btn" data-lang="pt" onclick="setAdminLang('pt')"
+          style="flex:1;padding:6px 4px;border:none;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);transition:all .15s"
+          title="Português">🇧🇷 PT</button>
+        <button class="lang-btn" data-lang="es" onclick="setAdminLang('es')"
+          style="flex:1;padding:6px 4px;border:none;border-radius:8px;font-size:0.78rem;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);transition:all .15s"
+          title="Español">🇵🇾 ES</button>
+      </div>
+
       <div class="menu-item" onclick="logout()" style="margin-top: auto; background: #c0392b">
         <i class="fas fa-sign-out-alt"></i><span class="mobile-hide " data-i18n="sidebar.sair"> Sair</span>
       </div>
@@ -311,6 +328,16 @@
             <button class="topbar-btn btn-relatorio" onclick="abrirRelatorio()" title="Relatório">
               <i class="fas fa-clipboard-list"></i> <span>Relatório</span>
             </button>
+            <button class="topbar-btn" onclick="fecharTodasMesas()"
+              style="background:#0891b2;color:#fff;border-color:#0891b2"
+              title="Dar baixa em todas as mesas abertas de uma vez">
+              <i class="fas fa-store-alt-slash"></i> <span>Baixar Mesas</span>
+            </button>
+            <button class="topbar-btn" onclick="fecharTodosNaoDelivery()"
+              style="background:#7c3aed;color:#fff;border-color:#7c3aed"
+              title="Dar baixa em todos os pedidos que não são delivery">
+              <i class="fas fa-check-double"></i> <span>Baixar Não-Delivery</span>
+            </button>
           </div>
         </div>
 
@@ -354,7 +381,7 @@
       <div id="pdv" class="tab-content">
         <!-- PDV Header -->
         <div class="pdv-header-bar">
-          <h2 class="section-title" style="margin:0">🏪 Venda Balcão (PDV)</h2>
+          <h2 class="section-title" style="margin:0;color:#fff">🏪 Venda Balcão (PDV)</h2>
           <div class="pdv-view-btns">
             <button id="pdv-view-btn-venda" class="pdv-view-btn active" onclick="pdvMudarView('venda')">
               <i class="fas fa-cash-register"></i> <span>Venda</span>
@@ -374,7 +401,7 @@
         </div>
 
         <!-- VIEW: VENDA -->
-        <div id="pdv-panel-venda" class="pdv-view-panel">
+        <div id="pdv-panel-venda" class="pdv-view-panel" style="background:#1a1a2e;border-radius:16px;overflow:hidden">
           <div class="pdv-container">
 
             <!-- COLUNA ESQUERDA: Produtos -->
@@ -430,6 +457,8 @@
                 <label class="pdv-label">📍 Endereço / Link de localização</label>
                 <input type="text" id="balcao-endereco" class="form-control"
                   placeholder="Cole o endereço ou link do Google Maps" />
+                <input type="hidden" id="balcao-geo-lat" value="">
+                <input type="hidden" id="balcao-geo-lng" value="">
                 <label class="pdv-label" style="margin-top:8px">🛵 Valor do Delivery (Gs)</label>
                 <div style="display:flex;gap:6px;align-items:center">
                   <input type="number" id="balcao-frete" class="form-control"
@@ -454,15 +483,18 @@
                   <span>Gs <span id="balcao-subtotal">0</span></span>
                 </div>
                 <!-- Desconto manual -->
-                <div style="display:flex;gap:6px;align-items:center;margin:6px 0;padding:8px 10px;background:#fff8e6;border-radius:8px;border:1px solid #fde68a">
-                  <span style="font-size:0.8rem;font-weight:600;color:#78350f;white-space:nowrap">🏷️ Desconto</span>
-                  <select id="pdv-desconto-tipo" style="font-size:0.82rem;padding:5px 6px;border:1px solid #fde68a;border-radius:6px;background:#fff;flex-shrink:0" onchange="atualizarCarrinhoPDV()">
-                    <option value="fixo">Gs (fixo)</option>
-                    <option value="percentual">% (perc.)</option>
-                  </select>
-                  <input type="number" id="pdv-desconto-val" min="0" step="1000" placeholder="0"
-                    style="flex:1;font-size:0.88rem;padding:5px 8px;border:1px solid #fde68a;border-radius:6px;text-align:center"
-                    oninput="atualizarCarrinhoPDV()">
+                <div style="margin:6px 0;padding:8px 10px;background:#fff8e6;border-radius:8px;border:1px solid #fde68a">
+                  <div style="font-size:0.78rem;font-weight:700;color:#78350f;margin-bottom:5px">🏷️ Desconto</div>
+                  <div style="display:flex;gap:6px;align-items:center">
+                    <select id="pdv-desconto-tipo" onchange="atualizarCarrinhoPDV()"
+                      style="font-size:0.82rem;padding:5px 8px;border:1px solid #fde68a;border-radius:6px;background:#fff;flex-shrink:0;height:34px">
+                      <option value="fixo">Gs fixo</option>
+                      <option value="percentual">% perc.</option>
+                    </select>
+                    <input type="number" id="pdv-desconto-val" min="0" step="1000" placeholder="0"
+                      oninput="atualizarCarrinhoPDV()"
+                      style="flex:1;min-width:0;font-size:0.9rem;padding:5px 8px;border:1px solid #fde68a;border-radius:6px;text-align:center;height:34px">
+                  </div>
                 </div>
                 <div class="pdv-total-row" id="pdv-row-desconto" style="display:none;color:#e67e22;font-size:0.88rem">
                   <span>– Desconto:</span>
@@ -855,6 +887,11 @@
             <div class="form-group">
               <label>Nome titular Alias</label>
               <input type="text" id="cfg-nome-alias" class="form-control" placeholder="Ex: João da Silva">
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label>🇵🇾 URL do QR Code do Alias PY <small style="color:#888">(imagem hospedada no Storage)</small></label>
+              <input type="url" id="cfg-alias-qr-url" class="form-control" placeholder="https://...supabase.co/storage/v1/object/public/produtos/qr-alias.jpg">
+              <small style="color:#888">Cole a URL pública da imagem do QR Code gerada pelo banco ou PagoFácil. Será exibida no checkout do cliente e no PDV.</small>
             </div>
           </div>
           <button class="btn btn-primary" onclick="salvarConfiguracoes()" style="margin-top:14px">
@@ -1990,5 +2027,38 @@
         </div>
       </div>
     </div>
+<!-- ═══════════════════════════════════════════════════════
+     ONBOARDING — aparece somente na primeira configuração
+     ═══════════════════════════════════════════════════════ -->
+<div id="modal-onboarding" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:99990;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:20px;max-width:540px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.4)">
+
+    <!-- Cabeçalho com steps -->
+    <div style="background:linear-gradient(135deg,var(--primary,#1a7a2e),#155c24);padding:20px 24px;border-radius:20px 20px 0 0">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="color:#fff;font-weight:800;font-size:1.1rem">⚡ Configuração Inicial</div>
+        <button onclick="_obSkip()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:0.8rem">Pular tudo →</button>
+      </div>
+      <!-- Progress dots -->
+      <div style="display:flex;gap:6px" id="ob-dots"></div>
+    </div>
+
+    <!-- Corpo dos steps -->
+    <div id="ob-body" style="padding:24px"></div>
+
+    <!-- Rodapé de navegação -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-top:1px solid #f0f0f0;gap:10px">
+      <button id="ob-btn-prev" onclick="_obPrev()"
+        style="padding:10px 20px;border:1.5px solid #ddd;background:#fff;border-radius:10px;cursor:pointer;font-weight:600;font-size:0.9rem;color:#555">
+        ← Anterior
+      </button>
+      <div style="font-size:0.8rem;color:#aaa" id="ob-step-label">Passo 1 de 5</div>
+      <button id="ob-btn-next" onclick="_obNext()"
+        style="padding:10px 24px;background:var(--primary,#1a7a2e);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem">
+        Próximo →
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

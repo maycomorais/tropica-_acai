@@ -2,15 +2,38 @@
 // 1. CONFIGURAÇÕES & DADOS GERAIS
 // ==========================================
 const FONE_LOJA = ''; 
-const COORD_LOJA = { lat: -25.2365803, lng: -57.5380816 };
+const COORD_LOJA = { lat: 0, lng: 0 };  // populado do banco em verificarHorario()
 let COTACAO_REAL = 1100;
+let NOME_RESTAURANTE_APP = '';  // populado do banco em verificarHorario()
 let autoConfirmTimer = null;
 
-// DADOS DE PAGAMENTO (Pix e Alias)
-const CHAVE_PIX = '';
-const NOME_PIX = '';
-const DADOS_ALIAS = '';
-const ALIAS_PY = '';
+// DADOS DE PAGAMENTO — populados do banco em verificarHorario()
+let CHAVE_PIX = '';
+let NOME_PIX = '';
+let DADOS_ALIAS = '';
+let ALIAS_PY = '';
+let QR_ALIAS_URL = '';  // URL da imagem do QR code Alias PY (carregado do banco)
+let WHATSAPP_LOJA_APP = '';
+
+
+// ── Toast notifications ────────────────────────────────────────────────────
+function mostrarToast(msg, tipo = 'info', duracao = 3000) {
+  const cores = { success: '#27ae60', warning: '#e67e22', error: '#e74c3c', info: '#2980b9' };
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    background:${cores[tipo]||cores.info};color:#fff;padding:10px 20px;border-radius:10px;
+    font-size:0.9rem;font-weight:600;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    max-width:90vw;text-align:center;animation:fadeInUp .25s ease`;
+  t.textContent = msg;
+  if (!document.getElementById('toast-style')) {
+    const s = document.createElement('style');
+    s.id = 'toast-style';
+    s.textContent = '@keyframes fadeInUp{from{opacity:0;transform:translateX(-50%) translateY(12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    document.head.appendChild(s);
+  }
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); }, duracao);
+}
 
 function iniciarTimerAutoConfirmacao(pedidoId) {
     // 4 horas em milissegundos
@@ -37,7 +60,7 @@ function iniciarTimerAutoConfirmacao(pedidoId) {
 
 // ===== FUNÇÃO PARA RESTAURAR TIMER APÓS RELOAD =====
 function restaurarTimerSeNecessario() {
-    const pedidoId = localStorage.getItem('sushi_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
     
     const tempoExpiracao = localStorage.getItem('autoConfirmExpiry_' + pedidoId);
@@ -91,7 +114,7 @@ async function confirmarEntregaAutomatica(pedidoId) {
 
 // ===== CONFIRMAÇÃO MANUAL (CLIENTE) =====
 async function confirmarEntregaCliente() {
-    const pedidoId = localStorage.getItem('sushi_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) {
         alert('Erro: Pedido não encontrado');
         return;
@@ -173,7 +196,7 @@ function mostrarTracker(status, uidPedido) {
     if (tr) tr.style.display = 'block';
 
     // Botão confirmar entrega se saiu para entrega
-    const pedidoId = localStorage.getItem('sushi_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (status === 'saiu_entrega' && pedidoId) {
         const tr2 = document.getElementById('track-result');
         if (tr2 && !document.getElementById('btn-confirmar-entrega')) {
@@ -302,6 +325,14 @@ async function verificarHorario() {
   if (data.cotacao_real) COTACAO_REAL = data.cotacao_real;
   if (data.tabela_frete && Array.isArray(data.tabela_frete)) TABELA_FRETE = data.tabela_frete;
 
+  // ── Dados de pagamento do banco ────────────────────────────────
+  if (data.chave_pix)    CHAVE_PIX    = data.chave_pix;
+  if (data.nome_pix)     NOME_PIX     = data.nome_pix;
+  if (data.dados_alias)  DADOS_ALIAS  = data.dados_alias;
+  if (data.nome_alias)   ALIAS_PY     = data.nome_alias;
+  if (data.alias_qr_url) QR_ALIAS_URL = data.alias_qr_url;
+  if (data.whatsapp_loja) WHATSAPP_LOJA_APP = data.whatsapp_loja;
+
   const agora = new Date();
   const horaAtual = agora.getHours() * 60 + agora.getMinutes();
   // 0=Dom,1=Seg...6=Sab → mapeia para as chaves do objeto
@@ -366,25 +397,42 @@ async function verificarHorario() {
       }
   }
 
-  // Atualiza Banner Promocional
-  if (data.banner_imagem && data.banner_produto_id) {
-    const bannerArea = document.querySelector('.banner-area');
-    if (bannerArea) {
-      const img = bannerArea.querySelector('img');
-      if (img) img.src = data.banner_imagem;
-      
-      bannerArea.onclick = function () {
-        clicarBanner(data.banner_produto_id);
-      };
-    }
+  // Atualiza Banners Promocionais (banner 1 e banner 2)
+  const bannerImgs = [document.getElementById('banner1-img') || document.querySelectorAll('.banner-track img')[0], document.getElementById('banner2-img') || document.querySelectorAll('.banner-track img')[1]];
+
+  // Banner 1
+  if (data.banner_imagem && data.banner_produto_id && bannerImgs[0]) {
+    bannerImgs[0].src = data.banner_imagem;
+    bannerImgs[0].style.display = 'block';
+    bannerImgs[0].style.cursor = 'pointer';
+    bannerImgs[0].onclick = function() { clicarBanner(data.banner_produto_id); };
+  } else if (bannerImgs[0] && !data.banner_imagem) {
+    bannerImgs[0].style.display = 'none';
+  }
+
+  // Banner 2
+  if (data.banner2_imagem && data.banner2_produto_id && bannerImgs[1]) {
+    bannerImgs[1].src = data.banner2_imagem;
+    bannerImgs[1].style.display = 'block';
+    bannerImgs[1].style.cursor = 'pointer';
+    bannerImgs[1].onclick = function() { clicarBanner(data.banner2_produto_id); };
+  } else if (bannerImgs[1] && !data.banner2_imagem) {
+    bannerImgs[1].style.display = 'none';
   }
   
   // Atualiza nome da loja no header
-  const nomeEl = document.getElementById('nome-loja-app');
   const nomeVal = data.nome_restaurante || data.nome_loja || '';
+  NOME_RESTAURANTE_APP = nomeVal;  // ← torna disponível para mensagem WhatsApp
+  const nomeEl = document.getElementById('nome-loja-app');
   if (nomeEl && nomeVal) {
     nomeEl.textContent = nomeVal;
     document.title = nomeVal + ' — Delivery';
+  }
+
+  // Coordenadas da loja (para cálculo de frete)
+  if (data.coord_lat && data.coord_lng) {
+    COORD_LOJA.lat = parseFloat(data.coord_lat) || 0;
+    COORD_LOJA.lng = parseFloat(data.coord_lng) || 0;
   }
 
   // Logo
@@ -501,6 +549,7 @@ async function renderMenu() {
       img: p.imagem_url,
       montagem: p.montagem_config,
       e_montavel: p.e_montavel,
+      categoria_slug: cat || null,   // ← necessário para filtro de bebidas no motoboy
       subcategoria_slug: sub || null,
     };
 
@@ -1241,15 +1290,17 @@ function adicionarDoModal() {
   const preparoEscolhido = preparoSel ? preparoSel.value : '';
 
   carrinho.push({
-    id:       Date.now(),
-    nome:     prodAtual.nome,
-    variacao: variacao || '',          // Guardado separado para não duplicar o nome
-    preparo:  preparoEscolhido,        // Opção de preparo (ex: "Flambado", "Batata Frita")
-    preco:    precoFinal,
-    qtd:      qtd,
-    montagem: montagem.filter(Boolean),
-    obs:      document.getElementById('modal-obs').value,
-    img:      prodAtual._variacaoImg || prodAtual.img,
+    id:             Date.now(),
+    produto_id:     prodAtual.id || null,  // ID real do banco — necessário para desconto de estoque
+    nome:           prodAtual.nome,
+    variacao:       variacao || '',
+    preparo:        preparoEscolhido,
+    preco:          precoFinal,
+    qtd:            qtd,
+    montagem:       montagem.filter(Boolean),
+    obs:            document.getElementById('modal-obs').value,
+    img:            prodAtual._variacaoImg || prodAtual.img,
+    categoria_slug: prodAtual.categoria_slug || '',  // para filtro bebidas no motoboy
     ...(pizzaMeta ? { pizzaMeta } : {}),
   });
 
@@ -1322,6 +1373,9 @@ function limparCarrinho() {
   if (confirm('Deseja limpar o carrinho?')) {
     carrinho = [];
     cupomAplicado = null;
+    freteCalculado = 0;
+    freteMotoboy = 0;
+    localCliente = null;
     updateUI();
   }
 }
@@ -1415,6 +1469,12 @@ function abrirCheckout() {
 
 function fecharCheckout() {
   document.getElementById('checkout-modal').classList.remove('active');
+  // Reseta frete para não vazar entre sessões
+  if (carrinho.length === 0) {
+    freteCalculado = 0;
+    freteMotoboy = 0;
+    localCliente = null;
+  }
 }
 
 function renderCarrinho() {
@@ -1511,51 +1571,13 @@ function adicionarUpsell(item) {
 }
 
 // ==========================================
-// CUPOM DE DESCONTO
+// CUPOM DE DESCONTO — implementação via banco em async function aplicarCupom() abaixo
 // ==========================================
-function aplicarCupom() {
-  const codigo = document.getElementById('cupom-codigo')?.value?.trim().toUpperCase();
-  const msgBox = document.getElementById('cupom-msg');
-  
-  if (!codigo) {
-    msgBox.innerHTML = '<span style="color:#e74c3c">Digite um código</span>';
-    msgBox.style.display = 'block';
-    return;
-  }
-  
-  // Cupons de exemplo - você pode buscar do banco de dados
-  const cupons = {
-    'BEMVINDO10': { tipo: 'percentual', valor: 10, min: 50000 },
-    'SUSHI20': { tipo: 'percentual', valor: 20, min: 100000 },
-    'FRETEGRATIS': { tipo: 'frete', valor: 0, min: 0 }
-  };
-  
-  const cupom = cupons[codigo];
-  
-  if (!cupom) {
-    msgBox.innerHTML = '<span style="color:#e74c3c">❌ Cupom inválido</span>';
-    msgBox.style.display = 'block';
-    cupomAplicado = null;
-  } else {
-    const subtotal = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
-    if (subtotal < cupom.min) {
-      msgBox.innerHTML = `<span style="color:#e74c3c">Valor mínimo: Gs ${cupom.min.toLocaleString('es-PY')}</span>`;
-      msgBox.style.display = 'block';
-      cupomAplicado = null;
-    } else {
-      cupomAplicado = { codigo, ...cupom };
-      msgBox.innerHTML = '<span style="color:#27ae60">✅ Cupom aplicado!</span>';
-      msgBox.style.display = 'block';
-    }
-  }
-  
-  atualizarTotalCheckout();
-}
 
 function atualizarTotalCheckout() {
   const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
   let desconto = 0;
-  let freteAplicado = freteCalculado;
+  let freteAplicado = Math.max(0, freteCalculado); // guard: -1 = a combinar => 0
   
   if (cupomAplicado) {
     if (cupomAplicado.tipo === 'percentual') {
@@ -1637,7 +1659,7 @@ function verificarPagamento() {
   } else if (pag === 'Pix') {
     infoDiv.style.display = 'block';
     const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
-    let freteAplicado = modoEntrega === 'delivery' ? freteCalculado : 0;
+    let freteAplicado = modoEntrega === 'delivery' ? Math.max(0, freteCalculado) : 0;
     let desconto = 0;
     if (cupomAplicado) {
       if (cupomAplicado.tipo === 'percentual') desconto = Math.round(totalItens * (cupomAplicado.valor / 100));
@@ -1648,7 +1670,8 @@ function verificarPagamento() {
     infoDiv.innerHTML = `<strong>💳 Chave Pix:</strong><br>${CHAVE_PIX}<br><small>Titular: ${NOME_PIX}</small><br><strong style="color:#27ae60;font-size:1rem">💰 Valor: R$ ${totalBrl}</strong>`;
   } else if (pag === 'Transferencia') {
     infoDiv.style.display = 'block';
-    infoDiv.innerHTML = `<strong>🏦 Dados para Transferência:</strong><br>${DADOS_ALIAS}<br>${ALIAS_PY}`;
+    const qrHtml = QR_ALIAS_URL ? `<br><img src="${QR_ALIAS_URL}" alt="QR Alias" style="width:160px;height:160px;margin-top:8px;border-radius:8px;border:2px solid #e0e0e0">` : '';
+    infoDiv.innerHTML = `<strong>🏦 Transferencia / Alias:</strong><br>${DADOS_ALIAS}<br>${ALIAS_PY}${qrHtml}`;
   } else if (pag === 'Multipagamento') {
     if (boxMulti) {
       boxMulti.style.display = 'block';
@@ -1683,7 +1706,7 @@ const METODOS_PAG = [
 
 function _getTotalPedidoAtual() {
   const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
-  let freteAplicado = modoEntrega === 'delivery' ? freteCalculado : 0;
+  let freteAplicado = modoEntrega === 'delivery' ? Math.max(0, freteCalculado) : 0;
   let desconto = 0;
   if (cupomAplicado) {
     if (cupomAplicado.tipo === 'percentual') desconto = Math.round(totalItens * (cupomAplicado.valor / 100));
@@ -1865,14 +1888,45 @@ async function calcularFrete() {
     return;
   }
 
+  // Verifica se a permissão já foi bloqueada antes de chamar getCurrentPosition
+  if (navigator.permissions) {
+    navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+      if (result.state === 'denied') {
+        // Permissão bloqueada permanentemente no browser — instrui o usuário
+        msg.innerHTML = '<span style="color:#e74c3c">⚠️ GPS bloqueado no navegador.</span>';
+        boxErro.innerHTML = `
+          <p><strong><i class="fas fa-lock"></i> Permissão de localização bloqueada</strong></p>
+          <p style="margin-top:6px;font-size:0.85rem">Para habilitar: clique no ícone de cadeado/info na barra de endereço do navegador → <strong>Localização</strong> → <strong>Permitir</strong> → recarregue a página.</p>
+          <label style="display:flex;align-items:center;gap:10px;margin-top:10px;cursor:pointer;">
+            <input type="checkbox" id="check-sem-gps" style="width:20px;height:20px;">
+            <span data-lang-key="gps-erro-check">Enviaré mi ubicación por WhatsApp</span>
+          </label>`;
+        boxErro.style.display = 'block';
+        btn.innerText = '📍 Tentar Novamente';
+        btn.disabled = false;
+        return;
+      }
+      // Permissão OK ou ainda não decidida — chama normalmente
+      _executarGetPosition(btn, msg, boxErro);
+    }).catch(() => {
+      // API permissions não suportada — tenta diretamente
+      _executarGetPosition(btn, msg, boxErro);
+    });
+  } else {
+    _executarGetPosition(btn, msg, boxErro);
+  }
+}
+
+function _executarGetPosition(btn, msg, boxErro) {
   navigator.geolocation.getCurrentPosition(
     (position) => {
       localCliente = { lat: position.coords.latitude, lng: position.coords.longitude };
       const dist = calcularDistancia(COORD_LOJA.lat, COORD_LOJA.lng, localCliente.lat, localCliente.lng);
       
       // === TABELA DE FRETE DINÂMICA (configurada no admin) ===
-      // Faixas: [0-3], [3.1-4], [4.1-5], ..., [19.1-20], >20 = a combinar
-      const LIMITES_KM = [3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
+      // ATENÇÃO: deve ser IDÊNTICO ao index.ts (Edge Function) e admin.js calcularFretePDV
+      // Faixas: [0-1], [1.1-2], ..., [19.1-20], >20 = a combinar
+      const LIMITES_KM = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];
       let freteIndex = -1;
       for (let i = 0; i < LIMITES_KM.length; i++) {
         if (dist <= LIMITES_KM[i]) { freteIndex = i; break; }
@@ -1911,12 +1965,34 @@ async function calcularFrete() {
       btn.disabled = true;
       atualizarTotalCheckout();
     },
-    (error) => {
-      msg.innerHTML = '<span style="color:#e74c3c">Não foi possível obter sua localização</span>';
+    (err) => {
+      let errMsg = 'Não foi possível obter sua localização.';
+      let instrucao = '';
+      if (err.code === 1) {
+        // PERMISSION_DENIED
+        errMsg = '⚠️ Permissão de GPS negada.';
+        instrucao = '<p style="margin-top:6px;font-size:0.85rem">Para habilitar: clique no ícone de cadeado/info na barra de endereço → <strong>Localização</strong> → <strong>Permitir</strong> → recarregue a página.</p>';
+      } else if (err.code === 2) {
+        // POSITION_UNAVAILABLE
+        errMsg = '⚠️ Localização indisponível. Verifique se o GPS está ativo.';
+      } else if (err.code === 3) {
+        // TIMEOUT
+        errMsg = '⚠️ Tempo esgotado ao obter localização. Tente novamente.';
+      }
+      msg.innerHTML = `<span style="color:#e74c3c">${errMsg}</span>`;
+      boxErro.innerHTML = `
+        <p><strong><i class="fas fa-info-circle"></i> GPS não funcionou?</strong></p>
+        ${instrucao}
+        <p style="margin-top:6px">Marque a opção abaixo para combinar o frete pelo WhatsApp.</p>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:8px;cursor:pointer;">
+          <input type="checkbox" id="check-sem-gps" style="width:20px;height:20px;">
+          <span data-lang-key="gps-erro-check">Enviaré mi ubicación por WhatsApp</span>
+        </label>`;
       boxErro.style.display = 'block';
       btn.innerText = '📍 Tentar Novamente';
       btn.disabled = false;
-    }
+    },
+    { timeout: 12000, maximumAge: 60000, enableHighAccuracy: true }
   );
 }
 
@@ -1970,8 +2046,8 @@ async function enviarZap() {
 
   // Pedido duplo: bloqueia se mesmo carrinho enviado no último 1h
   const _agora = Date.now();
-  const _ultimoHash = localStorage.getItem('sushi_last_hash');
-  const _ultimoTs   = parseInt(localStorage.getItem('sushi_last_ts') || '0');
+  const _ultimoHash = localStorage.getItem('app_last_hash');
+  const _ultimoTs   = parseInt(localStorage.getItem('app_last_ts') || '0');
   const _hashAtual  = carrinho.map(i => i.nome + i.qtd).sort().join('|');
   if (_ultimoHash === _hashAtual && (_agora - _ultimoTs) < 3600000) {
     return alert('🚫 Seu pedido anterior foi computado, estamos bloqueando esta segunda tentativa.');
@@ -2001,7 +2077,7 @@ async function enviarZap() {
 
   const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
   let desconto = 0;
-  let freteAplicado = freteCalculado;
+  let freteAplicado = Math.max(0, freteCalculado); // guard: -1 = a combinar => 0
   
   if (cupomAplicado) {
     if (cupomAplicado.tipo === 'percentual') {
@@ -2036,6 +2112,7 @@ async function enviarZap() {
         p: i.preco,
         q: i.qtd,
         qtd: i.qtd,               // alias legível
+        produto_id: i.produto_id || null,  // ID real — desconto de estoque
         t: i.variacao || '',
         pr: i.preparo || '',
         m: i.montagem,
@@ -2047,43 +2124,65 @@ async function enviarZap() {
       geo_lng: localCliente ? localCliente.lng.toString() : null,
       cliente_nome: nome,
       cliente_telefone: telCompleto,
-      dados_factura: document.getElementById('check-factura').checked
-        ? { ruc: document.getElementById('cli-ruc').value, razao: document.getElementById('cli-zao').value }
+      dados_factura: document.getElementById('check-factura')?.checked
+        ? { ruc: document.getElementById('cli-ruc')?.value || '', razao: document.getElementById('cli-zao')?.value || '' }
         : null,
     };
 
-    const { data: pedidoSalvo, error } = await supa.from('pedidos').insert([pedidoDb]).select().single();
+    // Tenta INSERT; se falhar por coluna inexistente (dados_factura), faz fallback sem ela
+    let payloadFinal = { ...pedidoDb };
+    let { data: pedidoSalvo, error } = await supa.from('pedidos').insert([payloadFinal]).select().single();
 
     if (error) {
-      console.error('Erro ao salvar pedido:', error);
-      alert('⚠️ Erro ao salvar pedido no sistema. Tente novamente.');
-      return;
+      console.error('Erro ao salvar pedido — código:', error.code, '| msg:', error.message, '| hint:', error.hint);
+
+      // Fallback: coluna dados_factura pode não existir ainda no banco
+      // SQL para criar: ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS dados_factura JSONB;
+      if ((error.code === '42703' || error.message?.includes('dados_factura')) && payloadFinal.dados_factura !== undefined) {
+        console.warn('[pedido] Coluna dados_factura ausente — tentando sem ela...');
+        delete payloadFinal.dados_factura;
+        const res2 = await supa.from('pedidos').insert([payloadFinal]).select().single();
+        if (res2.error) {
+          console.error('Erro no insert de fallback:', res2.error);
+          alert(`⚠️ Erro ao salvar pedido.\n\nDetalhe: ${res2.error.message}\n\nMostre este erro ao suporte.`);
+          return;
+        }
+        pedidoSalvo = res2.data;
+      } else {
+        alert(`⚠️ Erro ao salvar pedido no sistema.\n\nDetalhe: ${error.message}\n\nTente novamente ou contate o suporte.`);
+        return;
+      }
     }
-    
+
     if (pedidoSalvo) {
       pedidoDbId = pedidoSalvo.id;
       numeroPedido = pedidoSalvo.id; // USA O ID DO BANCO
       console.log('✅ Pedido salvo com ID:', pedidoDbId);
 
-      // Incrementa contador de usos do cupom
+      // Incrementa contador de usos do cupom com UPDATE atômico (evita race condition)
       if (cupomAplicado?.id) {
-        const novosUsos = (cupomAplicado.usos_realizados || 0) + 1;
-        await supa.from('cupons')
-          .update({ usos_realizados: novosUsos })
-          .eq('id', cupomAplicado.id);
+        await supa.rpc('incrementar_uso_cupom', { cupom_id: cupomAplicado.id })
+          .then(({ error }) => {
+            if (error) {
+              // Fallback: update simples se RPC não existir
+              const novosUsos = (cupomAplicado.usos_realizados || 0) + 1;
+              return supa.from('cupons').update({ usos_realizados: novosUsos }).eq('id', cupomAplicado.id);
+            }
+          }).catch(() => {});
       }
     }
   }
 
   // Salva localmente para "Repetir Pedido"
-  localStorage.setItem('sushi_last', JSON.stringify(carrinho));
-  localStorage.setItem('sushi_user', JSON.stringify({ nome, tel }));
+  localStorage.setItem('app_last', JSON.stringify(carrinho));
+  localStorage.setItem('app_user', JSON.stringify({ nome, tel }));
 
   // 2. Usa o número real do pedido na mensagem
   const idDisplay = numeroPedido || 'TEMP';
   
   // 3. Monta Mensagem WhatsApp
-  let msg = `🍣 PEDIDO #${idDisplay} - SUSHITERIA\n`;
+  const _nomeRestaurante = NOME_RESTAURANTE_APP || 'Restaurante';
+  let msg = `🛒 PEDIDO #${idDisplay} — ${_nomeRestaurante.toUpperCase()}\n`;
   msg += `--------------------------\n`;
   msg += `👤 Cliente: ${nome}\n`;
   msg += `📱 Tel: ${telCompleto}\n`;
@@ -2178,11 +2277,7 @@ async function enviarZap() {
       msg += `\n📄 RUC: ${document.getElementById('cli-ruc').value}\nRazão: ${document.getElementById('cli-zao').value}\n`;
   }
 
-  // Salva hash anti-duplicata ANTES de enviar
-  const _hashFinal = carrinho.map(i => i.nome + i.qtd).sort().join('|');
-  localStorage.setItem('sushi_last_hash', _hashFinal);
-  localStorage.setItem('sushi_last_ts',   Date.now().toString());
-
+  // Hash anti-duplicata salvo APENAS na abertura do WhatsApp (em _abrirZapEFechar)
   // Modal de confirmação 5s antes de abrir WhatsApp
   await _mostrarModalEnvio(msg, numeroPedido);
 }
@@ -2239,8 +2334,15 @@ function _mostrarModalEnvio(msg, numeroPedido) {
 }
 
 function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
-  window.open(`https://wa.me/${FONE_LOJA}?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/${WHATSAPP_LOJA_APP || FONE_LOJA}?text=${encodeURIComponent(msg)}`, '_blank');
   if (modal) modal.remove();
+
+  // Salva hash anti-duplicata apenas após WhatsApp abrir
+  try {
+    const _hashFinal = (typeof carrinho !== 'undefined' ? carrinho : []).map(i => i.nome + i.qtd).sort().join('|');
+    localStorage.setItem('app_last_hash', _hashFinal);
+    localStorage.setItem('app_last_ts', Date.now().toString());
+  } catch(e) {}
 
   // Limpa carrinho e fecha checkout
   carrinho = [];
@@ -2252,15 +2354,18 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 
   // Limpa backup imediatamente para não restaurar na próxima visita
   try {
-    localStorage.removeItem('sushi_carrinho_backup');
-    localStorage.removeItem('sushi_carrinho_backup_time');
+    localStorage.removeItem('app_carrinho_backup');
+    localStorage.removeItem('app_carrinho_backup_time');
   } catch(e) {}
 
   updateUI();
   fecharCheckout();
 
-  // Card de tracking
-  if (numeroPedido) mostrarCardTracking(numeroPedido);
+  // Card de tracking + persistir ID para timer/confirmação/cancelamento
+  if (numeroPedido) {
+    mostrarCardTracking(numeroPedido);
+    iniciarTracking(numeroPedido, numeroPedido);
+  }
 
   resolve();
 }
@@ -2269,13 +2374,13 @@ function _abrirZapEFechar(msg, numeroPedido, modal, resolve) {
 // 9. DADOS LOCAIS & REPETIR PEDIDO (Funções Restauradas)
 // ==========================================
 function carregarDadosLocal() {
-  const user = JSON.parse(localStorage.getItem('sushi_user'));
+  const user = JSON.parse(localStorage.getItem('app_user'));
   if (user) {
     if (document.getElementById('cli-nome')) document.getElementById('cli-nome').value = user.nome;
     if (document.getElementById('cli-tel')) document.getElementById('cli-tel').value = user.tel;
   }
 
-  const last = JSON.parse(localStorage.getItem('sushi_last'));
+  const last = JSON.parse(localStorage.getItem('app_last'));
   const box = document.getElementById('buy-again-container');
 
   if (last && Array.isArray(last) && last.length > 0) {
@@ -2295,7 +2400,7 @@ function carregarDadosLocal() {
 }
 
 function repetirPedido() {
-  const last = JSON.parse(localStorage.getItem('sushi_last'));
+  const last = JSON.parse(localStorage.getItem('app_last'));
   if (last && Array.isArray(last) && last.length > 0) {
     carrinho = last;
     updateUI();
@@ -2337,7 +2442,7 @@ const TRACKER_STEPS = {
     'em_preparo':     { step: 2, icon: '🔥', msg: 'Seu pedido está sendo preparado!' },
     'pronto_entrega': { step: 3, icon: '📦', msg: 'Pronto! Aguardando motoboy...' },
     'saiu_entrega':   { step: 3, icon: '🛵', msg: 'Seu pedido saiu para entrega!' },
-    'entregue':       { step: 4, icon: '✅', msg: 'Pedido entregue! Bom apetite! 🍣' },
+    'entregue':       { step: 4, icon: '✅', msg: 'Pedido entregue! Bom apetite! 🎉' },
     'cancelado':      { step: 0, icon: '❌', msg: 'Pedido cancelado. Entre em contato conosco.' },
 };
 
@@ -2347,8 +2452,8 @@ function iniciarTracking(pedidoDbId, uidTemporal) {
     const uid      = uidTemporal || pedidoDbId;
 
     try {
-        localStorage.setItem('sushi_pedido_id',  pedidoDbId);
-        localStorage.setItem('sushi_pedido_uid', uid);
+        localStorage.setItem('app_pedido_id',  pedidoDbId);
+        localStorage.setItem('app_pedido_uid', uid);
     } catch(e) {}
 
     _lastTrackedSt = 'pendente';
@@ -2403,7 +2508,7 @@ function _iniciarPollingTracking(pedidoId, uid) {
             if ('Notification' in window && Notification.permission === 'granted' && TRACKER_STEPS[data.status]) {
                 new Notification(NOME_RESTAURANTE_APP || 'Pedido', {
                     body: TRACKER_STEPS[data.status].msg,
-                    icon: 'https://img.freepik.com/vetores-gratis/desenho-de-modelo-de-logotipo-de-sushi_742173-17797.jpg'
+                    icon: '/img/icon-192.png'
                 });
             }
 
@@ -2411,7 +2516,7 @@ function _iniciarPollingTracking(pedidoId, uid) {
                 clearInterval(_pollingTracker); _pollingTracker = null;
                 if (_trackingChannel) { _trackingChannel.unsubscribe(); _trackingChannel = null; }
                 setTimeout(() => {
-                    try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                 }, 10000);
             }
         } catch(e) { /* falha silenciosa de rede */ }
@@ -2423,7 +2528,7 @@ function _tentarCanalRealtime(pedidoId, uid) {
     try {
         if (_trackingChannel) { _trackingChannel.unsubscribe(); _trackingChannel = null; }
         _trackingChannel = supa
-            .channel(`sushi-track-${pedidoId}-${Date.now()}`)
+            .channel(`app-track-${pedidoId}-${Date.now()}`)
             .on('postgres_changes', {
                 event: 'UPDATE', schema: 'public', table: 'pedidos',
                 filter: `id=eq.${pedidoId}`
@@ -2472,8 +2577,8 @@ function restaurarTrackingSeExistir() {
     const card = document.getElementById('track-order-card');
     if (card) card.style.display = 'none';
 
-    const savedId  = localStorage.getItem('sushi_pedido_id');
-    const savedUid = localStorage.getItem('sushi_pedido_uid');
+    const savedId  = localStorage.getItem('app_pedido_id');
+    const savedUid = localStorage.getItem('app_pedido_uid');
     if (!savedId) return;
 
     console.log('🔄 Restaurando tracking para pedido:', savedId);
@@ -2484,7 +2589,7 @@ function restaurarTrackingSeExistir() {
             if (error || !data) return;
             // Se já foi entregue ou cancelado, limpa e não mostra tracker
             if (data.status === 'entregue' || data.status === 'cancelado') {
-                try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
+                try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                 return;
             }
 
@@ -2492,7 +2597,7 @@ function restaurarTrackingSeExistir() {
             if (data.created_at) {
                 const diffHoras = (Date.now() - new Date(data.created_at).getTime()) / 3600000;
                 if (diffHoras > 6) {
-                    try { localStorage.removeItem('sushi_pedido_id'); localStorage.removeItem('sushi_pedido_uid'); } catch(e) {}
+                    try { localStorage.removeItem('app_pedido_id'); localStorage.removeItem('app_pedido_uid'); } catch(e) {}
                     return;
                 }
             }
@@ -2719,7 +2824,7 @@ function atualizarTrackingVisual(status, motoboy) {
             _trackResult.appendChild(_btn);
         }
         // Inicia timer auto-confirm se ainda não iniciado
-        const _pedidoLocal = localStorage.getItem('sushi_pedido_id');
+        const _pedidoLocal = localStorage.getItem('app_pedido_id');
         if (_pedidoLocal && typeof iniciarTimerAutoConfirmacao === 'function') {
             if (!localStorage.getItem('autoConfirmExpiry_' + _pedidoLocal)) {
                 iniciarTimerAutoConfirmacao(_pedidoLocal);
@@ -2750,7 +2855,7 @@ function atualizarTrackingVisual(status, motoboy) {
 
 // ── EDIÇÃO DE PEDIDO PELO CLIENTE ────────────────────────────────
 function abrirEdicaoPedido() {
-    const pedidoId = localStorage.getItem('sushi_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
 
     // Fecha tracking e abre carrinho com itens atuais
@@ -2821,7 +2926,7 @@ async function iniciarEdicaoCarrinho(pedidoId) {
 
 // ── SOLICITAR CANCELAMENTO PELO CLIENTE (via tracking) ──────────
 async function solicitarCancelamentoCliente() {
-    const pedidoId = localStorage.getItem('sushi_pedido_id');
+    const pedidoId = localStorage.getItem('app_pedido_id');
     if (!pedidoId) return;
     
     const motivo = prompt('Motivo do cancelamento (obrigatório):');
@@ -2846,8 +2951,8 @@ async function solicitarCancelamentoCliente() {
 function iniciarTrackingRealtime(pedidoId) {
     _trackedId     = pedidoId;
     _lastTrackedSt = ''; // força re-render na primeira leitura do polling
-    localStorage.setItem('sushi_pedido_id', pedidoId);
-    localStorage.setItem('sushi_pedido_uid', pedidoId);
+    localStorage.setItem('app_pedido_id', pedidoId);
+    localStorage.setItem('app_pedido_uid', pedidoId);
     _iniciarPollingTracking(pedidoId, pedidoId);
     _tentarCanalRealtime(pedidoId, pedidoId);
 }
@@ -2925,11 +3030,11 @@ initDeteccaoConexao();
 function salvarCarrinhoLocal() {
   try {
     if (carrinho && carrinho.length > 0) {
-      localStorage.setItem('sushi_carrinho_backup', JSON.stringify(carrinho));
-      localStorage.setItem('sushi_carrinho_backup_time', new Date().toISOString());
+      localStorage.setItem('app_carrinho_backup', JSON.stringify(carrinho));
+      localStorage.setItem('app_carrinho_backup_time', new Date().toISOString());
     } else {
-      localStorage.removeItem('sushi_carrinho_backup');
-      localStorage.removeItem('sushi_carrinho_backup_time');
+      localStorage.removeItem('app_carrinho_backup');
+      localStorage.removeItem('app_carrinho_backup_time');
     }
   } catch (e) {
     console.warn('Não foi possível salvar backup do carrinho:', e);
@@ -2938,8 +3043,8 @@ function salvarCarrinhoLocal() {
 
 function restaurarCarrinhoBackup() {
   try {
-    const backup = localStorage.getItem('sushi_carrinho_backup');
-    const backupTime = localStorage.getItem('sushi_carrinho_backup_time');
+    const backup = localStorage.getItem('app_carrinho_backup');
+    const backupTime = localStorage.getItem('app_carrinho_backup_time');
 
     if (backup && backupTime) {
       const tempoBackup = new Date(backupTime);
@@ -2950,11 +3055,13 @@ function restaurarCarrinhoBackup() {
       if (diffHoras < 24) {
         const carrinhoSalvo = JSON.parse(backup);
         if (carrinhoSalvo && carrinhoSalvo.length > 0) {
-          if (confirm('Você tem itens no carrinho de uma sessão anterior. Deseja restaurá-los?')) {
+          const pedidoAtivo = localStorage.getItem('app_pedido_id');
+        if (!pedidoAtivo && confirm('Você tem itens no carrinho de uma sessão anterior. Deseja restaurá-los?')) {
             carrinho = carrinhoSalvo;
             updateUI();
             mostrarToast('✅ Carrinho restaurado!', 'success');
           }
+        // Se há pedido ativo, não oferece restaurar
         }
       }
     }
