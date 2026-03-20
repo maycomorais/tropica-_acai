@@ -22,7 +22,7 @@ const ADMIN_LANGS = {
     'sidebar.config':       'Config',
     'sidebar.master':       'Master',
     'sidebar.estoque':      'Estoque',
-    'sidebar.turnos':       'Turnos 📺',
+    'sidebar.turnos':       'Turnos',
     'sidebar.sair':         'Sair',
 
     // ── Dashboard ──────────────────────────────────────────
@@ -276,7 +276,7 @@ const ADMIN_LANGS = {
     'prompt.motivo_ajuste':      'Motivo do ajuste (opcional):',
 
     // ── Cargos ─────────────────────────────────────────────
-    'cargo.adminMaster':    '🔱 ADMIN MASTER',
+    'cargo.adminMaster':    '🎮 ADMIN MASTER',
     'cargo.dono':           '🔑 DONO',
     'cargo.gerente':        '👔 GERENTE',
     'cargo.funcionario':    '👷 FUNCIONÁRIO',
@@ -314,7 +314,7 @@ const ADMIN_LANGS = {
     'sidebar.config':       'Config',
     'sidebar.master':       'Master',
     'sidebar.estoque':      'Stock',
-    'sidebar.turnos':       'Turnos 📺',
+    'sidebar.turnos':       'Turnos',
     'sidebar.sair':         'Salir',
 
     // ── Dashboard ──────────────────────────────────────────
@@ -568,7 +568,7 @@ const ADMIN_LANGS = {
     'prompt.motivo_ajuste':      'Motivo del ajuste (opcional):',
 
     // ── Cargos ─────────────────────────────────────────────
-    'cargo.adminMaster':    '🔱 ADMIN MASTER',
+    'cargo.adminMaster':    '🎮 ADMIN MASTER',
     'cargo.dono':           '🔑 DUEÑO',
     'cargo.gerente':        '👔 GERENTE',
     'cargo.funcionario':    '👷 EMPLEADO',
