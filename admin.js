@@ -13,7 +13,7 @@ let COORD_LOJA = { lat: 0, lng: 0 }; // coord_lat / coord_lng
 let CHAVE_PIX_CFG = ""; // chave_pix
 let NOME_PIX_CFG = ""; // nome_pix
 let DADOS_ALIAS_CFG = ""; // dados_alias
-let ALIAS_QR_URL_CFG = ""; // alias_qr_url — imagem QR do Alias PY
+let QR_PY_URL      = ""; // URL do QR Paraguay
 let NOME_ALIAS_CFG = ""; // nome_alias
 let WHATSAPP_LOJA_CFG = ""; // whatsapp_loja (dígitos)
 let NOME_RESTAURANTE = ""; // nome_restaurante
@@ -99,10 +99,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (elEmail) elEmail.textContent = session.user.email;
 
     const cargoBadges = {
-      adminMaster: "🔱 ADMIN MASTER",
+      adminMaster: "🎮 ADMIN MASTER",
       dono: "🔑 DONO",
       gerente: "👔 GERENTE",
-      funcionario: t('cargo.funcionario'),
+      funcionario: "👷 FUNCIONÁRIO",
       garcom: "🍽️ GARÇOM",
     };
     if (elCargo)
@@ -300,7 +300,7 @@ async function _carregarFeaturesGlobais() {
   const { data } = await supa
     .from("configuracoes")
     .select(
-      "features_ativas, nome_restaurante, whatsapp_loja, coord_lat, coord_lng, taxa_motoboy_base, ajuda_combustivel, chave_pix, nome_pix, dados_alias, nome_alias, tabela_frete, alias_qr_url",
+      "features_ativas, nome_restaurante, whatsapp_loja, coord_lat, coord_lng, taxa_motoboy_base, ajuda_combustivel, chave_pix, nome_pix, dados_alias, nome_alias, tabela_frete",
     )
     .maybeSingle();
   if (!data) return;
@@ -317,8 +317,6 @@ async function _carregarFeaturesGlobais() {
   if (data.nome_pix) NOME_PIX_CFG = data.nome_pix;
   if (data.dados_alias) DADOS_ALIAS_CFG = data.dados_alias;
   if (data.nome_alias) NOME_ALIAS_CFG = data.nome_alias;
-  if (data.alias_qr_url) ALIAS_QR_URL_CFG = data.alias_qr_url;
-  if (data.chave_pix) CHAVE_PIX_CFG = data.chave_pix;
   if (data.tabela_frete && Array.isArray(data.tabela_frete))
     TABELA_FRETE_ADMIN = data.tabela_frete;
 }
@@ -387,84 +385,84 @@ async function renderPainelFeatures() {
   const funcs = f.funcionalidades || {};
 
   const chkTabs = [
-    ["pedidos",       () => t('feat.tab.pedidos')],
-    ["cozinha",       () => t('feat.tab.cozinha')],
-    ["pdv",           () => t('feat.tab.pdv')],
-    ["financeiro",    () => t('feat.tab.financeiro')],
-    ["inventario",    () => t('feat.tab.inventario')],
-    ["equipe",        () => t('feat.tab.equipe')],
-    ["configuracoes", () => t('feat.tab.config')],
-    ["dashboard",     () => t('feat.tab.dashboard')],
+    ["pedidos", "Pedidos"],
+    ["cozinha", "Cozinha/KDS"],
+    ["pdv", "PDV Balcão"],
+    ["financeiro", "Financeiro"],
+    ["inventario", "Inventário"],
+    ["equipe", "Equipe"],
+    ["configuracoes", "Configurações"],
+    ["dashboard", "Dashboard"],
   ]
     .map(
       ([
         k,
-        lFn,
+        l,
       ]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
     <input type="checkbox" data-feat-tab="${k}" ${tabs[k] !== false ? "checked" : ""} style="width:18px;height:18px">
-    <span>${lFn()}</span></label>`,
+    <span>${l}</span></label>`,
     )
     .join("");
 
   const chkTipos = [
-    ["padrao",    () => t('feat.tipo.padrao')],
-    ["bebida",    () => t('feat.tipo.bebida')],
-    ["lanche",    () => t('feat.tipo.lanche')],
-    ["pizza",     () => t('feat.tipo.pizza')],
-    ["acai",      () => t('feat.tipo.acai')],
-    ["shake",     () => t('feat.tipo.shake')],
-    ["suco",      () => t('feat.tipo.suco')],
-    ["sorvete",   () => t('feat.tipo.sorvete')],
-    ["montavel",  () => t('feat.tipo.montavel')],
-    ["combo",     () => t('feat.tipo.combo')],
-    ["variacoes", () => t('feat.tipo.variacoes')],
-    ["kg",        () => t('feat.tipo.kg')],
+    ["padrao", "Simples"],
+    ["bebida", "Bebida"],
+    ["lanche", "Lanche"],
+    ["pizza", "Pizza"],
+    ["acai", "Açaí"],
+    ["shake", "Shake"],
+    ["suco", "Suco"],
+    ["sorvete", "Sorvete"],
+    ["montavel", "Montável"],
+    ["combo", "Combo"],
+    ["variacoes", "Variações"],
+    ["kg", "⚖️ Venda Kg"],
   ]
     .map(
       ([
         k,
-        lFn,
+        l,
       ]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
     <input type="checkbox" data-feat-tipo="${k}" ${tipos[k] !== false ? "checked" : ""} style="width:18px;height:18px">
-    <span>${lFn()}</span></label>`,
+    <span>${l}</span></label>`,
     )
     .join("");
 
   const chkFuncs = [
-    ["delivery",       () => t('feat.func.delivery')],
-    ["retirada",       () => t('feat.func.retirada')],
-    ["local",          () => t('feat.func.local')],
-    ["balcao",         () => t('feat.func.balcao')],
-    ["cupons",         () => t('feat.func.cupons')],
-    ["factura",        () => t('feat.func.factura')],
-    ["multipagamento", () => t('feat.func.multipag')],
-    ["agendamento",    () => t('feat.func.agendamento')],
+    ["delivery", "Delivery"],
+    ["retirada", "Retirada"],
+    ["local", "Comer no Local"],
+    ["balcao", "Balcão/PDV"],
+    ["cupons", "Cupons"],
+    ["factura", "Factura"],
+    ["multipagamento", "Multipagamento"],
+    ["agendamento", "Agendamento"],
   ]
     .map(
       ([
         k,
-        lFn,
+        l,
       ]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
     <input type="checkbox" data-feat-func="${k}" ${funcs[k] !== false ? "checked" : ""} style="width:18px;height:18px">
-    <span>${lFn()}</span></label>`,
+    <span>${l}</span></label>`,
     )
     .join("");
 
   const html = `
     <div style="display:grid;gap:20px">
       <div>
-        <h4 style="margin-bottom:10px;color:#2c3e50">${t('cfg.feat_abas')}</h4>
+        <h4 style="margin-bottom:10px;color:#2c3e50">📂 Abas visíveis</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">${chkTabs}</div>
       </div>
       <div>
-        <h4 style="margin-bottom:10px;color:#2c3e50">${t('cfg.feat_tipos')}</h4>
+        <h4 style="margin-bottom:10px;color:#2c3e50">🏷️ Tipos de produto permitidos</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">${chkTipos}</div>
       </div>
       <div>
-        <h4 style="margin-bottom:10px;color:#2c3e50">${t('cfg.feat_funcs')}</h4>
+        <h4 style="margin-bottom:10px;color:#2c3e50">⚙️ Funcionalidades</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">${chkFuncs}</div>
       </div>
-      <button class="btn btn-primary" onclick="salvarFeatures()"><i class="fas fa-save"></i> ${t('cfg.salvar_features')}</button>
+      <button class="btn btn-primary" onclick="salvarFeatures()"><i class="fas fa-save"></i> Salvar Features</button>
     </div>`;
   targets.forEach((el) => {
     el.innerHTML = html;
@@ -538,63 +536,6 @@ function pararAlarme() {
 // =========================================
 // 4. GESTÃO DE PEDIDOS (COM IMPRESSÃO)
 // =========================================
-
-// ── BAIXA EM MASSA ────────────────────────────────────────────────────────────
-
-async function fecharTodasMesas() {
-  const { data, error } = await supa
-    .from("pedidos")
-    .select("id, cliente_nome, total_geral")
-    .eq("tipo_entrega", "balcao")
-    .not("status", "in", '("entregue","cancelado")');
-
-  if (error || !data || data.length === 0) {
-    alert(t("alert.nenhum_pedido") || "Nenhuma mesa aberta no momento.");
-    return;
-  }
-
-  const lista = data.map(p => `#${p.id} — ${p.cliente_nome || "Mesa"}`).join("\n");
-  if (!confirm(`Confirmar fechamento de ${data.length} mesa(s)?\n\n${lista}`)) return;
-
-  const agora = new Date().toISOString();
-  const { error: updErr } = await supa
-    .from("pedidos")
-    .update({ status: "entregue", tempo_entregue: agora })
-    .in("id", data.map(p => p.id));
-
-  if (updErr) { alert("Erro: " + updErr.message); return; }
-  alert(`✅ ${data.length} mesa(s) fechada(s) com sucesso!`);
-  carregarPedidos();
-  carregarMonitorMesas();
-}
-
-async function fecharTodosNaoDelivery() {
-  const { data, error } = await supa
-    .from("pedidos")
-    .select("id, cliente_nome, tipo_entrega, total_geral")
-    .not("tipo_entrega", "eq", "delivery")
-    .not("status", "in", '("entregue","cancelado")');
-
-  if (error || !data || data.length === 0) {
-    alert(t("alert.nenhum_pedido") || "Nenhum pedido em aberto para baixar.");
-    return;
-  }
-
-  const lista = data.map(p => `#${p.id} ${p.tipo_entrega} — ${p.cliente_nome || ""}`).join("\n");
-  if (!confirm(`Confirmar baixa em ${data.length} pedido(s)?\n\n${lista}`)) return;
-
-  const agora = new Date().toISOString();
-  const { error: updErr } = await supa
-    .from("pedidos")
-    .update({ status: "entregue", tempo_entregue: agora })
-    .in("id", data.map(p => p.id));
-
-  if (updErr) { alert("Erro: " + updErr.message); return; }
-  alert(`✅ ${data.length} pedido(s) baixado(s) com sucesso!`);
-  carregarPedidos();
-  carregarMonitorMesas();
-}
-
 async function carregarPedidos(silencioso = false) {
   // === TRAVA DE SEGURANÇA (Para não limpar sua seleção) ===
   if (silencioso) {
@@ -740,7 +681,7 @@ async function carregarPedidos(silencioso = false) {
         } else {
           const icone =
             p.tipo_entrega === "balcao" ? "fa-store" : "fa-hand-holding";
-          const tipo = p.tipo_entrega === "balcao" ? t('pdv.balcao_label').toUpperCase() : t('pdv.retirada').toUpperCase();
+          const tipo = p.tipo_entrega === "balcao" ? "BALCÃO" : "RETIRADA";
           checkbox = `<div style="text-align:center; color:#e67e22; font-size:1.2rem"><i class="fas ${icone}" title="${tipo}"></i></div>`;
           acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})" title="Avisar cliente via WhatsApp"><i class="fab fa-whatsapp"></i></button> <button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})">Baixar</button>`;
         }
@@ -752,7 +693,7 @@ async function carregarPedidos(silencioso = false) {
                     <td style="text-align:center; vertical-align: middle;">${checkbox}</td>
                     <td><strong>#${p.uid_temporal || p.id}</strong></td>
                     <td>
-                        <div style="font-weight:bold">${p.cliente_nome || t('pedidos.cliente')}</div>
+                        <div style="font-weight:bold">${p.cliente_nome || "Cliente"}</div>
                         <div style="font-size:0.8rem; color:#666">${p.endereco_entrega || ""}</div>
                         ${badgeCancelRow}
                     </td>
@@ -857,8 +798,8 @@ async function carregarPedidos(silencioso = false) {
                     <div style="background:${cardBg}; border-radius:10px; padding:14px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.07); border-left:4px solid ${p.status === "pendente" ? "#f59e0b" : p.status === "pronto_entrega" ? "#22c55e" : p.status === "saiu_entrega" ? "#3498db" : "#94a3b8"};">
                         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
                             <div>
-                                <div style="font-weight:700;font-size:1rem">#${p.uid_temporal || p.id} — ${p.cliente_nome || t('pedidos.cliente')}</div>
-                                <div style="font-size:0.78rem;color:#666;margin-top:2px">${p.endereco_entrega || (p.tipo_entrega === "balcao" ? `🏪 ${t('pdv.balcao_label')}` : "")}</div>
+                                <div style="font-weight:700;font-size:1rem">#${p.uid_temporal || p.id} — ${p.cliente_nome || "Cliente"}</div>
+                                <div style="font-size:0.78rem;color:#666;margin-top:2px">${p.endereco_entrega || (p.tipo_entrega === "balcao" ? "🏪 Balcão" : "")}</div>
                             </div>
                             <span class="status-badge st-${p.status}" style="font-size:0.7rem">${statusLabel}</span>
                         </div>
@@ -903,7 +844,7 @@ async function solicitarCancelamento(pedidoId) {
     .eq("id", pedidoId);
 
   if (error) {
-    alert(t('alert.erro') + error.message);
+    alert("❌ Erro: " + error.message);
     return;
   }
 
@@ -924,7 +865,7 @@ async function solicitarCancelamento(pedidoId) {
 async function aprovarCancelamento(pedidoId) {
   if (
     !confirm(
-      t('confirm.cancelar_pedido'),
+      "⚠️ Confirma o CANCELAMENTO deste pedido?\nEsta ação não pode ser desfeita.",
     )
   )
     return;
@@ -942,7 +883,7 @@ async function aprovarCancelamento(pedidoId) {
     .eq("id", pedidoId);
 
   if (error) {
-    alert(t('alert.erro') + error.message);
+    alert("❌ Erro: " + error.message);
     return;
   }
 
@@ -1054,7 +995,6 @@ async function imprimirPedido(id) {
       })),
     valores: {
       sub: p.subtotal,
-      desconto: (p.desconto_cupom || 0) + (p.desconto_pdv_valor || 0),
       frete: p.frete_cobrado_cliente,
       total: p.total_geral,
     },
@@ -1123,7 +1063,7 @@ async function carregarCozinha() {
     let itensHtml = "";
     itensPendentes.forEach((item) => {
       const quantidade = item.qtd || item.q || 1;
-      const nomeItem = item.nome || item.n || t('pedidos.cliente');
+      const nomeItem = item.nome || item.n || "Item";
       const variacaoItem = item.variacao || item.t || ""; // variação separada do nome
       const preparoItem = item.preparo || item.pr || ""; // preparo (cru/flambado etc)
       const observacao = item.obs || item.o || "";
@@ -1186,7 +1126,7 @@ async function carregarCozinha() {
                 </div>
                 <div style="padding:10px;">
                     <div style="font-weight:bold; font-size:1.1rem; margin-bottom:10px; color:#2c3e50">
-                        ${p.cliente_nome || t('pedidos.cliente')}
+                        ${p.cliente_nome || "Cliente"}
                     </div>
                     <ul style="list-style:none; padding:0; margin:0; color:#333;">
                         ${itensHtml}
@@ -1270,15 +1210,11 @@ async function calcularFinanceiro() {
     peds = peds.filter((p) => !p.dados_factura?.ruc && !p.dados_factura?.ci);
 
   // ── Movimentações de caixa ─────────────────────────────────────
-  // Aplica mesma correção UTC-4 das movimentações para consistência com os pedidos
-  const _tzC = 4 * 60 * 60 * 1000;
-  const utcCaixaI = new Date(new Date(inicio + "T00:00:00").getTime() + _tzC).toISOString();
-  const utcCaixaF = new Date(new Date(fim   + "T23:59:59").getTime() + _tzC).toISOString();
   let caixaQuery = supa
     .from("movimentacoes_caixa")
     .select("*")
-    .gte("created_at", utcCaixaI)
-    .lte("created_at", utcCaixaF);
+    .gte("created_at", inicio + " 00:00:00")
+    .lte("created_at", fim + " 23:59:59");
   if (!ehGestor) caixaQuery = caixaQuery.eq("usuario_email", emailAtual);
 
   const { data: caixa } = await caixaQuery;
@@ -1315,21 +1251,7 @@ async function calcularFinanceiro() {
     faturamento += val;
     qtdPedidos++;
     const pag = (p.forma_pagamento || "").toLowerCase();
-    if (pag === "multipagamento") {
-      // Distribui pelas partes reais do multipagamento
-      try {
-        const partes = JSON.parse(p.obs_pagamento || "[]");
-        if (Array.isArray(partes)) {
-          partes.forEach((parte) => {
-            const mp = (parte.metodo || "").toLowerCase();
-            if (mp.includes("pix")) totalPix += parte.valor || 0;
-            else if (mp.includes("transfer")) totalTransf += parte.valor || 0;
-            else if (mp.includes("cartao") || mp.includes("cartão")) totalCartao += parte.valor || 0;
-            else if (mp.includes("efetivo") || mp.includes("dinheiro")) totalEfetivo += parte.valor || 0;
-          });
-        }
-      } catch (_) {}
-    } else if (pag.includes("pix")) totalPix += val;
+    if (pag.includes("pix")) totalPix += val;
     else if (pag.includes("transfer")) totalTransf += val;
     else if (pag.includes("cartao") || pag.includes("cartão"))
       totalCartao += val;
@@ -1339,7 +1261,7 @@ async function calcularFinanceiro() {
     if (p.tipo_entrega === "delivery") {
       const taxa = safeNum(p.frete_motoboy) || TAXA_MOTOBOY || 0;
       custoEntregas += taxa;
-      const nm = p.motoboys?.nome || t('sel.motoboy');
+      const nm = p.motoboys?.nome || "Sem Motoboy";
       if (!motoMap[nm]) {
         motoMap[nm] = { entregas: 0, frete_total: 0 };
         custoEntregas += AJUDA_COMBUSTIVEL || 0;
@@ -1394,7 +1316,7 @@ async function calcularFinanceiro() {
   const badgeCaixa = document.getElementById("badge-caixa-operador");
   if (badgeCaixa) {
     badgeCaixa.textContent = ehGestor
-      ? t('fin.caixa_ctrl')
+      ? "📊 Visão geral — todos os caixas"
       : `💼 Seu caixa — ${emailAtual}`;
   }
 
@@ -1562,7 +1484,7 @@ async function exportarFinanceiro() {
 
   // 4. Prepara dados para CSV
   let csv =
-    "ID Pedido,Data/Hora,Cliente,Telefone,Tipo Entrega,Forma Pagamento,Subtotal,Desconto,Frete,Total,RUC/CI,Razão Social\n";
+    "ID Pedido,Data/Hora,Cliente,Telefone,Tipo Entrega,Forma Pagamento,Subtotal,Frete,Total,RUC/CI,Razão Social\n";
 
   pedidosFiltrados.forEach((p) => {
     const data = new Date(p.created_at).toLocaleString("pt-BR");
@@ -1571,13 +1493,12 @@ async function exportarFinanceiro() {
     const tipo = p.tipo_entrega || "";
     const pagamento = p.forma_pagamento || "";
     const subtotal = p.subtotal || 0;
-    const desconto = (p.desconto_cupom || 0) + (p.desconto_pdv_valor || 0);
     const frete = p.frete_cobrado_cliente || 0;
     const total = p.total_geral || 0;
     const ruc = p.dados_factura?.ruc || p.dados_factura?.ci || "";
     const razao = (p.dados_factura?.razao || "").replace(/,/g, " ");
 
-    csv += `${p.id},${data},${cliente},${telefone},${tipo},${pagamento},${subtotal},${desconto},${frete},${total},${ruc},${razao}\n`;
+    csv += `${p.id},${data},${cliente},${telefone},${tipo},${pagamento},${subtotal},${frete},${total},${ruc},${razao}\n`;
   });
 
   // 5. Cria arquivo e faz download
@@ -1762,7 +1683,7 @@ async function carregarRelatorio() {
       delivery:
         '<span style="background:#e8f7e8;color:#1a6e2e;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🛵 Delivery</span>',
       retirada:
-        `<span style="background:#f7f0e8;color:#6e4a1a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🚶 ${t('pdv.retirada')}</span>`,
+        '<span style="background:#f7f0e8;color:#6e4a1a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🚶 Retirada</span>',
     };
     const tipoBadge = tipoBadges[p.tipo_entrega] || "";
 
@@ -1771,25 +1692,25 @@ async function carregarRelatorio() {
       ? [
           {
             icon: "🏪",
-            label: t('fin.abertura_lbl'),
+            label: "Abertura",
             val: fmtHora(p.tempo_recebido || p.created_at),
             diff: null,
           },
           {
             icon: "🔥",
-            label: t('sidebar.cozinha'),
+            label: "Cozinha",
             val: fmtHora(p.tempo_preparo_iniciado),
             diff: null,
           },
           {
             icon: "📦",
-            label: t('kds.pronto').replace('✅ ',''),
+            label: "Pronto",
             val: fmtHora(p.tempo_pronto),
             diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto),
           },
           {
             icon: "✅",
-            label: t('status.entregue'),
+            label: "Fechado",
             val: fmtHora(p.tempo_entregue),
             diff: fmtDiff(p.tempo_recebido || p.created_at, p.tempo_entregue),
           },
@@ -1797,37 +1718,37 @@ async function carregarRelatorio() {
       : [
           {
             icon: "📥",
-            label: t('status.pendente').charAt(0) + t('status.pendente').slice(1).toLowerCase(),
+            label: "Recebido",
             val: fmtHora(p.tempo_recebido),
             diff: null,
           },
           {
             icon: "✅",
-            label: t('pedidos.confirmar').replace('✅ ',''),
+            label: "Aceite",
             val: fmtHora(p.tempo_confirmado),
             diff: fmtDiff(p.tempo_recebido, p.tempo_confirmado),
           },
           {
             icon: "🔥",
-            label: t('sidebar.cozinha'),
+            label: "Cozinha",
             val: fmtHora(p.tempo_preparo_iniciado),
             diff: null,
           },
           {
             icon: "📦",
-            label: t('kds.pronto').replace('✅ ',''),
+            label: "Pronto",
             val: fmtHora(p.tempo_pronto),
             diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto),
           },
           {
             icon: "🛵",
-            label: t('status.saiu_entrega'),
+            label: "Saiu",
             val: fmtHora(p.tempo_saiu_entrega),
             diff: null,
           },
           {
             icon: "🏠",
-            label: t('status.entregue'),
+            label: "Entregue",
             val: fmtHora(p.tempo_entregue),
             diff: fmtDiff(p.tempo_saiu_entrega, p.tempo_entregue),
           },
@@ -1894,7 +1815,7 @@ function abrirModalCaixa(tipo) {
     despesa: "🧾 Despesa",
   };
   document.getElementById("titulo-caixa").innerText =
-    t("fin.title").replace("💰 ","");
+    titulos[tipo] || "Operação";
   document.getElementById("valor-caixa").value = "";
   document.getElementById("desc-caixa").value = "";
 
@@ -1924,7 +1845,7 @@ async function salvarMovimentacaoCaixa() {
   const status = cfg?.caixa_status || {};
   if (status[emailAtual]?.bloqueado && tipo !== "sangria") {
     alert(
-      t("alert.caixa_reaberto").replace("✅ ","⛔ "),
+      "⛔ Caixa bloqueado por sangria. Solicite autorização de um gestor para reabrir.",
     );
     return;
   }
@@ -1967,7 +1888,7 @@ async function salvarMovimentacaoCaixa() {
 async function fecharCaixaResumo() {
   if (
     !confirm(
-      t('confirm.fechar_caixa'),
+      "Fechar o caixa de hoje?\nIsso registra o fechamento e zera os totais exibidos.",
     )
   )
     return;
@@ -2263,7 +2184,7 @@ function enviarRotaZap() {
         msg += `📍 ${link}\n`;
         coords.push(`${p.geo_lat},${p.geo_lng}`);
       } else {
-        msg += `🏠 ${p.endereco_entrega || t('pdv.retirada')}\n`;
+        msg += `🏠 ${p.endereco_entrega || "Retirada"}\n`;
       }
 
       // LÓGICA DE PAGAMENTO
@@ -2387,17 +2308,17 @@ function renderizarCardsProdutos(lista) {
     combo: "⭐",
   };
   const _TIPO_NAMES = {
-    padrao: t('feat.tipo.padrao'),
-    bebida: t('feat.tipo.bebida'),
-    lanche: t('feat.tipo.lanche'),
-    pizza: t('feat.tipo.pizza'),
-    acai: t('feat.tipo.acai'),
-    shake: t('feat.tipo.shake'),
-    suco: t('feat.tipo.suco'),
-    sorvete: t('feat.tipo.sorvete'),
-    montavel: t('feat.tipo.montavel'),
-    almoco: t('feat.tipo.padrao'),
-    combo: t('feat.tipo.combo'),
+    padrao: "Simples",
+    bebida: "Bebida",
+    lanche: "Lanche",
+    pizza: "Pizza",
+    acai: "Açaí",
+    shake: "Shake",
+    suco: "Suco",
+    sorvete: "Sorvete",
+    montavel: "Montável",
+    almoco: "Prato",
+    combo: "Combo",
   };
 
   lista.forEach((p) => {
@@ -2489,7 +2410,7 @@ function previewUpload(input) {
 
 async function salvarProduto() {
   const btn = event.target;
-  btn.innerText = t('geral.carregando');
+  btn.innerText = "Salvando...";
   btn.disabled = true;
   try {
     const id = document.getElementById("prod-id").value;
@@ -2883,7 +2804,7 @@ async function salvarProduto() {
   } catch (e) {
     alert("Erro: " + e.message);
   } finally {
-    btn.innerText = t('geral.salvar');
+    btn.innerText = "Salvar";
     btn.disabled = false;
   }
 }
@@ -2997,7 +2918,7 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
         tiposPizza.forEach((t) => addPizzaTipo(t.nome));
         if (tiposPizza.length === 0) {
           // retrocompat: sem tipos definidos → cria Tradicional
-          t("feat.tipo.padrao");
+          addPizzaTipo("Tradicional");
         }
         // Bordas (novo: nome+preco; antigo: nome+tipo)
         const bordas = (pizzaCfg.bordas || []).map((b) => ({
@@ -3260,7 +3181,7 @@ function addVariacao(dados = {}) {
       <input data-f="vimg" class="form-control" value="${dados.img || ""}" placeholder="URL da foto (opcional — usa foto do produto por padrão)" style="font-size:0.8rem;color:#888">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.82rem;color:${pausado ? "#c0392b" : "#16a34a"}">
         <input data-f="vativo" type="checkbox" ${!pausado ? "checked" : ""} onchange="this.closest('.variacao-row').style.background=this.checked?'#fff':'#fff5f5';this.closest('.variacao-row').style.opacity=this.checked?'1':'0.7';this.closest('.variacao-row').style.borderColor=this.checked?'#e9d5ff':'#fca5a5';this.parentElement.style.color=this.checked?'#16a34a':'#c0392b';this.parentElement.lastChild.textContent=this.checked?' Disponível':' Pausado'">
-        <span>${pausado ? " Pausado" : " " + t("prod.reativar")}</span>
+        <span>${pausado ? " Pausado" : " Disponível"}</span>
       </label>
     </div>
     <div style="width:60px;height:60px;border-radius:8px;overflow:hidden;background:#f3f4f6;flex-shrink:0">
@@ -3879,7 +3800,7 @@ async function avisarEncerramentoDelivery() {
 async function _confirmarEncerramentoDelivery() {
   const texto =
     document.getElementById("aviso-encerramento-texto")?.value?.trim() ||
-    t('alert.delivery_encerrado') + ' 🍣';
+    "Delivery encerrado por hoje. Obrigado! 🍣";
 
   const { error } = await supa
     .from("configuracoes")
@@ -3918,7 +3839,7 @@ async function _confirmarEncerramentoDelivery() {
 }
 
 async function reabrirDelivery() {
-  if (!confirm(t('confirm.reabrir_delivery'))) return;
+  if (!confirm("Reabrir o delivery para novos pedidos?")) return;
 
   const { error } = await supa
     .from("configuracoes")
@@ -3938,7 +3859,7 @@ async function reabrirDelivery() {
   const badge = document.getElementById("badge-delivery-status");
   if (badge) {
     badge.style.background = "#27ae60";
-    badge.textContent = t('del.aberto_badge');
+    badge.textContent = "🟢 Delivery Aberto";
   }
 }
 
@@ -4071,7 +3992,7 @@ async function _confirmarEstenderHorario() {
 }
 
 async function removerExtensaoHorario() {
-  if (!confirm(t("cfg.estender_title"))) return;
+  if (!confirm("Remover a extensão de horário de hoje?")) return;
   await supa
     .from("configuracoes")
     .update({ horario_extra_hoje: null })
@@ -4097,7 +4018,7 @@ async function carregarStatusDelivery() {
       badge.textContent = "🔴 Delivery Fechado";
     } else {
       badge.style.background = "#27ae60";
-      badge.textContent = t('del.aberto_badge');
+      badge.textContent = "🟢 Delivery Aberto";
     }
 
     // Mostra extensão de horário se ativa hoje
@@ -4357,7 +4278,7 @@ async function carregarSelectCategorias(valorAtual = null) {
   // Preserva seleção atual se não foi passado valorAtual
   const valorPreservar = valorAtual || sel.value;
 
-  sel.innerHTML = `<option value="">${t('sel.sem_categoria')}</option>`;
+  sel.innerHTML = '<option value="">— Sem categoria —</option>';
   if (data) {
     data.forEach(
       (c) =>
@@ -4382,7 +4303,7 @@ async function carregarSelectSubcategorias(
   const box = document.getElementById("box-subcategoria");
   if (!sel) return;
 
-  sel.innerHTML = `<option value="">${t('sel.sem_subcategoria')}</option>`;
+  sel.innerHTML = '<option value="">— Sem subcategoria —</option>';
 
   if (!categoriaSlag) {
     if (box) box.style.display = "none";
@@ -4577,7 +4498,7 @@ async function salvarSubcat() {
 async function deletarSubcat(slug) {
   if (
     !confirm(
-      `${t('confirm.excluir_cat')} "${slug}"?`,
+      `Deletar a subcategoria "${slug}"?\n\nOs produtos vinculados ficarão sem subcategoria.`,
     )
   )
     return;
@@ -4781,20 +4702,20 @@ async function abrirModalCategoria() {
 
 async function deletarProduto(id) {
   const confirmar = confirm(
-    t('confirm.excluir_produto'),
+    "⚠️ ATENÇÃO: Deletar este produto?\n\nEsta ação não pode ser desfeita. O produto será removido permanentemente do sistema.",
   );
   if (!confirmar) return;
 
   try {
     const { error } = await supa.from("produtos").delete().eq("id", id);
     if (error) {
-      alert(t('alert.erro') + error.message);
+      alert("❌ Erro ao deletar: " + error.message);
     } else {
       alert(t('alert.produto_excluido'));
       carregarProdutos();
     }
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro inesperado: " + e.message);
   }
 }
 
@@ -4808,7 +4729,7 @@ async function pausarProduto(id, ativoAtual) {
     .update({ ativo: novoStatus })
     .eq("id", id);
   if (error) {
-    alert(t('alert.erro') + error.message);
+    alert("❌ Erro: " + error.message);
   } else {
     alert(novoStatus ? "✅ Produto reativado!" : "⏸️ Produto pausado!");
     carregarProdutos();
@@ -4822,7 +4743,7 @@ async function deletarCat(slug) {
     .select("*", { count: "exact", head: true })
     .eq("categoria_slug", slug);
 
-  let msg = `${t('confirm.excluir_cat')} "${slug}"?`;
+  let msg = `⚠️ ATENÇÃO: Deletar a categoria "${slug}"?\n\nEsta ação não pode ser desfeita.`;
   if (count > 0) {
     msg += `\n\n⚠️ ${count} produto(s) usam esta categoria e ficarão sem categoria após a exclusão.`;
   }
@@ -4849,13 +4770,13 @@ async function deletarCat(slug) {
     // Terceiro: deleta a categoria
     const { error } = await supa.from("categorias").delete().eq("slug", slug);
     if (error) {
-      alert(t('alert.erro') + error.message);
+      alert("❌ Erro ao deletar: " + error.message);
     } else {
       alert("✅ Categoria deletada com sucesso!");
       carregarCategorias();
     }
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro inesperado: " + e.message);
   }
 }
 
@@ -4879,7 +4800,7 @@ function autoSlugFromNome() {
 
 async function deletarMotoboy(id) {
   const confirmar = confirm(
-    t('confirm.excluir_moto'),
+    "⚠️ ATENÇÃO: Deletar este motoboy?\n\nEsta ação não pode ser desfeita.",
   );
   if (!confirmar) return;
 
@@ -4894,7 +4815,7 @@ async function deletarMotoboy(id) {
           "❌ Não é possível excluir este motoboy pois ele possui pedidos vinculados.\n\nDica: Você pode desativar o motoboy em vez de excluir.",
         );
       } else {
-        alert(t('alert.erro') + error.message);
+        alert("❌ Erro ao deletar: " + error.message);
       }
     } else {
       alert("✅ Motoboy deletado com sucesso!");
@@ -4902,7 +4823,7 @@ async function deletarMotoboy(id) {
       carregarMotoboysSelect();
     }
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro inesperado: " + e.message);
   }
 }
 async function carregarMotoboys() {
@@ -5058,7 +4979,7 @@ async function salvarMotoboy() {
     carregarMotoboys();
     carregarMotoboysSelect(); // Atualiza o select da Rota
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro ao salvar: " + e.message);
   }
 }
 
@@ -5066,7 +4987,7 @@ async function carregarMotoboysSelect() {
   const { data } = await supa.from("motoboys").select("*");
   const sel = document.getElementById("sel-motoboy");
   if (!sel) return;
-  sel.innerHTML = `<option value="">${t('sel.selecione')}</option>`;
+  sel.innerHTML = '<option value="">Selecione...</option>';
   if (data) {
     data.forEach((m) => {
       sel.innerHTML += `<option value="${m.id}" data-tel="${m.telefone}" data-nome="${m.nome}">${m.nome}</option>`;
@@ -5081,13 +5002,13 @@ async function carregarMotoboysSelect() {
 // === CONFIGURAÇÕES (COMPLETO) ===
 
 const DIAS_SEMANA = [
-  { key: "seg", label: () => t('dia.seg') },
-  { key: "ter", label: () => t('dia.ter') },
-  { key: "qua", label: () => t('dia.qua') },
-  { key: "qui", label: () => t('dia.qui') },
-  { key: "sex", label: () => t('dia.sex') },
-  { key: "sab", label: () => t('dia.sab') },
-  { key: "dom", label: () => t('dia.dom') },
+  { key: "seg", label: "Segunda-feira" },
+  { key: "ter", label: "Terça-feira" },
+  { key: "qua", label: "Quarta-feira" },
+  { key: "qui", label: "Quinta-feira" },
+  { key: "sex", label: "Sexta-feira" },
+  { key: "sab", label: "Sábado" },
+  { key: "dom", label: "Domingo" },
 ];
 
 function _renderGradeSemanal(horariosSalvos = {}) {
@@ -5100,12 +5021,12 @@ function _renderGradeSemanal(horariosSalvos = {}) {
   applyBar.style.cssText =
     "display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--color-background-secondary);border-radius:10px;flex-wrap:wrap";
   applyBar.innerHTML = `
-    <span style="font-size:0.82rem;font-weight:600;color:var(--color-text-secondary)">${t('cfg.horarios_titulo').replace('📅 ','')}: </span>
+    <span style="font-size:0.82rem;font-weight:600;color:var(--color-text-secondary)">⚡ Aplicar horário a todos os dias:</span>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
       <input type="time" id="apply-all-abre" style="padding:5px 8px;border:1.5px solid var(--color-border-secondary);border-radius:6px;font-size:0.85rem">
       <span style="font-size:0.8rem;color:var(--color-text-secondary)">→</span>
       <input type="time" id="apply-all-fecha" style="padding:5px 8px;border:1.5px solid var(--color-border-secondary);border-radius:6px;font-size:0.85rem">
-      <button onclick="_aplicarHorarioTodos()" class="btn btn-sm btn-primary">${t('cfg.aplicar_todos')}</button>
+      <button onclick="_aplicarHorarioTodos()" class="btn btn-sm btn-primary">Aplicar a todos</button>
     </div>`;
   container.appendChild(applyBar);
 
@@ -5119,8 +5040,7 @@ function _renderGradeSemanal(horariosSalvos = {}) {
     dom: "🌙",
   };
 
-  DIAS_SEMANA.forEach(({ key, label: labelFn }) => {
-    const label = typeof labelFn === 'function' ? labelFn() : labelFn;
+  DIAS_SEMANA.forEach(({ key, label }) => {
     const dia = horariosSalvos[key] || {
       fechado: false,
       turnos: [{ abre: "", fecha: "" }],
@@ -5139,15 +5059,15 @@ function _renderGradeSemanal(horariosSalvos = {}) {
       .map(
         (t, i) => `
       <div class="gs-turno-row" data-idx="${i}">
-        <span class="gs-turno-label">${i === 0 ? t('cfg.abertura_turno') : t('cfg.segundo_turno')}</span>
+        <span class="gs-turno-label">${i === 0 ? "🕐 Abertura" : "🕑 2º Turno"}</span>
         <div class="gs-turno-inputs">
           <div class="gs-time-group">
-            <span class="gs-time-label">${t('cfg.das')}</span>
+            <span class="gs-time-label">Das</span>
             <input type="time" class="gs-time-input turno-abre" value="${t.abre || ""}">
           </div>
           <span class="gs-time-sep">→</span>
           <div class="gs-time-group">
-            <span class="gs-time-label">${t('cfg.ate')}</span>
+            <span class="gs-time-label">Até</span>
             <input type="time" class="gs-time-input turno-fecha" value="${t.fecha || ""}">
           </div>
           ${i > 0 ? `<button class="gs-btn-rm" onclick="removerTurno(this)" title="Remover turno">✕</button>` : '<div style="width:28px"></div>'}
@@ -5164,7 +5084,7 @@ function _renderGradeSemanal(horariosSalvos = {}) {
         </div>
         <div class="gs-dia-controls">
           <span class="gs-status-badge ${fechado ? "gs-badge-fechado" : "gs-badge-aberto"}">
-            ${fechado ? t('cfg.badge_fechado') : t('cfg.badge_aberto')}
+            ${fechado ? "🔴 Fechado" : "🟢 Aberto"}
           </span>
           <label class="gs-toggle-wrap">
             <input type="checkbox" class="dia-fechado-check" ${fechado ? "checked" : ""} onchange="toggleDiaFechado(this)">
@@ -5175,7 +5095,7 @@ function _renderGradeSemanal(horariosSalvos = {}) {
       <div class="gs-dia-turnos" style="${fechado ? "display:none" : ""}">
         <div class="gs-turnos-lista">${turnosHtml}</div>
         <button class="gs-btn-add-turno btn-add-turno" onclick="adicionarTurno(this)">
-          <i class="fas fa-plus"></i> ${t('cfg.adicionar_turno')}
+          <i class="fas fa-plus"></i> Adicionar 2º turno
         </button>
       </div>
     `;
@@ -5192,7 +5112,7 @@ function toggleDiaFechado(checkbox) {
     row.classList.add("gs-fechado");
     row.classList.remove("gs-aberto");
     if (badge) {
-      badge.textContent = t('cfg.badge_fechado');
+      badge.textContent = "🔴 Fechado";
       badge.className = "gs-status-badge gs-badge-fechado";
     }
   } else {
@@ -5200,7 +5120,7 @@ function toggleDiaFechado(checkbox) {
     row.classList.add("gs-aberto");
     row.classList.remove("gs-fechado");
     if (badge) {
-      badge.textContent = t('cfg.badge_aberto');
+      badge.textContent = "🟢 Aberto";
       badge.className = "gs-status-badge gs-badge-aberto";
     }
   }
@@ -5210,7 +5130,7 @@ function adicionarTurno(btn) {
   const lista = btn.previousElementSibling;
   const idx = lista.querySelectorAll(".gs-turno-row").length;
   if (idx >= 2) {
-    alert(t('pdv.max_turnos'));
+    alert("Máximo de 2 turnos por dia.");
     return;
   }
   const div = document.createElement("div");
@@ -5220,12 +5140,12 @@ function adicionarTurno(btn) {
     <span class="gs-turno-label">🕑 2º Turno</span>
     <div class="gs-turno-inputs">
       <div class="gs-time-group">
-        <span class="gs-time-label">${t('cfg.das')}</span>
+        <span class="gs-time-label">Das</span>
         <input type="time" class="gs-time-input turno-abre">
       </div>
       <span class="gs-time-sep">→</span>
       <div class="gs-time-group">
-        <span class="gs-time-label">${t('cfg.ate')}</span>
+        <span class="gs-time-label">Até</span>
         <input type="time" class="gs-time-input turno-fecha">
       </div>
       <button class="gs-btn-rm btn-rm-turno" onclick="removerTurno(this)" title="Remover turno">✕</button>
@@ -5263,7 +5183,7 @@ function _aplicarHorarioTodos() {
     if (turnoFecha) turnoFecha.value = fecha;
   });
   alert(
-    t('alert.horario_estendido'),
+    "✅ Horário aplicado a todos os dias. Clique em Salvar para confirmar.",
   );
 }
 
@@ -5390,7 +5310,6 @@ async function carregarConfiguracoes() {
   s("cfg-nome-pix", data.nome_pix);
   s("cfg-dados-alias", data.dados_alias);
   s("cfg-nome-alias", data.nome_alias);
-  s("cfg-alias-qr-url", data.alias_qr_url);
 
   // Localização
   s("cfg-coord-lat", data.coord_lat);
@@ -5458,8 +5377,6 @@ async function carregarConfiguracoes() {
   if (data.nome_pix) NOME_PIX_CFG = data.nome_pix;
   if (data.dados_alias) DADOS_ALIAS_CFG = data.dados_alias;
   if (data.nome_alias) NOME_ALIAS_CFG = data.nome_alias;
-  if (data.alias_qr_url) ALIAS_QR_URL_CFG = data.alias_qr_url;
-  if (data.chave_pix) CHAVE_PIX_CFG = data.chave_pix;
 
   await carregarExtrasGlobaisAdmin();
   await _carregarMaquininhas();
@@ -5506,7 +5423,6 @@ async function salvarConfiguracoes() {
     nome_pix: g("cfg-nome-pix") || "",
     dados_alias: g("cfg-dados-alias") || "",
     nome_alias: g("cfg-nome-alias") || "",
-    alias_qr_url: g("cfg-alias-qr-url") || "",
     // Localização
     coord_lat: parseFloat(g("cfg-coord-lat")) || 0,
     coord_lng: parseFloat(g("cfg-coord-lng")) || 0,
@@ -5604,7 +5520,7 @@ async function salvarBanner(num = 1) {
   } catch (e) {
     alert("Erro: " + e.message);
   } finally {
-    btn.innerHTML = `<i class="fas fa-upload"></i> ${t('cfg.salvar_banner1')}`;
+    btn.innerHTML = '<i class="fas fa-upload"></i> Salvar Banner';
     btn.disabled = false;
   }
 }
@@ -5786,7 +5702,7 @@ function _renderMaquininha(m, idx, container) {
     "background:var(--color-background-secondary);border:1px solid var(--color-border-tertiary);border-radius:10px;padding:12px;margin-bottom:8px";
   row.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <span style="font-weight:700;font-size:0.9rem">${m.nome || t('cfg.maq_prefixo') + (idx + 1)}</span>
+      <span style="font-weight:700;font-size:0.9rem">${m.nome || "Maquininha " + (idx + 1)}</span>
       <button onclick="this.closest('.maquininha-row').remove()" style="background:none;border:none;color:#e74c3c;font-size:1rem;cursor:pointer">✕</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;font-size:0.82rem">
@@ -5906,7 +5822,7 @@ async function salvarPersonalizacao() {
     }
     if (dados.nome_restaurante) NOME_RESTAURANTE = dados.nome_restaurante;
     alert(
-      t('alert.cfg_salvas'),
+      "✅ Personalização salva! Recarregue o cardápio para ver as mudanças.",
     );
   } catch (e) {
     alert("Erro: " + e.message);
@@ -6156,34 +6072,26 @@ function _calcularIntervalo(periodo, idI, idF) {
 // PDV MOBILE — Tabs de navegação
 // ══════════════════════════════════════════════════════════
 function pdvMudarAba(aba, btn) {
-  document
-    .querySelectorAll(".pdv-tab-btn")
-    .forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".pdv-tab-btn").forEach(b => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
-  // No mobile, os painéis são os próprios elements dentro do pdv-panel-venda
-  const map = {
-    carrinho: ".pdv-carrinho",
-    produtos: ".pdv-produtos",
-    monitor: ".pdv-monitor",
-  };
-  Object.values(map).forEach((sel) => {
-    const el = document.querySelector(sel);
-    if (el) el.classList.remove("pdv-tab-active");
-  });
-  const target = document.querySelector(map[aba]);
-  if (target) target.classList.add("pdv-tab-active");
 
-  // Se clicou em monitor, mostra o panel de mesas no mobile
-  if (aba === "monitor") {
+  // Hide all panels, show the selected one
+  document.querySelectorAll(".pdv-tab-panel").forEach(el => el.classList.remove("pdv-tab-active"));
+
+  if (aba === "produtos") {
+    document.getElementById("pdv-panel-produtos")?.classList.add("pdv-tab-active");
+  } else if (aba === "carrinho") {
+    document.getElementById("pdv-panel-carrinho")?.classList.add("pdv-tab-active");
+  } else if (aba === "monitor") {
+    // On mobile: show the mesas panel instead
     const panelMesas = document.getElementById("pdv-panel-mesas");
     const panelVenda = document.getElementById("pdv-panel-venda");
-    if (panelMesas) panelMesas.style.display = "block";
-    if (panelVenda) panelVenda.style.display = "none";
-  } else {
-    const panelMesas = document.getElementById("pdv-panel-mesas");
-    const panelVenda = document.getElementById("pdv-panel-venda");
-    if (panelMesas) panelMesas.style.display = "none";
-    if (panelVenda) panelVenda.style.display = "block";
+    if (panelMesas && window.innerWidth <= 768) {
+      panelVenda.style.display = "none";
+      panelMesas.style.display = "";
+    } else {
+      document.getElementById("pdv-panel-monitor")?.classList.add("pdv-tab-active");
+    }
   }
 }
 
@@ -6294,6 +6202,17 @@ let produtosCatsPDV = [];
 
 let _pdvCatFiltro = "todos";
 
+
+function pdvSelecionarTipo(tipo, btn) {
+  const inp = document.getElementById('balcao-tipo-entrega');
+  if (inp) inp.value = tipo;
+  document.querySelectorAll('.pdv-tipo-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const delivRow = document.getElementById('pdv-delivery-row');
+  if (delivRow) delivRow.style.display = tipo === 'delivery' ? '' : 'none';
+  atualizarCarrinhoPDV();
+}
+
 function renderizarGridPDV(filtroNome = "") {
   const grid = document.getElementById("pdv-grid");
   if (!grid) return;
@@ -6403,24 +6322,25 @@ function _criarCardPDV(p) {
 
   const card = document.createElement("div");
   card.className = "pdv-card" + (isKg ? " pdv-card-kg" : "");
-  if (img) card.style.backgroundImage = `url('${img}')`;
-  else card.classList.add("pdv-card-noimg");
   card.title = p.nome;
   card.onclick = () => adicionarItemPDV(p);
 
-  if (isKg) {
-    card.innerHTML = `
-      <div class="pdv-card-price" style="background:#0891b2">Gs ${precoKg.toLocaleString("es-PY")}<span style="font-size:0.65em;font-weight:500">/kg</span></div>
-      <div class="pdv-card-overlay">
-        <span style="font-size:0.65rem;background:#0891b2;color:#fff;border-radius:10px;padding:1px 6px;display:inline-block;margin-bottom:2px">⚖️ Por Kg</span><br>
-        ${p.nome}
-      </div>`;
-  } else {
-    card.innerHTML = `
-      <div class="pdv-card-price">Gs ${p.preco.toLocaleString("es-PY")}</div>
-      <div class="pdv-card-overlay">${p.nome}</div>
-    `;
-  }
+  const imgHtml = img
+    ? `<div class="pdv-card-img" style="background-image:url('${img}')"></div>`
+    : `<div class="pdv-card-img pdv-card-img-none"><i class="fas fa-utensils"></i></div>`;
+
+  const priceStr = isKg
+    ? `Gs ${precoKg.toLocaleString("es-PY")}<span class="pdv-card-unit">/kg</span>`
+    : `Gs ${p.preco.toLocaleString("es-PY")}`;
+
+  const badge = isKg ? `<span class="pdv-card-kg-badge">⚖️ Kg</span>` : "";
+
+  card.innerHTML = `
+    ${imgHtml}
+    <div class="pdv-card-body">
+      <div class="pdv-card-name">${p.nome} ${badge}</div>
+      <div class="pdv-card-price">${priceStr}</div>
+    </div>`;
   return card;
 }
 
@@ -7166,6 +7086,15 @@ function _mostrarModalPesoPDV(produto, precoKg) {
   document.body.appendChild(overlay);
   modal.querySelector("#_kg-close").onclick = () => overlay.remove();
 
+  // Se balança já conectada → inicia leitura automática
+  if (_toledoPort) {
+    const btnBal = document.getElementById("_kg-btn-balanca");
+    const txtBal = document.getElementById("_kg-balanca-txt");
+    if (btnBal) { btnBal.style.borderStyle="solid"; btnBal.style.background="#e0f7fa"; }
+    if (txtBal) txtBal.textContent = "🟢 Balança conectada — aguardando peso...";
+    setTimeout(() => _kgIniciarLeituraBalanca(), 100);
+  }
+
   // Funções locais expostas globalmente (escopo do modal)
   window._kgAtualizarPreview = function () {
     const g = parseInt(document.getElementById("_kg-input-g")?.value) || 0;
@@ -7245,7 +7174,7 @@ function _mostrarModalPesoPDV(produto, precoKg) {
     }
 
     try {
-      if (txt) txt.textContent = t("geral.carregando");
+      if (txt) txt.textContent = "⏳ Aguardando seleção da porta...";
       const port = await navigator.serial.requestPort();
       await port.open({
         baudRate: 9600,
@@ -7567,89 +7496,62 @@ function atualizarCarrinhoPDV() {
     : [];
 
   if (itensExistentes.length > 0) {
-    const secTitle = document.createElement("div");
-    secTitle.className = "pdv-sec-title";
-    secTitle.textContent = t('pdv.na_cozinha');
+    const secTitle = document.createElement("tr");
+    secTitle.innerHTML = '<td colspan="4" class="pdv-sec-title">Itens já lançados</td>';
     lista.appendChild(secTitle);
 
     itensExistentes.forEach((item, idx) => {
       const entregue = item.status_item === "entregue";
       const qtd = item.qtd || item.q || 1;
-      const nome = item.nome || item.n || t('pedidos.cliente');
+      const nome = item.nome || item.n || "Item";
       const preco = item.preco || item.p || 0;
       total += preco * qtd;
 
-      const row = document.createElement("div");
-      row.className =
-        "pdv-item-row pdv-item-existente" +
-        (entregue ? " pdv-item-entregue" : "");
+      const row = document.createElement("tr");
+      row.className = "pdv-item-existente" + (entregue ? " pdv-item-entregue" : "");
       row.innerHTML = `
-        <div class="pdv-item-info">
-          <strong>${qtd}x</strong> ${nome}
-          ${entregue ? '<span class="badge-entregue">✓ Entregue</span>' : ""}
-        </div>
-        <div class="pdv-item-acoes">
-          <span>Gs ${(preco * qtd).toLocaleString("es-PY")}</span>
-          ${
-            !entregue
-              ? `
-            <button class="btn btn-sm btn-success pdv-btn-baixar"
-              title="Marcar como entregue"
-              onclick="baixarItemMesa(${window._mesaAbertaId}, ${idx})">
-              <i class="fas fa-check"></i>
-            </button>`
-              : ""
-          }
-        </div>`;
+        <td class="pdv-item-nome">${nome}${entregue ? ' <span class="badge-entregue">✓</span>' : ""}</td>
+        <td class="tc">${qtd}</td>
+        <td class="tr" style="font-size:0.7rem;color:#666">Gs ${preco.toLocaleString("es-PY")}</td>
+        <td class="tr">Gs ${(preco*qtd).toLocaleString("es-PY")}
+          ${!entregue ? `<button class="pdv-item-remove" title="Baixar" onclick="baixarItemMesa(${window._mesaAbertaId},${idx})"><i class="fas fa-check" style="color:#27ae60"></i></button>` : ""}
+        </td>`;
       lista.appendChild(row);
     });
   }
 
   // ── Novos itens sendo adicionados (carrinhoPDV) ────────────────
   if (carrinhoPDV.length > 0) {
-    const secTitle2 = document.createElement("div");
-    secTitle2.className = "pdv-sec-title pdv-sec-novo";
-    secTitle2.textContent =
-      itensExistentes.length > 0 ? "+ Novos itens" : "Itens do pedido";
+    const secTitle2 = document.createElement("tr");
+    secTitle2.innerHTML = `<td colspan="4" class="pdv-sec-title pdv-sec-novo">${itensExistentes.length > 0 ? "+ Novos itens" : "Itens do pedido"}</td>`;
     lista.appendChild(secTitle2);
 
     carrinhoPDV.forEach((item, idx) => {
       total += item.preco * item.qtd;
-      const row = document.createElement("div");
-      row.className = "pdv-item-row";
-
+      const row = document.createElement("tr");
       if (item._isKg) {
-        // Produto por kg: mostra peso em vez de qtd
         const g = item.peso_gramas || 0;
-        const pesofmt =
-          g >= 1000
-            ? (g / 1000)
-                .toFixed(3)
-                .replace(/\.?0+$/, "")
-                .replace(".", ",") + " kg"
-            : g + "g";
+        const pesofmt = g >= 1000
+          ? (g/1000).toFixed(3).replace(/\.?0+$/,"").replace(".",",")+"kg"
+          : g+"g";
         row.innerHTML = `
-          <div class="pdv-item-info">
-            <strong style="color:#0891b2">⚖️ ${pesofmt}</strong> ${item.nome}
-          </div>
-          <div class="pdv-item-acoes">
-            <span>Gs ${item.preco.toLocaleString("es-PY")}</span>
-            <button class="btn btn-sm btn-danger" onclick="removerItemPDV(${idx})">✕</button>
-          </div>`;
+          <td class="pdv-item-nome"><span style="color:#0891b2;font-size:0.72rem">⚖️ ${pesofmt}</span> ${item.nome}</td>
+          <td class="tc" style="color:#0891b2;font-size:0.7rem">kg</td>
+          <td class="tr" style="font-size:0.7rem;color:#666">—</td>
+          <td class="tr">Gs ${item.preco.toLocaleString("es-PY")} <button class="pdv-item-remove" onclick="removerItemPDV(${idx})">✕</button></td>`;
       } else {
         row.innerHTML = `
-          <div class="pdv-item-info"><strong>${item.qtd}x</strong> ${item.nome}</div>
-          <div class="pdv-item-acoes">
-            <span>Gs ${(item.preco * item.qtd).toLocaleString("es-PY")}</span>
-            <button class="btn btn-sm btn-danger" onclick="removerItemPDV(${idx})">✕</button>
-          </div>`;
+          <td class="pdv-item-nome">${item.nome}</td>
+          <td class="tc pdv-item-qtd">${item.qtd}×</td>
+          <td class="tr" style="font-size:0.7rem;color:#666">Gs ${item.preco.toLocaleString("es-PY")}</td>
+          <td class="tr">Gs ${(item.preco*item.qtd).toLocaleString("es-PY")} <button class="pdv-item-remove" onclick="removerItemPDV(${idx})">✕</button></td>`;
       }
       lista.appendChild(row);
     });
   }
 
   if (itensExistentes.length === 0 && carrinhoPDV.length === 0) {
-    lista.innerHTML = '<p class="pdv-lista-vazio">Nenhum item adicionado.</p>';
+    lista.innerHTML = '<tr><td colspan="4" class="pdv-lista-vazio">Nenhum item adicionado.</td></tr>';
   }
 
   if (totalEl) totalEl.innerText = total.toLocaleString("es-PY");
@@ -7690,9 +7592,6 @@ function atualizarCarrinhoPDV() {
   const totalFinal = totalComDesc + (tipoEntrega === "delivery" ? frete : 0);
   if (totalEl) totalEl.innerText = totalFinal.toLocaleString("es-PY");
 
-  // Atualiza info de pagamento (Pix BRL, QR Alias PY)
-  atualizarInfoPagPDV(totalFinal);
-
   // Atualiza barra inferior mobile
   const mobileQtd = document.getElementById("pdv-mobile-qtd");
   const mobileTot = document.getElementById("pdv-mobile-total-val");
@@ -7716,19 +7615,9 @@ function atualizarInfoPagPDV(total) {
   if (selectPag) selectPag.style.display = "";
 
   if (pag === "Pix" && total > 0) {
-    const valorReais = (total / (_cotacaoPDV || 1100)).toFixed(2);
-    const chave = window.CHAVE_PIX_CFG || DADOS_ALIAS_CFG || "";
+    const valorReais = (total / _cotacaoPDV).toFixed(2);
     infoBox.style.display = "block";
-    infoBox.innerHTML = `<div style="text-align:center">
-      <div style="font-size:1.1rem;font-weight:700;color:#1b5e20;margin-bottom:4px">💠 R$ ${valorReais}</div>
-      ${chave ? `<div style="font-size:0.82rem;color:#555">Chave: <strong>${chave}</strong></div>` : ""}
-    </div>`;
-  } else if (pag === "Transferencia" && total > 0) {
-    const qrHtml = ALIAS_QR_URL_CFG ? `<br><img src="${ALIAS_QR_URL_CFG}" alt="QR Alias" style="width:140px;height:140px;border-radius:8px;border:2px solid #ccc;margin-top:6px">` : "";
-    infoBox.style.display = "block";
-    infoBox.style.background = "#e3f2fd";
-    infoBox.style.borderColor = "#1565c0";
-    infoBox.innerHTML = `<div style="text-align:center"><strong>🏦 Alias/Transferencia</strong><br><span style="font-size:0.85rem">${DADOS_ALIAS_CFG || ""}</span>${qrHtml}</div>`;
+    infoBox.innerHTML = `<i class="fas fa-qrcode"></i> <strong>Cobrar em Pix: R$ ${valorReais}</strong>`;
   } else if (pag === "Multipagamento") {
     if (selectPag) selectPag.style.display = "none";
     if (boxMultiPDV) {
@@ -7770,6 +7659,7 @@ function adicionarPartePagamentoPDV() {
     { v: "Cartao", l: "💳 Tarjeta" },
     { v: "Pix", l: "🟢 Pix" },
     { v: "Transferencia", l: "🏦 Alias" },
+    { v: "QrPy", l: "📱 QR Paraguay" },
   ]
     .map((m) => `<option value="${m.v}">${m.l}</option>`)
     .join("");
@@ -7788,7 +7678,8 @@ function adicionarPartePagamentoPDV() {
       <div style="flex:1;position:relative">
         <span style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#888;font-size:0.8rem;pointer-events:none">Gs</span>
         <input type="number" id="multi-valor-pdv-${id}" placeholder="0" min="0" step="1000"
-            oninput="atualizarRestanteMultiPDV()"
+            data-touched="0"
+            oninput="this.dataset.touched='1'; atualizarRestanteMultiPDV()"
             style="width:100%;padding:8px 8px 8px 28px;border:1.5px solid #e0e0e0;border-radius:7px;font-size:0.9rem;font-weight:700;box-sizing:border-box">
       </div>
       ${
@@ -7901,7 +7792,7 @@ async function salvarPedidoBalcao() {
   }
 
   // ── Tratamento Multipagamento ────────────────────────────────
-  let obsPagPDV = t('pdv.pag_balcao');
+  let obsPagPDV = "Pagamento no Balcão";
   if (pag === "Multipagamento") {
     const partesPDV = _coletarMultiPagamentoPDV();
     if (partesPDV.length === 0) {
@@ -7946,21 +7837,17 @@ async function salvarPedidoBalcao() {
 
     const itensMerged = [...itensExistentes, ...novosItens];
     // Itens kg: preco já é o total pesado (preco_kg × peso), não multiplicar por qtd
-    const novoSubtotalBruto = itensMerged.reduce(
+    const novoTotal = itensMerged.reduce(
       (acc, i) => acc + (i._isKg ? (i.preco || 0) : (i.preco || 0) * (i.qtd || 1)),
       0,
     );
-    // Preserva desconto PDV existente na mesa
-    const descontoMesaExistente = window._mesaAbertaPedido?.desconto_pdv_valor || 0;
-    const novoTotal = Math.max(0, novoSubtotalBruto - descontoMesaExistente);
 
     const { error } = await supa
       .from("pedidos")
       .update({
         itens: itensMerged,
         total_geral: novoTotal,
-        subtotal: novoSubtotalBruto,
-        desconto_pdv_valor: descontoMesaExistente,
+        subtotal: novoTotal,
         forma_pagamento: pag,
         obs_pagamento: obsPagPDV,
         cliente_nome: nomeFinal,
@@ -8005,8 +7892,8 @@ async function salvarPedidoBalcao() {
       : mesa
         ? `Mesa ${mesa}`
         : _soKg
-          ? t('pdv.balcao_kg')
-          : t('pdv.balcao_label');
+          ? "Balcão - Venda Kg"
+          : "Balcão";
 
   const _geoLat = document.getElementById("balcao-geo-lat")?.value || null;
   const _geoLng = document.getElementById("balcao-geo-lng")?.value || null;
@@ -8062,7 +7949,7 @@ async function salvarPedidoBalcao() {
     const dadosImpressao = {
       id: novoPedido.id,
       cliente: { nome: nomeFinal, tel: tel },
-      entrega: { tipo: tipoEntregaPDV || "balcao", ref: pedido.endereco_entrega },
+      entrega: { tipo: "balcao", ref: pedido.endereco_entrega },
       itens: novosItens.map((i) => ({
         q: i.qtd || 1,
         n: i.nome,
@@ -8294,7 +8181,7 @@ async function carregarMonitorMesas() {
     let itensListHtml = itens
       .map((item, idx) => {
         const isEntregue = item.status_item === "entregue";
-        const nome = item.nome || item.n || t('pedidos.cliente');
+        const nome = item.nome || item.n || "Item";
         const qtd = item.qtd || item.q || 1;
         return `
         <div class="monitor-item-row ${isEntregue ? "monitor-item-entregue" : ""}">
@@ -8470,8 +8357,8 @@ async function carregarEquipe() {
           : ehGerente
             ? "👔 Gerente"
             : ehGarcom
-              ? t('cargo.garcom')
-              : t('cargo.funcionario');
+              ? "🍽️ Garçom"
+              : "👷 Funcionário";
       tbody.innerHTML += `<tr>
                 <td><strong>${u.nome_display || "—"}</strong></td>
                 <td>${u.email}</td>
@@ -8486,8 +8373,8 @@ async function carregarEquipe() {
 async function promoverUsuario(id, novoCargo) {
   const msg =
     novoCargo === "gerente"
-      ? t('equipe.promover') + ' → Gerente?'
-      : t('equipe.rebaixar') + ' → Funcionário?';
+      ? "Promover este usuário a Gerente?"
+      : "Rebaixar este usuário a Funcionário?";
   if (!confirm(msg)) return;
 
   const { error } = await supa
@@ -8495,7 +8382,7 @@ async function promoverUsuario(id, novoCargo) {
     .update({ cargo: novoCargo })
     .eq("id", id);
   if (error) {
-    alert(t('alert.erro') + error.message);
+    alert("❌ Erro: " + error.message);
   } else {
     alert(`✅ Cargo alterado para ${novoCargo}!`);
     carregarEquipe();
@@ -8512,7 +8399,7 @@ async function excluirUsuario(id, email) {
 
   const { error } = await supa.from("perfis_acesso").delete().eq("id", id);
   if (error) {
-    alert(t('alert.erro') + error.message);
+    alert("❌ Erro ao excluir: " + error.message);
   } else {
     alert("✅ Usuário excluído com sucesso!");
     carregarEquipe();
@@ -8539,7 +8426,7 @@ async function amCriarUsuario() {
   try {
     const { data, error } = await supa.auth.signUp({ email, password: senha });
     if (error) {
-      alert(t('alert.erro') + error.message);
+      alert("❌ Erro: " + error.message);
       return;
     }
     if (data.user) {
@@ -8555,8 +8442,8 @@ async function amCriarUsuario() {
       const cargoBadge = {
         dono: "Dono",
         gerente: "Gerente",
-        funcionario: t('cargo.funcionario').replace('👷 ',''),
-        garcom: t('cargo.garcom').replace('🍽️ ',''),
+        funcionario: "Funcionário",
+        garcom: "Garçom",
       };
       alert(
         `✅ Usuário "${nome}" criado como ${cargoBadge[cargo] || cargo}!\nSolicite que confirme o email antes de fazer login.`,
@@ -8567,7 +8454,7 @@ async function amCriarUsuario() {
       amCarregarUsuarios();
     }
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro: " + e.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -8659,7 +8546,7 @@ async function amAlterarCargo(id, novoCargo) {
     .from("perfis_acesso")
     .update({ cargo: novoCargo })
     .eq("id", id);
-  if (error) alert(t('alert.erro') + error.message);
+  if (error) alert("❌ Erro: " + error.message);
   else {
     amCarregarUsuarios();
     carregarEquipe();
@@ -8675,7 +8562,7 @@ async function amExcluirUsuario(id, email) {
   )
     return;
   const { error } = await supa.from("perfis_acesso").delete().eq("id", id);
-  if (error) alert(t('alert.erro') + error.message);
+  if (error) alert("❌ Erro: " + error.message);
   else {
     alert("✅ Usuário excluído.");
     amCarregarUsuarios();
@@ -8709,7 +8596,7 @@ async function cadastrarUsuario() {
     const { data, error } = await supa.auth.signUp({ email, password: senha });
 
     if (error) {
-      alert(t('alert.erro') + error.message);
+      alert("❌ Erro ao criar usuário: " + error.message);
       return;
     }
 
@@ -8729,7 +8616,7 @@ async function cadastrarUsuario() {
         );
       } else {
         alert(
-          t("alert.usuario_criado"),
+          "✅ Usuário cadastrado com sucesso!\n\nO usuário receberá um email de confirmação.",
         );
         document.getElementById("novo-user-email").value = "";
         document.getElementById("novo-user-nome").value = "";
@@ -8740,7 +8627,7 @@ async function cadastrarUsuario() {
       alert("⚠️ Usuário criado. Aguardando confirmação de email para ativar.");
     }
   } catch (e) {
-    alert(t('alert.erro') + e.message);
+    alert("❌ Erro inesperado: " + e.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -8782,7 +8669,7 @@ async function carregarCupons() {
   tbody.innerHTML = "";
 
   (data || []).forEach((c) => {
-    const tipoLabel = c.tipo === "percentual" ? `${c.valor}%` : t("cfg.cupom_frete");
+    const tipoLabel = c.tipo === "percentual" ? `${c.valor}%` : "Frete Grátis";
     const statusBadge = c.ativo
       ? '<span class="badge badge-success">Ativo</span>'
       : '<span class="badge badge-danger">Inativo</span>';
@@ -8815,7 +8702,7 @@ async function carregarCupons() {
     tbody.innerHTML += `
             <tr>
                 <td><strong>${c.codigo}</strong></td>
-                <td>${c.tipo === "percentual" ? "Percentual" : t("cfg.cupom_frete")}</td>
+                <td>${c.tipo === "percentual" ? "Percentual" : "Frete Grátis"}</td>
                 <td>${tipoLabel}</td>
                 <td>Gs ${c.minimo.toLocaleString("es-PY")}</td>
                 <td>${usoHtml}</td>
@@ -8926,10 +8813,7 @@ async function avisarClientePronto(pedidoId) {
     return;
   }
 
-  const telRaw = (p.cliente_telefone || "").replace(/\D/g, "");
-  // Normaliza: se começar com 595 usa direto; se começar com 0 remove; senão assume PY
-  const tel = telRaw.startsWith("595") ? telRaw.slice(3) : telRaw.startsWith("0") ? telRaw.slice(1) : telRaw;
-  const ddiTel = telRaw.startsWith("55") ? "55" : "595"; // BR ou PY
+  const tel = (p.cliente_telefone || "").replace(/\D/g, "");
   if (!tel) {
     alert("Este pedido não tem número de telefone registrado.");
     return;
@@ -8937,7 +8821,7 @@ async function avisarClientePronto(pedidoId) {
 
   // Carrega nome da loja
   const nomeRestaurante = NOME_RESTAURANTE || "Restaurante";
-  const nomeCliente = p.cliente_nome || t('pedidos.cliente');
+  const nomeCliente = p.cliente_nome || "Cliente";
   const numPedido = p.uid_temporal || pedidoId;
 
   // Mensagem em 3 idiomas
@@ -8971,7 +8855,7 @@ async function avisarClientePronto(pedidoId) {
         })
           .map(
             ([k, lbl]) => `
-          <button onclick="window.open('https://wa.me/${ddiTel}${tel}?text='+encodeURIComponent('${msgs[k].replace(/'/g, "\\'").replace(/\n/g, "%0A")}'),'_blank');this.closest('[style]').remove()"
+          <button onclick="window.open('https://wa.me/595${tel.replace(/^0/, "")}?text='+encodeURIComponent('${msgs[k].replace(/'/g, "\\'").replace(/\n/g, "%0A")}'),'_blank');this.closest('[style]').remove()"
             style="background:#f0fff4;border:2px solid #25D366;border-radius:10px;padding:11px 14px;cursor:pointer;text-align:left;font-size:0.88rem;font-weight:600;color:#155c24;transition:all .15s"
             onmouseover="this.style.background='#25D366';this.style.color='#fff'"
             onmouseout="this.style.background='#f0fff4';this.style.color='#155c24'">
@@ -9007,6 +8891,43 @@ async function confirmarEntregaFuncionario(pedidoId) {
     console.error("Erro ao confirmar entrega:", err);
     alert("Erro ao confirmar entrega");
   }
+}
+
+
+async function fecharTodasMesas() {
+  const { data, error } = await supa.from("pedidos")
+    .select("id, cliente_nome, tipo_entrega, status")
+    .in("status", ["pendente","em_preparo","pronto_entrega","saiu_entrega"])
+    .in("tipo_entrega", ["balcao","retirada","local"]);
+  if (error || !data || data.length === 0) { alert("Nenhum pedido de Mesa/Retirada/Local em aberto."); return; }
+  const lista = data.map(p => `#${p.id} — ${p.cliente_nome||"Mesa"} (${p.tipo_entrega})`).join("\n");
+  if (!confirm(`Baixar ${data.length} pedido(s) Mesa/Retirada/Local?\n\n${lista}`)) return;
+  const now = new Date().toISOString();
+  const { error: err } = await supa.from("pedidos")
+    .update({ status:"entregue", tempo_entregue:now })
+    .in("id", data.map(p => p.id));
+  if (err) { alert("Erro: "+err.message); return; }
+  alert(`✅ ${data.length} pedido(s) baixado(s)!`);
+  carregarPedidos(); carregarMonitorMesas();
+  if (typeof calcularFinanceiro === "function") calcularFinanceiro();
+}
+
+async function baixarTodosNaoDelivery() {
+  const { data, error } = await supa.from("pedidos")
+    .select("id, cliente_nome, status")
+    .in("status", ["saiu_entrega","pronto_entrega"])
+    .eq("tipo_entrega", "delivery");
+  if (error || !data || data.length === 0) { alert("Nenhum delivery para confirmar entrega."); return; }
+  const lista = data.map(p => `#${p.id} — ${p.cliente_nome||"Cliente"}`).join("\n");
+  if (!confirm(`Confirmar entrega de ${data.length} delivery(s)?\n\n${lista}`)) return;
+  const now = new Date().toISOString();
+  const { error: err } = await supa.from("pedidos")
+    .update({ status:"entregue", tempo_entregue:now, entrega_confirmada_em:now, confirmacao_tipo:"massa" })
+    .in("id", data.map(p => p.id));
+  if (err) { alert("Erro: "+err.message); return; }
+  alert(`✅ ${data.length} delivery(s) confirmado(s)!`);
+  carregarPedidos();
+  if (typeof calcularFinanceiro === "function") calcularFinanceiro();
 }
 
 let graficoInstance = null;
@@ -9256,7 +9177,7 @@ async function _descontarEstoqueVendaItens(itens) {
             inventario_id: est.id,
             tipo: "sub",
             quantidade: descontos[est.id],
-            motivo: t("pdv.tipo_balcao"),
+            motivo: "Venda PDV (balcão)",
             usuario_email: "sistema",
           },
         ])
@@ -9414,7 +9335,7 @@ let _inventarioItems = [];
 let _tipoAjuste = "add";
 
 async function carregarInventario() {
-  if (perfilUsuario !== "dono" && perfilUsuario !== "gerente") return;
+  if (perfilUsuario !== "dono" && perfilUsuario !== "gerente" && perfilUsuario !== "adminMaster") return;
   const container = document.getElementById("inventario-lista");
   if (!container) return;
   container.innerHTML =

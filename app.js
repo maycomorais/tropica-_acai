@@ -13,6 +13,7 @@ let NOME_PIX = '';
 let DADOS_ALIAS = '';
 let ALIAS_PY = '';
 let QR_ALIAS_URL = '';  // URL da imagem do QR code Alias PY (carregado do banco)
+let QR_PY_URL    = '';  // URL opcional da imagem QR para QrPy (Tigo/Personal/Bancard)
 let WHATSAPP_LOJA_APP = '';
 
 
@@ -331,6 +332,7 @@ async function verificarHorario() {
   if (data.dados_alias)  DADOS_ALIAS  = data.dados_alias;
   if (data.nome_alias)   ALIAS_PY     = data.nome_alias;
   if (data.alias_qr_url) QR_ALIAS_URL = data.alias_qr_url;
+  if (data.qr_py_url)    QR_PY_URL    = data.qr_py_url;
   if (data.whatsapp_loja) WHATSAPP_LOJA_APP = data.whatsapp_loja;
 
   const agora = new Date();
@@ -1683,6 +1685,10 @@ function verificarPagamento() {
     infoDiv.style.display = 'block';
     const qrHtml = QR_ALIAS_URL ? `<br><img src="${QR_ALIAS_URL}" alt="QR Alias" style="width:160px;height:160px;margin-top:8px;border-radius:8px;border:2px solid #e0e0e0">` : '';
     infoDiv.innerHTML = `<strong>🏦 Transferencia / Alias:</strong><br>${DADOS_ALIAS}<br>${ALIAS_PY}${qrHtml}`;
+  } else if (pag === 'QrPy') {
+    infoDiv.style.display = 'block';
+    const qrPyHtml = QR_PY_URL ? `<br><img src="${QR_PY_URL}" alt="QR Paraguay" style="width:160px;height:160px;margin-top:8px;border-radius:8px;border:2px solid #e0e0e0">` : '';
+    infoDiv.innerHTML = `<strong>📱 QR Paraguay:</strong><br><small>Tigo Money · Personal Pay · Bancard</small>${qrPyHtml}<br><small style="color:#888">Escaneie e envie o comprovante</small>`;
   } else if (pag === 'Multipagamento') {
     if (boxMulti) {
       boxMulti.style.display = 'block';
@@ -1713,6 +1719,7 @@ const METODOS_PAG = [
   { value: 'Cartao',        label: '💳 Tarjeta' },
   { value: 'Pix',           label: '🟢 Pix (BR)' },
   { value: 'Transferencia', label: '🏦 Alias/Transferencia' },
+  { value: 'QrPy',         label: '📱 QR Paraguay' },
 ];
 
 function _getTotalPedidoAtual() {
@@ -2257,13 +2264,14 @@ async function enviarZap() {
   }
 
   // Avisos de Pix/Alias (Bilíngue)
-  if (pag === 'Pix' || pag === 'Transferencia') {
+  if (pag === 'Pix' || pag === 'Transferencia' || pag === 'QrPy') {
       if(pag === 'Pix') {
           const totalBrl = COTACAO_REAL > 0 ? (totalGeral / COTACAO_REAL).toFixed(2) : '---';
           msg += `\n💠 Chave Pix: ${CHAVE_PIX}\n`;
           msg += `💰 Valor em Reais: R$ ${totalBrl}\n`;
       }
       if(pag === 'Transferencia') msg += `\n📎 Alias: ${ALIAS_PY}\n`;
+      if(pag === 'QrPy')         msg += `\n📱 Pago por QR Paraguay (Tigo / Personal / Bancard)\n`;
       msg += `\n⚠️ *Envie o comprovante após o pagamento!*\n`;
   }
   
@@ -2278,8 +2286,11 @@ async function enviarZap() {
       if (p.metodo === 'Transferencia') {
         msg += `\n📎 Alias (forma ${idx+1}): ${ALIAS_PY}\n`;
       }
+      if (p.metodo === 'QrPy') {
+        msg += `\n📱 QR Paraguay (forma ${idx+1}): Tigo / Personal / Bancard\n`;
+      }
     });
-    const temDigital = partes.some(p => p.metodo === 'Pix' || p.metodo === 'Transferencia');
+    const temDigital = partes.some(p => p.metodo === 'Pix' || p.metodo === 'Transferencia' || p.metodo === 'QrPy');
     if (temDigital) msg += `\n⚠️ *Envie o(s) comprovante(s) após o pagamento!*\n`;
   }
 
