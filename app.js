@@ -360,17 +360,28 @@ async function verificarHorario() {
     const hs = data.horarios_semanais;
     if (hs && hs[diaKey]) {
       const diaConfig = hs[diaKey];
-      if (!diaConfig.fechado && diaConfig.turnos && diaConfig.turnos.length > 0) {
-        estaAberto = diaConfig.turnos.some(turnoAtivo);
+
+      // Dia explicitamente fechado na grade
+      if (diaConfig.fechado) {
+        estaAberto = false;
+      } else {
+        // Filtra turnos válidos (exclui {abre:"", fecha:""})
+        const turnosValidos = (diaConfig.turnos || []).filter(t => t.abre && t.fecha);
+
+        if (turnosValidos.length > 0) {
+          // Há turnos configurados → segue o horário
+          estaAberto = turnosValidos.some(turnoAtivo);
+        } else {
+          // Dia não está fechado mas não tem horário definido → considera aberto
+          estaAberto = true;
+        }
       }
+    } else if (hs && Object.keys(hs).length > 0) {
+      // Grade existe mas não tem entrada para hoje → aberto
+      estaAberto = true;
     } else {
-      // Fallback: se não houver grade configurada, usa os campos antigos
-      const abre = horaParaMin(data.hora_abertura || '18:00');
-      const fecha = horaParaMin(data.hora_fechamento || '23:59');
-      if (abre !== null && fecha !== null) {
-        if (fecha < abre) estaAberto = horaAtual >= abre || horaAtual < fecha;
-        else estaAberto = horaAtual >= abre && horaAtual < fecha;
-      }
+      // Sem grade configurada → loja_aberta=true é suficiente para abrir
+      estaAberto = true;
     }
   }
 
