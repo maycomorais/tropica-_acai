@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Painel Administrativo</title>
+    <title data-i18n="dash.title">Painel Administrativo</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <link
       rel="stylesheet"
@@ -233,7 +233,7 @@
           <div class="kpi-card kpi-accent-orange">
             <div class="kpi-icon"><i class="fas fa-motorcycle"></i></div>
             <div class="kpi-info">
-              <div class="kpi-label">A Pagar Motoboys</div>
+              <div class="kpi-label" data-i18n="dash.a_pagar_moto">A Pagar Motoboys</div>
               <div class="value" id="kpi-moto">Gs 0</div>
             </div>
           </div>
@@ -250,7 +250,7 @@
           <div class="card ranking-card">
             <div class="ranking-header">
               <i class="fas fa-trophy" style="color:#f59e0b"></i>
-              <h3>Top Produtos</h3>
+              <h3 data-i18n="dash.top_produtos">Top Produtos</h3>
               <select id="rank-prod-periodo" class="rank-periodo-select" onchange="carregarRankingProdutos()" style="margin-left:auto">
                 <option value="hoje">Hoje</option>
                 <option value="7">7 dias</option>
@@ -270,7 +270,7 @@
           <div class="card ranking-card">
             <div class="ranking-header">
               <i class="fas fa-star" style="color:#a78bfa"></i>
-              <h3>Clientes Assíduos</h3>
+              <h3 data-i18n="dash.clientes_top">Clientes Assíduos</h3>
               <select id="rank-cli-periodo" class="rank-periodo-select" onchange="carregarRankingClientes()" style="margin-left:auto">
                 <option value="tudo">Todos</option>
                 <option value="hoje">Hoje</option>
@@ -303,7 +303,7 @@
               <h2 class="section-title">Pedidos</h2>
               <span id="badge-delivery-status" class="delivery-badge delivery-open"
                 onclick="carregarStatusDelivery()" title="Clique para atualizar">
-                🟢 Aberto
+                <span data-i18n="del.aberto_badge">🟢 Delivery Aberto</span>
               </span>
               <span id="badge-horario-extra" class="delivery-badge badge-extra" style="display:none"></span>
             </div>
@@ -316,8 +316,8 @@
 
           <!-- Linha 2: Ações de controle do delivery -->
           <div class="pedidos-topbar-row2">
-            <button class="topbar-btn btn-horario" onclick="abrirModalEstenderHorario()" title="Estender horário">
-              <i class="fas fa-clock"></i> <span>+Horário</span>
+            <button class="topbar-btn btn-horario" onclick="abrirModalEstenderHorario()" title="" data-i18n-title="cfg.estender_title">
+              <i class="fas fa-clock"></i> <span data-i18n="cfg.estender_btn">+Horário</span>
             </button>
             <button class="topbar-btn btn-encerrar" onclick="avisarEncerramentoDelivery()" title="Encerrar delivery">
               <i class="fas fa-ban"></i> <span>Encerrar</span>
@@ -345,7 +345,7 @@
           <div class="rota-card-title"><i class="fas fa-route"></i> Despachar Rota</div>
           <div class="rota-controls">
             <select id="sel-motoboy" class="form-control">
-              <option value="">Selecione Motoboy...</option>
+              <option value="" data-i18n="sel.motoboy">Selecione Motoboy...</option>
             </select>
             <button class="btn btn-success btn-zap" onclick="enviarRotaZap()">
               <i class="fab fa-whatsapp"></i> Enviar Rota
@@ -360,12 +360,12 @@
           <table class="table">
             <thead>
               <tr>
-                <th width="50">Rota</th>
+                <th width="50" data-i18n="pedidos.rota">Rota</th>
                 <th>ID</th>
-                <th>Cliente</th>
-                <th>Status</th>
-                <th>Total</th>
-                <th>Ações</th>
+                <th data-i18n="pedidos.cliente">Cliente</th>
+                <th data-i18n="pedidos.status">Status</th>
+                <th data-i18n="pedidos.total">Total</th>
+                <th data-i18n="pedidos.acoes">Ações</th>
               </tr>
             </thead>
             <tbody id="lista-pedidos"></tbody>
@@ -411,7 +411,7 @@
                 <div class="pdv-cat-chips" id="pdv-cat-filter">
                   <!-- chips gerados por JS -->
                 </div>
-                <input type="text" id="pdv-busca" class="pdv-busca-input" placeholder="🔍 Buscar produto..." oninput="filtrarPDV(this.value)" />
+                <input type="text" id="pdv-busca" class="pdv-busca-input" placeholder="" data-i18n-ph="pdv.buscar" oninput="filtrarPDV(this.value)" />
               </div>
               <!-- Mesas ativas (chips) -->
               <div class="pdv-mesas-bar" id="pdv-mesas-bar">
@@ -430,27 +430,27 @@
               <div class="pdv-carrinho-inner-scroll">
               <div class="pdv-form-row">
                 <div class="pdv-mesa-col">
-                  <label class="pdv-label">Mesa <span class="obrig">*</span></label>
+                  <label class="pdv-label" data-i18n="pdv.mesa_num">Mesa <span class="obrig">*</span></label>
                   <input type="number" id="balcao-mesa" class="form-control" placeholder="Nº" min="1" required />
                 </div>
                 <div class="pdv-cliente-col">
-                  <label class="pdv-label">Cliente</label>
+                  <label class="pdv-label" data-i18n="pdv.mesa_nome">Cliente</label>
                   <input type="text" id="balcao-cliente" class="form-control" placeholder="Nome" />
                 </div>
               </div>
               <div class="pdv-tel-row">
-                <label class="pdv-label">Telefone</label>
+                <label class="pdv-label" data-i18n="pdv.telefone">Telefone</label>
                 <input type="tel" id="balcao-telefone" class="form-control" placeholder="Ex: 0981234567" />
               </div>
 
               <!-- TIPO DE PEDIDO PDV -->
               <div style="margin-bottom:8px">
-                <label class="pdv-label">Tipo de Pedido</label>
+                <label class="pdv-label" data-i18n="pdv.tipo_pedido">Tipo de Pedido</label>
                 <select id="balcao-tipo-entrega" class="form-control"
                   onchange="toggleDeliveryRowPDV(this.value)">
                   <option value="balcao">🏪 Balcão / Mesa</option>
                   <option value="delivery">🛵 Delivery</option>
-                  <option value="retirada">🚶 Retirada</option>
+                  <option value="retirada" data-i18n="pdv.retirada">🚶 Retirada</option>
                 </select>
               </div>
 
@@ -526,7 +526,8 @@
                   <p style="text-align:center;color:#888;font-size:0.75rem;margin:0 0 8px 0">≡ Divida o total entre as formas</p>
                   <div id="multi-partes-pdv"></div>
                   <button type="button" onclick="adicionarPartePagamentoPDV()"
-                    style="width:100%;padding:8px;background:#f8f9fa;color:#555;border:1.5px dashed #ccc;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.8rem;margin-top:4px;">
+                    style="width:100%;padding:8px;background:#f8f9fa;color:#555;border:1.5px dashed #ccc;border-radius:8px;font-weight:600;cursor:pointer;font-size:0.8rem;margin-top:4px;"
+                    data-i18n="pdv.adicionar_forma">
                     + Adicionar forma
                   </button>
                   <div id="multi-status-pdv" style="display:none;margin-top:8px;padding:9px 12px;border-radius:8px;background:#eafaf1;border:1.5px solid #27ae60">
@@ -624,27 +625,27 @@
     <div class="actions-grid">
       <button class="action-card ac-abrir" onclick="abrirModalCaixa('abertura')">
         <i class="fas fa-door-open"></i>
-        <span>Abrir Caixa</span>
+        <span data-i18n="fin.abertura">Abrir Caixa</span>
       </button>
 
       <button class="action-card ac-suprir" onclick="abrirModalCaixa('suprimento')">
         <i class="fas fa-plus-circle"></i>
-        <span>Suprimento</span>
+        <span data-i18n="fin.suprimento">Suprimento</span>
       </button>
 
       <button class="action-card ac-sangria" onclick="abrirModalCaixa('sangria')">
         <i class="fas fa-hand-holding-usd"></i>
-        <span>Sangria</span>
+        <span data-i18n="fin.sangria">Sangria</span>
       </button>
 
       <button class="action-card ac-despesa" onclick="abrirModalCaixa('despesa')">
         <i class="fas fa-file-invoice-dollar"></i>
-        <span>Despesa</span>
+        <span data-i18n="fin.despesa">Despesa</span>
       </button>
 
       <button class="action-card ac-fechar" onclick="fecharCaixaResumo()">
         <i class="fas fa-calculator"></i>
-        <span>Fechar Dia</span>
+        <span data-i18n="fin.fechar_caixa">Fechar Dia</span>
       </button>
     </div>
   </div>
@@ -700,14 +701,14 @@
 
   <!-- ===== TABELA MOTOBOYS ===== -->
   <div class="card" style="margin-top: 20px">
-    <h3>🏍️ Relatório Motoboys</h3>
+    <h3 data-i18n="fin.motoboys">🏍️ Relatório Motoboys</h3>
     <table class="table">
       <thead>
         <tr>
-          <th>Nome</th>
-          <th>Qtd Entregas</th>
-          <th>Taxa Unitária</th>
-          <th>Total a Pagar</th>
+          <th data-i18n="equipe.nome">Nome</th>
+          <th data-i18n="fin.motoboys">Qtd Entregas</th>
+          <th data-i18n="cfg.taxa_base">Taxa Unitária</th>
+          <th data-i18n="dash.a_pagar_moto">Total a Pagar</th>
         </tr>
       </thead>
       <tbody id="lista-financeiro-motoboys"></tbody>
@@ -716,7 +717,7 @@
 </div>
 
       <div id="equipe" class="tab-content">
-        <h2 class="section-title">Gestão de Equipe</h2>
+        <h2 class="section-title" data-i18n="equipe.title">Gestão de Equipe</h2>
         <div class="card">
           <div style="margin-bottom: 20px">
             <h4 style="margin-bottom:12px">Cadastrar Usuário</h4>
@@ -739,11 +740,11 @@
             <table class="table">
               <thead>
                 <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>Cargo</th>
-                  <th>Data</th>
-                  <th>Ações</th>
+                  <th data-i18n="equipe.nome">Nome</th>
+                  <th data-i18n="equipe.email">Email</th>
+                  <th data-i18n="equipe.cargo">Cargo</th>
+                  <th data-i18n="equipe.desde">Data</th>
+                  <th data-i18n="equipe.acoes">Ações</th>
                 </tr>
               </thead>
               <tbody id="lista-equipe"></tbody>
@@ -795,7 +796,7 @@
       <div class="cat-section-header">
         <div>
           <h3 class="cat-section-title">🏷️ Categorias do Cardápio</h3>
-          <p class="cat-section-subtitle">Gerencie a organização e horários de exibição</p>
+          <p class="cat-section-subtitle" data-i18n="cat.subtitle">Gerencie a organização e horários de exibição</p>
         </div>
         <button class="btn btn-primary cat-btn-nova" onclick="abrirModalCategoria()">
           <i class="fas fa-plus"></i> Nova Categoria
@@ -811,12 +812,12 @@
 
   <div id="lista-motos-wrapper" class="subtab-content subtab-hidden">
       <div style="display: flex; justify-content: space-between; margin: 15px 0;">
-          <h3>Equipe Motoboys</h3>
-          <button class="btn btn-primary" onclick="abrirModalMoto()">Novo Motoboy</button>
+          <h3 data-i18n="moto.title">Equipe Motoboys</h3>
+          <button class="btn btn-primary" onclick="abrirModalMoto()" data-i18n="moto.novo">Novo Motoboy</button>
       </div>
       <div class="table-container">
           <table>
-              <thead><tr><th>Nome</th><th>Telefone</th><th>Ações</th></tr></thead>
+              <thead><tr><th data-i18n="moto.nome">Nome</th><th data-i18n="moto.telefone">Telefone</th><th data-i18n="equipe.acoes">Ações</th></tr></thead>
               <tbody id="lista-motos"></tbody>
           </table>
       </div>
@@ -917,8 +918,8 @@
             <div class="form-group">
               <label>Status Manual da Loja</label>
               <select id="cfg-aberta" class="form-control">
-                <option value="true">🟢 Seguir horário semanal</option>
-                <option value="false">🔴 Forçar fechado</option>
+                <option value="true" data-i18n="cfg.seguir_horario">🟢 Seguir horário semanal</option>
+                <option value="false" data-i18n="cfg.forcar_fechado">🔴 Forçar fechado</option>
               </select>
             </div>
             <div class="form-group">
@@ -927,14 +928,14 @@
             </div>
           </div>
           <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#0369a1;margin-top:8px">
-            💡 Para encontrar as coordenadas: abra <a href="https://maps.google.com" target="_blank">Google Maps</a>, clique com botão direito sobre o endereço da loja e copie as coordenadas.
+            💡 <span data-i18n="cfg.maps_tip">Para encontrar as coordenadas: abra o Google Maps, clique com botão direito sobre o endereço da loja e copie as coordenadas.</span>
           </div>
 
           <!-- GRADE SEMANAL -->
           <div style="margin-top:16px">
             <div style="font-weight:700;font-size:0.95rem;color:#2c3e50;margin-bottom:10px">
-              📅 Horários por dia da semana
-              <small style="font-weight:400;color:#999;display:block;margin-top:2px">Cada dia pode ter até 2 turnos (ex: almoço + jantar).</small>
+              <span data-i18n="cfg.horarios_titulo">📅 Horários por dia da semana</span>
+              <small style="font-weight:400;color:#999;display:block;margin-top:2px" data-i18n="cfg.horarios_sub">Cada dia pode ter até 2 turnos (ex: almoço + jantar).</small>
             </div>
             <div id="grade-semanal" class="grade-semanal"></div>
           </div>
@@ -976,30 +977,30 @@
         <!-- ── PROMOÇÃO / BANNERS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title"><i class="fas fa-tags"></i> <span data-i18n="cfg.banners">Banners Promocionais</span></div>
-          <p style="font-size:0.82rem;color:#888;margin-bottom:14px">Ao clicar no banner o cliente abre o produto. Defina também o desconto aplicado automaticamente.</p>
+          <p style="font-size:0.82rem;color:#888;margin-bottom:14px" data-i18n="cfg.banner_sub">Ao clicar no banner o cliente abre o produto. Defina também o desconto aplicado automaticamente.</p>
 
           <!-- Banner 1 -->
           <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:12px">
             <div style="font-weight:700;font-size:0.88rem;margin-bottom:10px;color:#1a7a2e">🖼 Banner 1</div>
             <div class="form-group">
-              <label>ID do Produto</label>
+              <label data-i18n="cfg.id_produto">ID do Produto</label>
               <input type="text" id="cfg-banner-id" class="form-control" placeholder="Ex: 42">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
               <div class="form-group">
-                <label>Tipo de Desconto</label>
+                <label data-i18n="cfg.tipo_desconto">Tipo de Desconto</label>
                 <select id="cfg-banner-desc-tipo" class="form-control">
-                  <option value="percentual">% Percentual</option>
-                  <option value="fixo">Gs Fixo</option>
+                  <option value="percentual" data-i18n="cfg.desc_percentual">% Percentual</option>
+                  <option value="fixo" data-i18n="cfg.desc_fixo">Gs Fixo</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Valor do Desconto</label>
+                <label data-i18n="cfg.valor_desconto">Valor do Desconto</label>
                 <input type="number" id="cfg-banner-desc-valor" class="form-control" placeholder="Ex: 10 ou 5000" min="0">
               </div>
             </div>
             <div class="form-group" style="margin-top:8px">
-              <label>Foto do Banner</label>
+              <label data-i18n="cfg.foto_banner">Foto do Banner</label>
               <input type="file" id="cfg-banner-file" class="form-control" accept="image/*" onchange="previewBanner(this, 1)">
             </div>
             <div id="cfg-banner-preview-box" style="display:none;margin:8px 0;text-align:center">
@@ -1007,7 +1008,7 @@
             </div>
             <input type="hidden" id="cfg-banner-img">
             <button class="btn btn-success" onclick="salvarBanner(1)" style="margin-top:8px;width:100%">
-              <i class="fas fa-upload"></i> Salvar Banner 1
+              <i class="fas fa-upload"></i> <span data-i18n="cfg.salvar_banner1">Salvar Banner 1</span>
             </button>
           </div>
 
@@ -1015,24 +1016,24 @@
           <div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:14px">
             <div style="font-weight:700;font-size:0.88rem;margin-bottom:10px;color:#2980b9">🖼 Banner 2</div>
             <div class="form-group">
-              <label>ID do Produto</label>
+              <label data-i18n="cfg.id_produto">ID do Produto</label>
               <input type="text" id="cfg-banner2-id" class="form-control" placeholder="Ex: 43">
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
               <div class="form-group">
-                <label>Tipo de Desconto</label>
+                <label data-i18n="cfg.tipo_desconto">Tipo de Desconto</label>
                 <select id="cfg-banner2-desc-tipo" class="form-control">
-                  <option value="percentual">% Percentual</option>
-                  <option value="fixo">Gs Fixo</option>
+                  <option value="percentual" data-i18n="cfg.desc_percentual">% Percentual</option>
+                  <option value="fixo" data-i18n="cfg.desc_fixo">Gs Fixo</option>
                 </select>
               </div>
               <div class="form-group">
-                <label>Valor do Desconto</label>
+                <label data-i18n="cfg.valor_desconto">Valor do Desconto</label>
                 <input type="number" id="cfg-banner2-desc-valor" class="form-control" placeholder="Ex: 10 ou 5000" min="0">
               </div>
             </div>
             <div class="form-group" style="margin-top:8px">
-              <label>Foto do Banner</label>
+              <label data-i18n="cfg.foto_banner">Foto do Banner</label>
               <input type="file" id="cfg-banner2-file" class="form-control" accept="image/*" onchange="previewBanner(this, 2)">
             </div>
             <div id="cfg-banner2-preview-box" style="display:none;margin:8px 0;text-align:center">
@@ -1040,42 +1041,42 @@
             </div>
             <input type="hidden" id="cfg-banner2-img">
             <button class="btn btn-primary" onclick="salvarBanner(2)" style="margin-top:8px;width:100%">
-              <i class="fas fa-upload"></i> Salvar Banner 2
+              <i class="fas fa-upload"></i> <span data-i18n="cfg.salvar_banner2">Salvar Banner 2</span>
             </button>
           </div>
         </div>
 
         <!-- ── ADICIONAIS GLOBAIS ─────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-plus-circle"></i> Adicionais Globais
-            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+          <div class="cfg-section-title"><i class="fas fa-plus-circle"></i> <span data-i18n="cfg.adicionais_titulo">Adicionais Globais</span>
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px" data-i18n="cfg.adicionais_sub">
               Aparecem como opção extra no checkout. Escolha em quais categorias serão exibidos.
             </small>
           </div>
           <div id="extras-globais-lista" style="margin-bottom:12px"></div>
-          <button class="btn btn-sm" style="background:#8e44ad;color:white" onclick="addExtraGlobal()">+ Adicionar Adicional</button>
+          <button class="btn btn-sm" style="background:#8e44ad;color:white" onclick="addExtraGlobal()" data-i18n="cfg.adicionar_adicional">+ Adicionar Adicional</button>
           <div style="margin-top:14px;padding:10px;background:var(--color-background-secondary);border-radius:8px">
-            <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:8px">📂 Exibir nas categorias:</label>
-            <p style="font-size:0.78rem;color:#888;margin-bottom:8px">Se nenhuma estiver marcada, aparece em todas.</p>
+            <label style="font-size:0.82rem;font-weight:600;display:block;margin-bottom:8px" data-i18n="cfg.exibir_cats">📂 Exibir nas categorias:</label>
+            <p style="font-size:0.78rem;color:#888;margin-bottom:8px" data-i18n="cfg.cats_sub">Se nenhuma estiver marcada, aparece em todas.</p>
             <div id="extras-globais-cats-lista" style="display:flex;flex-wrap:wrap;gap:6px"></div>
           </div>
           <button class="btn btn-primary" onclick="salvarExtrasGlobais()" style="margin-top:12px;width:100%">
-            <i class="fas fa-save"></i> Salvar Adicionais Globais
+            <i class="fas fa-save"></i> <span data-i18n="cfg.salvar_adicionais">Salvar Adicionais Globais</span>
           </button>
         </div>
 
         <!-- ── CUPONS ─────────────────────────────────────────── -->
         <div id="card-cupons-cfg" class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-ticket-alt"></i> Gestão de Cupons de Desconto</div>
+          <div class="cfg-section-title"><i class="fas fa-ticket-alt"></i> <span data-i18n="cfg.gestao_cupons">Gestão de Cupons de Desconto</span></div>
           <button class="btn btn-primary" onclick="abrirModalCupom()" style="margin-bottom:15px">
-            <i class="fas fa-plus"></i> Novo Cupom
+            <i class="fas fa-plus"></i> <span data-i18n="cfg.novo_cupom">+ Novo Cupom</span>
           </button>
           <div class="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Código</th><th>Tipo</th><th>Valor</th><th>Mínimo</th>
-                  <th>Usos / Limite</th><th>Validade</th><th>Status</th><th>Ações</th>
+                  <th data-i18n="cfg.col_codigo">Código</th><th data-i18n="cfg.col_tipo">Tipo</th><th data-i18n="cfg.col_valor">Valor</th><th data-i18n="cfg.col_minimo">Mínimo</th>
+                  <th data-i18n="cfg.col_usos">Usos / Limite</th><th data-i18n="cfg.col_validade">Validade</th><th data-i18n="cfg.col_status">Status</th><th data-i18n="cfg.col_acoes">Ações</th>
                 </tr>
               </thead>
               <tbody id="lista-cupons"></tbody>
@@ -1086,50 +1087,50 @@
         <!-- ── TABELA DE FRETE ────────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
           <div class="cfg-section-title">
-            <i class="fas fa-motorcycle"></i> Tabela de Frete por KM
-            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
-              Defina o valor cobrado ao <strong>cliente</strong> e o repasse ao <strong>motoboy</strong>. Marque "Combinar" para desabilitar uma faixa.
+            <i class="fas fa-motorcycle"></i> <span data-i18n="cfg.frete_km_titulo">Tabela de Frete por KM</span>
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px" data-i18n="cfg.frete_km_sub">
+              Defina o valor cobrado ao cliente e o repasse ao motoboy. Marque "Combinar" para desabilitar uma faixa.
             </small>
           </div>
 
           <!-- Limite de distância -->
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:#fff8e6;border-radius:8px;border:1px solid #fde68a">
-            <label style="font-size:0.85rem;font-weight:600;white-space:nowrap">🛑 Limite de entrega:</label>
-            <input type="number" id="cfg-limite-distancia" class="form-control" placeholder="Sem limite" min="1" max="50" step="0.5"
+            <label style="font-size:0.85rem;font-weight:600;white-space:nowrap" data-i18n="cfg.limite_entrega">🛑 Limite de entrega:</label>
+            <input type="number" id="cfg-limite-distancia" class="form-control" placeholder="" data-i18n-ph="cfg.sem_limite" min="1" max="50" step="0.5"
               style="max-width:130px;border:1.5px solid #f59e0b;text-align:center">
-            <span style="font-size:0.82rem;color:#78350f">km (deixar vazio = sem limite)</span>
+            <span style="font-size:0.82rem;color:#78350f" data-i18n="cfg.km_vazio">km (deixar vazio = sem limite)</span>
           </div>
 
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
               <thead>
                 <tr style="background:var(--color-background-secondary)">
-                  <th style="padding:8px;text-align:left;border-bottom:2px solid var(--color-border-secondary);white-space:nowrap">Faixa</th>
-                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#2980b9">💰 Cliente (Gs)</th>
-                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#27ae60">🛵 Motoboy (Gs)</th>
-                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#e67e22">Combinar</th>
+                  <th style="padding:8px;text-align:left;border-bottom:2px solid var(--color-border-secondary);white-space:nowrap" data-i18n="cfg.col_faixa">Faixa</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#2980b9" data-i18n="cfg.col_cliente_gs">💰 Cliente (Gs)</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#27ae60" data-i18n="cfg.col_motoboy_gs">🛵 Motoboy (Gs)</th>
+                  <th style="padding:8px;text-align:center;border-bottom:2px solid var(--color-border-secondary);color:#e67e22" data-i18n="cfg.col_combinar">Combinar</th>
                 </tr>
               </thead>
               <tbody id="tabela-frete-body"></tbody>
               <tfoot>
                 <tr style="background:#fff8e6">
-                  <td style="padding:8px;font-weight:700;border-top:2px dashed var(--color-border-secondary);font-size:0.82rem">Acima de 20 km</td>
-                  <td colspan="3" style="padding:8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed var(--color-border-secondary)">🤝 A Combinar</td>
+                  <td style="padding:8px;font-weight:700;border-top:2px dashed var(--color-border-secondary);font-size:0.82rem" data-i18n="cfg.acima_20km">Acima de 20 km</td>
+                  <td colspan="3" style="padding:8px;text-align:center;color:#e67e22;font-weight:700;border-top:2px dashed var(--color-border-secondary)" data-i18n="cfg.a_combinar">🤝 A Combinar</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
           <div style="margin-top:14px;padding:12px;background:#f0fff4;border:1.5px solid #27ae60;border-radius:10px">
-            <div style="font-weight:700;font-size:0.88rem;color:#155c24;margin-bottom:8px">⛽ Custos do Motoboy</div>
+            <div style="font-weight:700;font-size:0.88rem;color:#155c24;margin-bottom:8px" data-i18n="cfg.custos_moto">⛽ Custos do Motoboy</div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <div>
-                <label style="font-size:0.78rem;color:#555">Combustível/dia (Gs)</label>
+                <label style="font-size:0.78rem;color:#555" data-i18n="cfg.combustivel">Combustível/dia (Gs)</label>
                 <input type="number" id="cfg-combustivel" class="form-control" placeholder="20000" min="0" step="1000"
                   style="max-width:150px;border:1.5px solid #27ae60;text-align:center">
               </div>
               <div>
-                <label style="font-size:0.78rem;color:#555">Taxa base/entrega (Gs)</label>
+                <label style="font-size:0.78rem;color:#555" data-i18n="cfg.taxa_base">Taxa base/entrega (Gs)</label>
                 <input type="number" id="cfg-taxa-motoboy-base" class="form-control" placeholder="5000" min="0" step="500"
                   style="max-width:150px;border:1.5px solid #2980b9;text-align:center">
               </div>
@@ -1143,30 +1144,30 @@
 
         <!-- ── MAQUININHAS ────────────────────────────────────── -->
         <div class="card cfg-card" style="margin-top:16px">
-          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> Maquininhas de Cartão
-            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+          <div class="cfg-section-title"><i class="fas fa-credit-card"></i> <span data-i18n="cfg.maquininhas_titulo">Maquininhas de Cartão</span>
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px" data-i18n="cfg.maquininhas_sub">
               Cadastre cada operadora com suas taxas por modalidade.
             </small>
           </div>
           <div id="maquininhas-lista" style="margin-bottom:12px"></div>
           <button class="btn btn-sm btn-secondary" onclick="adicionarMaquininha()" style="margin-bottom:10px">
-            <i class="fas fa-plus"></i> Adicionar Maquininha
+            <i class="fas fa-plus"></i> <span data-i18n="cfg.adicionar_maq">Adicionar Maquininha</span>
           </button>
           <button class="btn btn-primary" onclick="salvarMaquininhas()" style="width:100%">
-            <i class="fas fa-save"></i> Salvar Maquininhas
+            <i class="fas fa-save"></i> <span data-i18n="cfg.salvar_maq">Salvar Maquininhas</span>
           </button>
         </div>
 
         <!-- ── ADMIN MASTER (apenas adminMaster) ─────────────── -->
         <div id="card-adminmaster-cfg" class="card cfg-card" style="margin-top:16px;display:none;border:2px solid #e74c3c">
           <div class="cfg-section-title" style="color:#e74c3c">
-            <i class="fas fa-shield-alt"></i> Controle de Features (Admin Master)
-            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+            <i class="fas fa-shield-alt"></i> <span data-i18n="cfg.features_titulo">Controle de Features (Admin Master)</span>
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px" data-i18n="cfg.features_sub">
               Ative ou desative abas, tipos de produto e funcionalidades para este restaurante.
             </small>
           </div>
           <div id="painel-features">
-            <p style="color:#aaa;font-size:0.85rem">Carregando...</p>
+            <p style="color:#aaa;font-size:0.85rem" data-i18n="geral.carregando">Carregando...</p>
           </div>
         </div>
 
@@ -1239,13 +1240,13 @@
         <!-- ── Features / Permissões ── -->
         <div class="card cfg-card" style="margin-top:16px;border:2px solid #e74c3c">
           <div class="cfg-section-title" style="color:#e74c3c">
-            <i class="fas fa-shield-alt"></i> Controle de Features
-            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px">
+            <i class="fas fa-shield-alt"></i> <span data-i18n="cfg.features_titulo2">Controle de Features</span>
+            <small style="font-weight:400;color:#888;font-size:0.82rem;display:block;margin-top:4px" data-i18n="cfg.features_sub2">
               Ative ou desative abas, tipos de produto e funcionalidades para todos os usuários deste restaurante.
             </small>
           </div>
           <div id="painel-features-master">
-            <p style="color:#aaa;font-size:0.85rem;padding:10px 0">Carregando...</p>
+            <p style="color:#aaa;font-size:0.85rem;padding:10px 0" data-i18n="geral.carregando">Carregando...</p>
           </div>
         </div>
       </div>
@@ -1254,46 +1255,46 @@
       <div class="modal-overlay" id="modal-cupom">
         <div class="modal-card-modern">
           <div class="modal-header-modern">
-            <h3><i class="fas fa-ticket-alt"></i> Gerenciar Cupom</h3>
+            <h3><i class="fas fa-ticket-alt"></i> <span data-i18n="cfg.cupom_gerenciar">Gerenciar Cupom</span></h3>
             <button class="close-btn-modern" onclick="fecharModal('modal-cupom')">×</button>
           </div>
           <div class="modal-body-modern">
             <input type="hidden" id="cupom-id">
             <div class="form-group-modern">
-              <label><i class="fas fa-tag"></i> Código do Cupom</label>
+              <label><i class="fas fa-tag"></i> <span data-i18n="cfg.cupom_codigo_lbl">Código do Cupom</span></label>
               <input type="text" id="cupom-codigo" class="input-modern" placeholder="Ex: BEMVINDO10" style="text-transform:uppercase">
             </div>
             <div class="form-group-modern">
-              <label><i class="fas fa-percentage"></i> Tipo de Desconto</label>
+              <label><i class="fas fa-percentage"></i> <span data-i18n="cfg.cupom_tipo_lbl">Tipo de Desconto</span></label>
               <select id="cupom-tipo" class="input-modern" onchange="alterarTipoCupom()">
-                <option value="percentual">Desconto Percentual (%)</option>
-                <option value="frete">Frete Grátis</option>
+                <option value="percentual" data-i18n="cfg.cupom_percentual">Desconto Percentual (%)</option>
+                <option value="frete" data-i18n="cfg.cupom_frete">Frete Grátis</option>
               </select>
             </div>
             <div class="form-group-modern" id="box-valor-cupom">
-              <label><i class="fas fa-percent"></i> Valor do Desconto (%)</label>
+              <label><i class="fas fa-percent"></i> <span data-i18n="cfg.cupom_valor_lbl">Valor do Desconto (%)</span></label>
               <input type="number" id="cupom-valor" class="input-modern" placeholder="Ex: 10" min="0" max="100">
             </div>
             <div class="form-group-modern">
-              <label><i class="fas fa-money-bill"></i> Valor Mínimo do Pedido (Gs)</label>
+              <label><i class="fas fa-money-bill"></i> <span data-i18n="cfg.cupom_minimo_lbl">Valor Mínimo do Pedido (Gs)</span></label>
               <input type="number" id="cupom-minimo" class="input-modern" placeholder="Ex: 50000" min="0">
             </div>
             <div class="form-group-modern">
-              <label><i class="fas fa-users"></i> Limite de Usos <small style="color:#888;font-weight:normal">(0 = ilimitado)</small></label>
+              <label><i class="fas fa-users"></i> <span data-i18n="cfg.cupom_limite_lbl">Limite de Usos</span> <small style="color:#888;font-weight:normal" data-i18n="cfg.cupom_ilimitado">(0 = ilimitado)</small></label>
               <input type="number" id="cupom-limite" class="input-modern" placeholder="Ex: 20" min="0">
             </div>
             <div class="form-group-modern">
-              <label><i class="fas fa-calendar-alt"></i> Validade <small style="color:#888;font-weight:normal">(opcional)</small></label>
+              <label><i class="fas fa-calendar-alt"></i> <span data-i18n="cfg.cupom_validade_lbl">Validade</span> <small style="color:#888;font-weight:normal" data-i18n="cfg.cupom_opcional">(opcional)</small></label>
               <input type="date" id="cupom-validade" class="input-modern">
             </div>
             <div class="checkbox-modern">
               <input type="checkbox" id="cupom-ativo" checked>
-              <label for="cupom-ativo"><strong>Cupom Ativo</strong><br><small>Desmarque para desativar temporariamente</small></label>
+              <label for="cupom-ativo"><strong data-i18n="cfg.cupom_ativo_lbl">Cupom Ativo</strong><br><small data-i18n="cfg.cupom_ativo_sub">Desmarque para desativar temporariamente</small></label>
             </div>
           </div>
           <div class="modal-footer-modern">
-            <button class="btn-modern btn-modern-cancel" onclick="fecharModal('modal-cupom')"><i class="fas fa-times"></i> Cancelar</button>
-            <button class="btn-modern btn-modern-primary" onclick="salvarCupom()"><i class="fas fa-save"></i> Salvar Cupom</button>
+            <button class="btn-modern btn-modern-cancel" onclick="fecharModal('modal-cupom')"><i class="fas fa-times"></i> <span data-i18n="geral.cancelar">Cancelar</span></button>
+            <button class="btn-modern btn-modern-primary" onclick="salvarCupom()"><i class="fas fa-save"></i> <span data-i18n="cfg.salvar_cupom">Salvar Cupom</span></button>
           </div>
         </div>
       </div>
@@ -1317,7 +1318,7 @@
           </select>
         </div>
         <div id="inventario-lista" style="display:flex;flex-direction:column;gap:10px">
-          <div style="text-align:center;padding:30px;color:#aaa">Carregando...</div>
+          <div style="text-align:center;padding:30px;color:#aaa" data-i18n="geral.carregando">Carregando...</div>
         </div>
       </div>
 
@@ -1430,7 +1431,7 @@
         <div id="builder-variacoes" class="builder-section" style="display:none">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
             <h4 style="color:#8b5cf6;margin:0">🎨 Variações de Sabor</h4>
-            <button class="btn btn-sm" style="background:#8b5cf6;color:#fff" onclick="addVariacao()">+ Adicionar Variação</button>
+            <button class="btn btn-sm" style="background:#8b5cf6;color:#fff" onclick="addVariacao()" data-i18n="prod.adicionar_var">+ Adicionar Variação</button>
           </div>
           <div style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:10px 14px;font-size:0.81rem;color:#5b21b6;margin-bottom:12px">
             🎯 Cada variação tem nome, preço próprio e foto opcional (herda a foto do produto por padrão).<br>
@@ -1444,7 +1445,7 @@
           <h4 style="color:#e67e22">🥗 Etapas de Montagem</h4>
           <p style="font-size:0.82rem; color:#888; margin-bottom:10px">Configure as etapas que o cliente vai escolher (ingredientes, bases, molhos, etc.)</p>
           <div id="builder-steps"></div>
-          <button class="btn btn-sm btn-info" onclick="addBuilderStep()">+ Adicionar Etapa</button>
+          <button class="btn btn-sm btn-info" onclick="addBuilderStep()" data-i18n="prod.adicionar_etapa">+ Adicionar Etapa</button>
           <!-- mantém compatibilidade com toggleBuilder() -->
           <input type="hidden" id="prod-montavel" value="false">
         </div>
@@ -1715,7 +1716,7 @@
           </div>
           <div id="extras-area" style="display:none">
             <div id="extras-lista"></div>
-            <button class="btn btn-sm btn-info" onclick="addExtra()" style="margin-top:8px">+ Adicionar Extra</button>
+            <button class="btn btn-sm btn-info" onclick="addExtra()" style="margin-top:8px" data-i18n="prod.adicionar_extra">+ Adicionar Extra</button>
           </div>
         </div>
 
@@ -1733,7 +1734,7 @@
           </div>
           <div id="preparo-area" style="display:none">
             <div id="preparo-lista"></div>
-            <button class="btn btn-sm" style="background:#2980b9;color:white;margin-top:8px" onclick="addOpcaoPreparo()">+ Adicionar Opção</button>
+            <button class="btn btn-sm" style="background:#2980b9;color:white;margin-top:8px" onclick="addOpcaoPreparo()" data-i18n="prod.adicionar_opcao">+ Adicionar Opção</button>
           </div>
         </div>
 
@@ -1763,15 +1764,15 @@
         <hr style="margin:12px 0; border-color:#eee">
         <div style="background:#f0f8ff; border:1px solid #b3d9ff; border-radius:8px; padding:12px; margin-bottom:12px">
           <div style="font-weight:600; font-size:0.9rem; color:#1a6eb5; margin-bottom:8px">
-            🕐 Horário de Exibição <small style="font-weight:400; color:#666">(opcional — deixe em branco para exibir sempre)</small>
+            <span data-i18n="cat.horario_exib">🕐 Horário de Exibição</span> <small style="font-weight:400; color:#666" data-i18n="cat.horario_exib_sub">(opcional — deixe em branco para exibir sempre)</small>
           </div>
           <div style="display:flex; gap:12px; align-items:center; margin-bottom:10px">
             <div style="flex:1">
-              <label style="font-size:0.82rem; color:#555">Das</label>
+              <label style="font-size:0.82rem; color:#555" data-i18n="cfg.das">Das</label>
               <input type="time" id="cat-hora-inicio" class="form-control" />
             </div>
             <div style="flex:1">
-              <label style="font-size:0.82rem; color:#555">Até</label>
+              <label style="font-size:0.82rem; color:#555" data-i18n="cfg.ate">Até</label>
               <input type="time" id="cat-hora-fim" class="form-control" />
             </div>
           </div>
@@ -1787,30 +1788,30 @@
               <label style="display:flex;align-items:center;gap:3px;font-size:0.8rem;cursor:pointer;background:#fff;border:1px solid #ddd;border-radius:6px;padding:4px 8px"><input type="checkbox" class="cat-dia-check" value="sab"> Sáb</label>
             </div>
           </div>
-          <small style="color:#888; display:block; margin-top:6px">Ex: almoço de Seg a Sex das 11:00 às 14:30. Fora desse horário/dia, a categoria fica oculta no cardápio.</small>
+          <small style="color:#888; display:block; margin-top:6px" data-i18n="cat.horario_ejemplo">Ex: almoço de Seg a Sex das 11:00 às 14:30. Fora desse horário/dia, a categoria fica oculta no cardápio.</small>
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary" onclick="salvarCategoria()">Salvar</button>
-          <button class="btn btn-secondary" onclick="fecharModal('modal-cat')">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarCategoria()" data-i18n="geral.salvar">Salvar</button>
+          <button class="btn btn-secondary" onclick="fecharModal('modal-cat')" data-i18n="geral.cancelar">Cancelar</button>
         </div>
       </div>
     </div>
 
     <div id="modal-moto" class="modal-overlay">
       <div class="modal-content" style="max-width: 400px">
-        <h3>Motoboy</h3>
+        <h3 data-i18n="moto.modal_titulo">Motoboy</h3>
         <input type="hidden" id="moto-id" />
         <div class="form-group">
-          <label>Nome</label>
+          <label data-i18n="moto.nome">Nome</label>
           <input type="text" id="moto-nome" class="form-control" />
         </div>
         <div class="form-group">
-          <label>Telefone (WhatsApp)</label>
+          <label data-i18n="moto.telefone">Telefone (WhatsApp)</label>
           <input type="text" id="moto-tel" class="form-control" />
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary" onclick="salvarMotoboy()">Salvar</button>
-          <button class="btn btn-secondary" onclick="fecharModal('modal-moto')">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarMotoboy()" data-i18n="geral.salvar">Salvar</button>
+          <button class="btn btn-secondary" onclick="fecharModal('modal-moto')" data-i18n="geral.cancelar">Cancelar</button>
         </div>
       </div>
     </div>
