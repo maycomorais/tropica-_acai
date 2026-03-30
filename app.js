@@ -3,7 +3,10 @@
 // ==========================================
 const FONE_LOJA = ''; 
 const COORD_LOJA = { lat: 0, lng: 0 };  // populado do banco em verificarHorario()
-let COTACAO_REAL = 1100;
+let COTACAO_REAL    = 1100;
+let TAXA_DEBITO_BR  = 1.99;   // populado do banco em verificarHorario()
+let TAXA_CREDITO_BR = 4.98;   // populado do banco em verificarHorario()
+let _cartaoBRTipo   = 'debito'; // toggle débito/crédito no checkout
 let NOME_RESTAURANTE_APP = '';  // populado do banco em verificarHorario()
 let autoConfirmTimer = null;
 
@@ -239,6 +242,7 @@ let itensMontagem = {};
 let cupomAplicado = null;
 let EXTRAS_GLOBAIS = []; // Adicionais que aparecem em TODOS os produtos
 let TABELA_FRETE = null; // Tabela de frete por faixa de km (carregada do banco)
+let LIMITE_DISTANCIA_KM = null; // populado do banco em verificarHorario()
 
 // ==========================================
 // VARIÁVEIS DE CONTROLE DE HORÁRIO
@@ -325,6 +329,11 @@ async function verificarHorario() {
 
   if (data.cotacao_real) COTACAO_REAL = data.cotacao_real;
   if (data.tabela_frete && Array.isArray(data.tabela_frete)) TABELA_FRETE = data.tabela_frete;
+  if (data.limite_distancia_km != null) LIMITE_DISTANCIA_KM = parseFloat(data.limite_distancia_km) || null;
+  // Aplica visibilidade das formas de pagamento conforme configuração
+  _aplicarFormasPagamentoCliente(data.features_ativas);
+  if (data.taxa_debito  != null) TAXA_DEBITO_BR  = Number(data.taxa_debito);
+  if (data.taxa_credito != null) TAXA_CREDITO_BR = Number(data.taxa_credito);
 
   // ── Dados de pagamento do banco ────────────────────────────────
   if (data.chave_pix)    CHAVE_PIX    = data.chave_pix;
@@ -465,6 +474,25 @@ async function verificarHorario() {
   if (data.cor_primaria) {
     document.documentElement.style.setProperty('--primary', data.cor_primaria);
   }
+}
+
+// ── Filtra opções de pagamento no checkout conforme features_ativas.pagamentos ──
+function _aplicarFormasPagamentoCliente(features) {
+  const pags = features?.pagamentos;
+  if (!pags) return; // sem config = tudo visível
+  const select = document.getElementById('forma-pag');
+  if (!select) return;
+  Array.from(select.options).forEach(opt => {
+    if (!opt.value) return; // placeholder
+    // CartaoBR é nova feature — oculta se explicitamente false
+    if (opt.value === 'CartaoBR') {
+      opt.style.display = pags['CartaoBR'] === false ? 'none' : '';
+    } else if (pags[opt.value] === false) {
+      opt.style.display = 'none';
+    } else {
+      opt.style.display = '';
+    }
+  });
 }
 
 // Renderiza o Menu (Categories + Produtos com subcategorias)
@@ -1658,6 +1686,9 @@ function toggleFactura() {
 
 function verificarPagamento() {
   const pag = document.getElementById('forma-pag').value;
+  const pagFinal = pag === 'CartaoBR'
+    ? (_cartaoBRTipo === 'debito' ? 'Cartão BR - Débito' : 'Cartão BR - Crédito')
+    : pag;
   const infoDiv = document.getElementById('info-pagamento-extra');
   const boxTroco = document.getElementById('box-troco');
   const boxMulti = document.getElementById('box-multipagamento');
@@ -1669,6 +1700,58 @@ function verificarPagamento() {
 
   if (pag === 'Efetivo') {
     boxTroco.classList.remove('hidden');
+  } else if (pag === 'CartaoBR') {
+    infoDiv.style.display = 'block';
+
+    const _calcTotalGs = () => {
+      const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
+      let frete = modoEntrega === 'delivery' ? Math.max(0, freteCalculado) : 0;
+      let desconto = 0;
+      if (cupomAplicado) {
+        if (cupomAplicado.tipo === 'percentual') desconto = Math.round(totalItens * (cupomAplicado.valor / 100));
+        else if (cupomAplicado.tipo === 'frete') frete = 0;
+      }
+      return totalItens - desconto + frete;
+    };
+
+    const _renderCartaoBR = () => {
+      const totalGs = _calcTotalGs();
+      const taxa    = _cartaoBRTipo === 'debito' ? TAXA_DEBITO_BR : TAXA_CREDITO_BR;
+      const brl     = (COTACAO_REAL > 0 && totalGs > 0)
+                        ? ((totalGs / COTACAO_REAL) * (1 + taxa / 100)).toFixed(2)
+                        : '---';
+      const el = document.getElementById('info-pagamento-extra');
+      if (!el) return;
+      el.style.display = 'block';
+      el.innerHTML = `
+        <div style="font-weight:700;margin-bottom:8px;font-size:0.9rem">💳🇧🇷 Cartão Brasileiro</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button type="button" onclick="window._setBRTipo('debito')"
+            style="flex:1;padding:9px 6px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.83rem;
+                   border:2px solid ${_cartaoBRTipo==='debito'?'#1a7a2e':'#ccc'};
+                   background:${_cartaoBRTipo==='debito'?'#eafaf1':'#f8f9fa'};
+                   color:${_cartaoBRTipo==='debito'?'#1a7a2e':'#555'}">
+            💳 Débito<br><small style="font-weight:400">${TAXA_DEBITO_BR.toFixed(2).replace('.',',')}%</small>
+          </button>
+          <button type="button" onclick="window._setBRTipo('credito')"
+            style="flex:1;padding:9px 6px;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.83rem;
+                   border:2px solid ${_cartaoBRTipo==='credito'?'#1a7a2e':'#ccc'};
+                   background:${_cartaoBRTipo==='credito'?'#eafaf1':'#f8f9fa'};
+                   color:${_cartaoBRTipo==='credito'?'#1a7a2e':'#555'}">
+            💳 Crédito<br><small style="font-weight:400">${TAXA_CREDITO_BR.toFixed(2).replace('.',',')}%</small>
+          </button>
+        </div>
+        <div style="background:#fff;border:1.5px solid #1a7a2e;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:0.78rem;color:#666;margin-bottom:2px">Valor a cobrar (com taxa)</div>
+          <div style="font-size:1.3rem;font-weight:900;color:#1a7a2e">
+            ${brl==='---'?'<span style="font-size:0.9rem;color:#999">Adicione itens ao carrinho</span>':'R$ '+brl}
+          </div>
+        </div>`;
+    };
+
+    window._renderCartaoBR = _renderCartaoBR;
+    window._setBRTipo = (tipo) => { _cartaoBRTipo = tipo; window._renderCartaoBR(); };
+    _renderCartaoBR();
   } else if (pag === 'Pix') {
     infoDiv.style.display = 'block';
     const totalItens = carrinho.reduce((a, i) => a + i.preco * i.qtd, 0);
@@ -1717,9 +1800,10 @@ let _multiContador = 0;
 const METODOS_PAG = [
   { value: 'Efetivo',       label: '💵 Efectivo' },
   { value: 'Cartao',        label: '💳 Tarjeta' },
+  { value: 'CartaoBR',      label: '💳🇧🇷 Cartão BR' },
   { value: 'Pix',           label: '🟢 Pix (BR)' },
   { value: 'Transferencia', label: '🏦 Alias/Transferencia' },
-  { value: 'QrPy',         label: '📱 QR Paraguay' },
+  { value: 'QrPy',          label: '📱 QR Paraguay' },
 ];
 
 function _getTotalPedidoAtual() {
@@ -2120,7 +2204,7 @@ async function enviarZap() {
       frete_motoboy: modoEntrega === 'delivery' ? freteMotoboy : 0,
       desconto_cupom: desconto,
       total_geral: totalGeral,
-      forma_pagamento: pag,
+      forma_pagamento: pagFinal,
       obs_pagamento: pag === 'Efetivo' ? document.getElementById('troco-valor').value
                    : pag === 'Multipagamento' ? JSON.stringify(_coletarMultiPagamento())
                    : '',

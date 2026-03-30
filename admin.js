@@ -321,6 +321,24 @@ async function _carregarFeaturesGlobais() {
     TABELA_FRETE_ADMIN = data.tabela_frete;
 }
 
+// ── Filtra formas de pagamento no PDV conforme features_ativas.pagamentos ──────
+function _aplicarFormasPagamentoPDV(features) {
+  const pags = features?.pagamentos;
+  const select = document.getElementById('balcao-pag');
+  if (!select) return;
+  Array.from(select.options).forEach(opt => {
+    if (!opt.value) return;
+    if (!pags) { opt.style.display = ''; return; }
+    if (pags[opt.value] === false) {
+      opt.style.display = 'none';
+      // Se a opção oculta estava selecionada, reset para Efetivo
+      if (select.value === opt.value) select.value = 'Efetivo';
+    } else {
+      opt.style.display = '';
+    }
+  });
+}
+
 function _feat(categoria, chave) {
   if (!FEATURES_ATIVAS) return true; // sem config = tudo ativo
   const cat = FEATURES_ATIVAS[categoria];
@@ -362,7 +380,11 @@ async function salvarFeatures() {
   document.querySelectorAll("[data-feat-func]").forEach((el) => {
     funcs[el.dataset.featFunc] = el.checked;
   });
-  const features = { tabs, tipos_produto: tipos, funcionalidades: funcs };
+  const pagamentos = {};
+  document.querySelectorAll("[data-feat-pag]").forEach((el) => {
+    pagamentos[el.dataset.featPag] = el.checked;
+  });
+  const features = { tabs, tipos_produto: tipos, funcionalidades: funcs, pagamentos };
   const { error } = await supa
     .from("configuracoes")
     .update({ features_ativas: features })
@@ -448,11 +470,31 @@ async function renderPainelFeatures() {
     )
     .join("");
 
+  const pags = f.pagamentos || {};
+  const chkPags = [
+    ["Efetivo",       "💵 Efectivo/Dinheiro"],
+    ["Cartao",        "💳 Tarjeta PY"],
+    ["CartaoBR",      "💳🇧🇷 Cartão Brasileiro (R$)"],
+    ["Pix",           "🟢 Pix (BR)"],
+    ["Transferencia", "🏦 Alias/Transferência PY"],
+    ["QrPy",          "📱 QR Paraguay"],
+    ["Multipagamento","🔀 Dividir Pagamento"],
+  ].map(([k,l]) =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
+      <input type="checkbox" data-feat-pag="${k}" ${pags[k]!==false?"checked":""} style="width:18px;height:18px">
+      <span>${l}</span></label>`
+  ).join("");
+
   const html = `
     <div style="display:grid;gap:20px">
       <div>
         <h4 style="margin-bottom:10px;color:#2c3e50">📂 Abas visíveis</h4>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">${chkTabs}</div>
+      </div>
+      <div>
+        <h4 style="margin-bottom:10px;color:#2c3e50">💳 Formas de Pagamento</h4>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:8px">Controla o que aparece no app do cliente <strong>e</strong> no PDV</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px">${chkPags}</div>
       </div>
       <div>
         <h4 style="margin-bottom:10px;color:#2c3e50">🏷️ Tipos de produto permitidos</h4>
@@ -1264,12 +1306,16 @@ async function calcularFinanceiro() {
       const nm = p.motoboys?.nome || "Sem Motoboy";
       if (!motoMap[nm]) {
         motoMap[nm] = { entregas: 0, frete_total: 0 };
-        custoEntregas += AJUDA_COMBUSTIVEL || 0;
+        // Combustível NÃO somado aqui — calculado uma vez por motoboy identificado abaixo
       }
       motoMap[nm].entregas++;
       motoMap[nm].frete_total += taxa;
     }
   });
+
+  // Soma combustível uma vez por motoboy IDENTIFICADO (exclui "Sem Motoboy")
+  const qtdMotoboyUnicos = Object.keys(motoMap).filter(n => n !== "Sem Motoboy").length;
+  custoEntregas += (AJUDA_COMBUSTIVEL || 0) * qtdMotoboyUnicos;
 
   let totalSaidas = 0,
     totalEntradas = 0,
@@ -1329,11 +1375,15 @@ async function calcularFinanceiro() {
         '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega no período</td></tr>';
     } else {
       for (const [nome, d] of Object.entries(motoMap)) {
-        const comb = AJUDA_COMBUSTIVEL || 0;
+        const semNome = nome === "Sem Motoboy";
+        const comb = semNome ? 0 : (AJUDA_COMBUSTIVEL || 0);
         const tot = d.frete_total + comb;
+        const combLabel = semNome
+          ? '<span style="color:#aaa;font-size:0.78rem">sem combustível</span>'
+          : `+ comb. ${fmt(comb)}`;
         tbM.innerHTML += `<tr>
           <td>${nome}</td><td>${d.entregas}</td>
-          <td style="font-size:0.82rem">Frete: ${fmt(d.frete_total)} + comb. ${fmt(comb)}</td>
+          <td style="font-size:0.82rem">Frete: ${fmt(d.frete_total)} ${combLabel}</td>
           <td><strong>${fmt(tot)}</strong></td></tr>`;
       }
     }
@@ -6165,7 +6215,10 @@ async function logout() {
 let carrinhoPDV = [];
 let produtosCachePDV = [];
 // Cotação carregada das configurações (fallback 1100)
-let _cotacaoPDV = 1100;
+let _cotacaoPDV      = 1100;
+let _taxaDebitoPDV   = 1.99;
+let _taxaCreditoPDV  = 4.98;
+let _cartaoBRTipoPDV = 'debito';
 
 async function carregarPDV() {
   // PDV carrega TODOS os produtos ativos (inclui pausado=null e pausado=false)
@@ -6189,9 +6242,14 @@ async function carregarPDV() {
   // Carrega cotação atual das configurações
   const { data: cfg } = await supa
     .from("configuracoes")
-    .select("cotacao_real")
+    .select("cotacao_real, taxa_debito, taxa_credito")
     .maybeSingle();
-  if (cfg && cfg.cotacao_real) _cotacaoPDV = Number(cfg.cotacao_real);
+  if (cfg?.cotacao_real)  _cotacaoPDV     = Number(cfg.cotacao_real);
+  if (cfg?.taxa_debito  != null) _taxaDebitoPDV  = Number(cfg.taxa_debito);
+  if (cfg?.taxa_credito != null) _taxaCreditoPDV = Number(cfg.taxa_credito);
+  // Aplica visibilidade das formas de pagamento no PDV
+  const { data: featCfg } = await supa.from("configuracoes").select("features_ativas").maybeSingle();
+  _aplicarFormasPagamentoPDV(featCfg?.features_ativas);
 
   renderizarGridPDV();
   atualizarBarraMesasAtivas();
@@ -7614,7 +7672,33 @@ function atualizarInfoPagPDV(total) {
   if (boxMultiPDV) boxMultiPDV.style.display = "none";
   if (selectPag) selectPag.style.display = "";
 
-  if (pag === "Pix" && total > 0) {
+  if (pag === "CartaoBR" && total > 0) {
+    infoBox.style.display = "block";
+    const _renderCarBR = () => {
+      const taxa = _cartaoBRTipoPDV === 'debito' ? _taxaDebitoPDV : _taxaCreditoPDV;
+      const brl  = _cotacaoPDV > 0 ? ((total / _cotacaoPDV) * (1 + taxa / 100)).toFixed(2) : '---';
+      infoBox.innerHTML = `
+        <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">💳🇧🇷 Cartão Brasileiro</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button type="button" onclick="_setPDVBRTipo('debito')"
+            style="flex:1;padding:6px 4px;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.75rem;
+                   border:2px solid ${_cartaoBRTipoPDV==='debito'?'#1a7a2e':'#ccc'};
+                   background:${_cartaoBRTipoPDV==='debito'?'#eafaf1':'#f8f9fa'};
+                   color:${_cartaoBRTipoPDV==='debito'?'#1a7a2e':'#555'}">
+            Débito<br><small>${_taxaDebitoPDV.toFixed(2)}%</small></button>
+          <button type="button" onclick="_setPDVBRTipo('credito')"
+            style="flex:1;padding:6px 4px;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.75rem;
+                   border:2px solid ${_cartaoBRTipoPDV==='credito'?'#1a7a2e':'#ccc'};
+                   background:${_cartaoBRTipoPDV==='credito'?'#eafaf1':'#f8f9fa'};
+                   color:${_cartaoBRTipoPDV==='credito'?'#1a7a2e':'#555'}">
+            Crédito<br><small>${_taxaCreditoPDV.toFixed(2)}%</small></button>
+        </div>
+        <div style="text-align:center;font-size:1rem;font-weight:900;color:#1a7a2e">R$ ${brl}</div>`;
+    };
+    window._setPDVBRTipo = (tipo) => { _cartaoBRTipoPDV = tipo; _renderCarBR(); };
+    window._renderCarBRPDV = _renderCarBR;
+    _renderCarBR();
+  } else if (pag === "Pix" && total > 0) {
     const valorReais = (total / _cotacaoPDV).toFixed(2);
     infoBox.style.display = "block";
     infoBox.innerHTML = `<i class="fas fa-qrcode"></i> <strong>Cobrar em Pix: R$ ${valorReais}</strong>`;
@@ -7655,11 +7739,12 @@ function adicionarPartePagamentoPDV() {
   const id = _multiContadorPDV;
   const ordinal = ["1ª", "2ª", "3ª", "4ª", "5ª"][id - 1] || `${id}ª`;
   const opts = [
-    { v: "Efetivo", l: "💵 Efectivo" },
-    { v: "Cartao", l: "💳 Tarjeta" },
-    { v: "Pix", l: "🟢 Pix" },
-    { v: "Transferencia", l: "🏦 Alias" },
-    { v: "QrPy", l: "📱 QR Paraguay" },
+    { v: "Efetivo",      l: "💵 Efectivo" },
+    { v: "Cartao",       l: "💳 Tarjeta" },
+    { v: "CartaoBR",     l: "💳🇧🇷 Cartão BR" },
+    { v: "Pix",          l: "🟢 Pix" },
+    { v: "Transferencia",l: "🏦 Alias" },
+    { v: "QrPy",         l: "📱 QR Paraguay" },
   ]
     .map((m) => `<option value="${m.v}">${m.l}</option>`)
     .join("");
@@ -7766,6 +7851,9 @@ async function salvarPedidoBalcao() {
     document.getElementById("balcao-cliente").value.trim() || "Cliente";
   const tel = document.getElementById("balcao-telefone").value.trim() || "";
   let pag = document.getElementById("balcao-pag").value;
+  const pagFinalPDV = pag === 'CartaoBR'
+    ? (_cartaoBRTipoPDV === 'debito' ? 'Cartão BR - Débito' : 'Cartão BR - Crédito')
+    : pag;
 
   const nomeFinal = mesa
     ? `MESA ${mesa} - ${cli}`
@@ -7848,7 +7936,7 @@ async function salvarPedidoBalcao() {
         itens: itensMerged,
         total_geral: novoTotal,
         subtotal: novoTotal,
-        forma_pagamento: pag,
+        forma_pagamento: pagFinalPDV,
         obs_pagamento: obsPagPDV,
         cliente_nome: nomeFinal,
         cliente_telefone: tel,

@@ -725,6 +725,7 @@ window.addEventListener('DOMContentLoaded', () => {
                             <option value="" data-lang-key="forma-pag">Seleccione la forma de pago...</option>
                             <option value="Efetivo" data-lang-key="pag-dinheiro">Efectivo (Guaraníes)</option>
                             <option value="Cartao" data-lang-key="pag-cartao">Tarjeta de Crédito/Débito</option>
+                            <option value="CartaoBR">💳🇧🇷 Cartão Brasileiro (R$)</option>
                             <option value="Pix" data-lang-key="pag-pix">Pix (BR)</option>
                             <option value="Transferencia" data-lang-key="pag-transfer">Transferencia / Alias (PY)</option>
                             <option value="QrPy" data-lang-key="qr_py">QR Paraguay (Tigo / Personal / Bancard)</option>
@@ -871,7 +872,23 @@ window.addEventListener('DOMContentLoaded', () => {
     <script>
         // Registro do Service Worker para PWA
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
+            navigator.serviceWorker.register('sw.js').then((reg) => {
+                reg.update();
+                setInterval(() => reg.update(), 60000);
+                reg.addEventListener('updatefound', () => {
+                    const nw = reg.installing;
+                    if (!nw) return;
+                    nw.addEventListener('statechange', () => {
+                        if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                            nw.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    });
+                });
+            }).catch(() => {});
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (!refreshing) { refreshing = true; window.location.reload(); }
+            });
         }
         
         // ===== PWA INSTALL PROMPT =====
