@@ -2118,6 +2118,11 @@ async function enviarZap() {
   const tel = document.getElementById('cli-tel').value.trim();
   const pag = document.getElementById('forma-pag').value;
 
+  // Resolve o nome final do método de pagamento (CartaoBR tem sub-tipos)
+  const pagFinal = pag === 'CartaoBR'
+    ? (_cartaoBRTipo === 'debito' ? 'Cartão BR - Débito' : 'Cartão BR - Crédito')
+    : pag;
+
   if (!nome || !tel || !pag) return alert('Preencha todos os campos obrigatórios!');
 
   // Troco obrigatório quando pagamento em Efetivo
