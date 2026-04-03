@@ -2573,8 +2573,94 @@ function iniciarTracking(pedidoDbId, uidTemporal) {
     _iniciarPollingTracking(pedidoDbId, uid);   // GARANTIA (sempre funciona)
     _tentarCanalRealtime(pedidoDbId, uid);       // BÔNUS (mais rápido quando disponível)
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
+    // Solicita permissão via toast amigável (não o popup nativo diretamente)
+    _solicitarPermissaoNotificacao(pedidoDbId);
+}
+
+// ==========================================
+// PUSH NOTIFICATIONS — WEB PUSH API
+// ==========================================
+
+// Chave pública VAPID — gerada para este projeto.
+// Para regenerar: supabase functions deploy + npx web-push generate-vapid-keys
+const VAPID_PUBLIC_KEY = 'BKxxLpv-sVS8bM23IzYXHHFyU8Qg60sVtTp-yfESunVSHfgKa0kl-MSERetCPNizCUvY3AofcgD0orH6DnB5SCU';
+
+function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+function _solicitarPermissaoNotificacao(pedidoId) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (Notification.permission === 'granted') {
+        _registrarPushSubscription(pedidoId);
+        return;
+    }
+    if (Notification.permission === 'denied') return;
+
+    const toast = document.createElement('div');
+    toast.id = 'toast-push-permission';
+    toast.style.cssText = [
+        'position:fixed;bottom:90px;left:50%;transform:translateX(-50%)',
+        'background:#1a1a2e;color:#fff;padding:14px 18px;border-radius:14px',
+        'font-size:0.88rem;font-weight:500;z-index:99999',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.35);max-width:92vw;width:340px',
+        'display:flex;flex-direction:column;gap:10px',
+        'animation:fadeInUp .3s ease'
+    ].join(';');
+    toast.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:1.4rem;flex-shrink:0">\uD83D\uDD14</span>
+            <div>
+                <div style="font-weight:700;margin-bottom:3px">Acompanhe seu pedido</div>
+                <div style="font-size:0.81rem;opacity:0.85;line-height:1.45">
+                    Autorize as notificações para receber atualizações mesmo com o app fechado.
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;gap:8px">
+            <button id="btn-push-sim" style="flex:1;padding:9px;background:#27ae60;color:#fff;border:none;border-radius:9px;font-weight:700;font-size:0.85rem;cursor:pointer">
+                Autorizar 🔔
+            </button>
+            <button id="btn-push-nao" style="padding:9px 14px;background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:9px;font-size:0.82rem;cursor:pointer">
+                Agora não
+            </button>
+        </div>
+    `;
+    document.body.appendChild(toast);
+
+    document.getElementById('btn-push-sim').onclick = async () => {
+        toast.remove();
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+            _registrarPushSubscription(pedidoId);
+            mostrarToast('\u2705 Notificações ativadas!', 'success');
+        }
+    };
+    document.getElementById('btn-push-nao').onclick = () => toast.remove();
+    setTimeout(() => { const t = document.getElementById('toast-push-permission'); if (t) t.remove(); }, 12000);
+}
+
+async function _registrarPushSubscription(pedidoId) {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+        }
+        if (pedidoId && typeof supa !== 'undefined') {
+            await supa.from('pedidos')
+                .update({ push_subscription: sub.toJSON() })
+                .eq('id', parseInt(pedidoId));
+            console.log('\u2705 Push subscription salva no pedido', pedidoId);
+        }
+    } catch (e) {
+        console.warn('Push subscription falhou (normal em HTTP ou iOS antigo):', e.message);
     }
 }
 
@@ -2603,8 +2689,9 @@ function _iniciarPollingTracking(pedidoId, uid) {
                         .select('nome, telefone').eq('id', data.motoboy_id).single();
                     motoboy = m;
                 }
-                // Sempre atualiza o visual se motoboy mudou ou status mudou
-                if (statusMudou || (data.motoboy_id && !_lastMotoboyId)) {
+                // Atualiza visual se status OU motoboy_id mudaram
+                const motoboyMudou = String(data.motoboy_id || '') !== String(_lastMotoboyId || '');
+                if (statusMudou || motoboyMudou) {
                     atualizarTrackingVisual(data.status, motoboy);
                     _lastMotoboyId = data.motoboy_id;
                 }
@@ -2643,12 +2730,24 @@ function _tentarCanalRealtime(pedidoId, uid) {
             .on('postgres_changes', {
                 event: 'UPDATE', schema: 'public', table: 'pedidos',
                 filter: `id=eq.${pedidoId}`
-            }, (payload) => {
+            }, async (payload) => {
                 const ns = payload.new?.status;
-                if (ns && ns !== _lastTrackedSt) {
-                    _lastTrackedSt = ns;
-                    mostrarTracker(ns, uid);
+                if (!ns || ns === _lastTrackedSt) return;
+                _lastTrackedSt = ns;
+
+                // Busca motoboy do payload se disponível (evita esperar o próximo polling)
+                let motoboy = null;
+                const mbId = payload.new?.motoboy_id;
+                if (mbId && (ns === 'saiu_entrega' || ns === 'entregue')) {
+                    try {
+                        const { data: m } = await supa.from('motoboys')
+                            .select('nome, telefone').eq('id', mbId).single();
+                        motoboy = m;
+                        _lastMotoboyId = mbId;
+                    } catch(_) {}
                 }
+                atualizarTrackingVisual(ns, motoboy);
+                mostrarTracker(ns, uid);
             })
             .subscribe((st) => {
                 // CLOSED é normal no plano free — polling já cobre

@@ -1001,10 +1001,31 @@ async function mudarStatus(id, novoStatus) {
 
   if (typeof pararAlarme === "function") pararAlarme();
 
+  // Notifica o cliente via Web Push (ignora silenciosamente se falhar)
+  _notificarClientePush(id, novoStatus);
+
   const abaAtual = localStorage.getItem("app_lastTab");
   if (abaAtual === "cozinha") carregarCozinha();
   else if (abaAtual === "pedidos") carregarPedidos();
   else if (abaAtual === "pdv") carregarMonitorMesas();
+}
+
+// Dispara a Edge Function notificar-cliente de forma fire-and-forget
+async function _notificarClientePush(pedidoId, status) {
+  try {
+    const supaUrl = window._SUPABASE_URL || (typeof _SUPABASE_URL !== 'undefined' ? _SUPABASE_URL : '');
+    if (!supaUrl) return;
+    const fnUrl = supaUrl.replace('/rest/v1', '').replace(/\/+$/, '') + '/functions/v1/notificar-cliente';
+    // Usa a chave anon — a Edge Function usa service role internamente
+    const { data: session } = await supa.auth.getSession();
+    const token = session?.session?.access_token;
+    if (!token) return;
+    fetch(fnUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ pedido_id: pedidoId, status }),
+    }).catch(() => {}); // fire-and-forget, nunca bloqueia
+  } catch (_) { /* silencioso */ }
 }
 
 // === FUNÇÃO DE IMPRESSÃO (RESTAURADA) ===
