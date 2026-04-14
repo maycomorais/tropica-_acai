@@ -167,9 +167,32 @@
         <div class="menu-item restrito-gerente" id="menu-financeiro" onclick="showTab('financeiro', event)" style="display:none">
           <i class="fas fa-wallet"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.financeiro"> Financeiro</span>
         </div>
+
+        <div class="menu-item" id="menu-estatisticas" onclick="showTab('estatisticas', event)" style="display:none">
+          <i class="fas fa-chart-bar"></i><span class="mobile-hide sidebar-label"> Estatísticas</span>
+        </div>
+        <div class="menu-item" id="menu-ficha-tecnica" onclick="showTab('ficha-tecnica', event)" style="display:none">
+          <i class="fas fa-calculator"></i><span class="mobile-hide sidebar-label"> Ficha Técnica</span>
+        </div>
+        <div class="menu-item" id="menu-crm" onclick="showTab('crm', event)" style="display:none">
+          <i class="fas fa-users"></i><span class="mobile-hide sidebar-label"> Clientes CRM</span>
+        </div>
+
         <div class="menu-item restrito-func" id="menu-configuracoes" onclick="showTab('configuracoes', event)">
           <i class="fas fa-cogs"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.config"> Config</span>
         </div>
+
+        <div class="menu-item" onclick="showTab('inventario', event)" id="menu-inventario" style="display:none">
+          <i class="fas fa-boxes"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.estoque"> Estoque</span>
+        </div>
+
+        <!-- Turnos (KDS público) — abre em nova aba -->
+        <a href="turnos.html" target="_blank" rel="noopener"
+           id="menu-turnos" class="menu-item" style="text-decoration:none;color:inherit"
+           title="Painel de Turnos (TV/monitor)">
+          <i class="fas fa-tv"></i>
+          <span class="mobile-hide sidebar-label" data-i18n="sidebar.turnos"> Turnos</span>
+        </a>
 
         <!-- Visível apenas para adminMaster -->
         <div class="menu-item" id="menu-adminmaster" onclick="showTab('adminmaster', event)"
@@ -178,17 +201,7 @@
         </div>
       </div>
 
-      <div class="menu-item" onclick="showTab('inventario', event)" id="menu-inventario" style="display:none">
-          <i class="fas fa-boxes"></i><span class="mobile-hide sidebar-label" data-i18n="sidebar.estoque"> Estoque</span>
-      </div>
 
-      <!-- Turnos (KDS público) — abre em nova aba -->
-      <a href="turnos.html" target="_blank" rel="noopener"
-         class="menu-item" style="text-decoration:none;color:inherit"
-         title="Painel de Turnos (TV/monitor)">
-        <i class="fas fa-tv"></i>
-        <span class="mobile-hide sidebar-label" data-i18n="sidebar.turnos"> Turnos</span>
-      </a>
 
       <!-- Seletor de idioma PT / ES -->
       <div style="display:flex;gap:6px;padding:8px 12px;justify-content:center;border-top:1px solid rgba(255,255,255,0.1);margin-top:4px">
@@ -462,7 +475,25 @@
                 </div>
                 <div>
                   <label class="pdv-dir-label">Telefone</label>
-                  <input type="tel" id="balcao-telefone" class="pdv-dir-input" placeholder="0981234567" />
+                  <input type="tel" id="balcao-telefone" class="form-control"
+  placeholder="Ex: 0981234567"
+  oninput="pdvTelefoneInput(this.value)" />
+ 
+<!-- Box de cashback — aparece automaticamente quando cliente tem saldo -->
+<div id="pdv-cashback-box" style="display:none;background:#fff8e1;border:1.5px solid #ffd54f;
+  border-radius:10px;padding:10px 12px;margin-top:6px;font-size:0.85rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+    <div>
+      <div style="font-weight:700;color:#795548">💰 Cashback disponível</div>
+      <div style="color:#555"><b id="pdv-cash-nome">—</b>: <span style="color:#1a7a2e;font-weight:700" id="pdv-cash-saldo">—</span></div>
+    </div>
+    <button id="pdv-btn-usar-cash" onclick="pdvToggleCashback()"
+      style="padding:7px 14px;background:#ff9800;color:#fff;border:none;border-radius:8px;
+             font-weight:700;cursor:pointer;font-size:0.82rem">
+      💰 Usar Cashback
+    </button>
+  </div>
+</div>
                 </div>
               </div>
 
@@ -728,6 +759,30 @@
         <h4 style="color: #383d41;">Transferência</h4>
         <div class="value" id="total-transf" style="color: #383d41;">Gs 0</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== TABELA DE DESPESAS ===== -->
+  <div class="card" style="margin-top: 20px; padding: 0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #f0f0f0">
+      <h3 style="margin:0;color:#444;font-size:0.95rem">🧾 Despesas do Período</h3>
+      <button onclick="abrirModalCaixa('despesa')" class="btn btn-danger" style="font-size:0.83rem;padding:7px 14px">
+        <i class="fas fa-plus"></i> Nova Despesa
+      </button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table" style="margin:0;font-size:0.88rem">
+        <thead>
+          <tr>
+            <th>Data/Hora</th><th>Categoria</th><th>Descrição</th>
+            <th style="text-align:right">Valor</th>
+            <th style="text-align:center">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="lista-despesas-caixa">
+          <tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa no período</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -1349,6 +1404,245 @@
         </div>
       </div>
 
+      <div id="estatisticas" class="tab-content">
+        <h2 class="section-title">📊 Estatísticas de Vendas</h2>
+      
+        <!-- Loading -->
+        <div id="est-loading" style="display:none;justify-content:center;align-items:center;padding:40px;gap:12px;color:#666">
+          <i class="fas fa-spinner fa-spin fa-2x"></i> <span>Calculando...</span>
+        </div>
+      
+        <!-- Filtros -->
+        <div class="card" style="margin-bottom:16px;padding:14px">
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">📅 De</label>
+              <input type="date" id="est-ini" class="form-control" style="min-width:140px">
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">Até</label>
+              <input type="date" id="est-fim" class="form-control" style="min-width:140px">
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">🏷️ Categoria</label>
+              <select id="est-filtro-cat" class="form-control" style="min-width:160px" onchange="estAplicarFiltros()">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">⚖️ Unidade</label>
+              <select id="est-filtro-unidade" class="form-control" style="min-width:130px" onchange="estAplicarFiltros()">
+                <option value="">Todas</option>
+                <option value="un">Por Unidade</option>
+                <option value="kg">Por Peso (kg)</option>
+              </select>
+            </div>
+            <button onclick="gerarEstatisticas()" class="btn btn-primary" style="height:38px;min-width:120px">
+              <i class="fas fa-sync-alt"></i> Atualizar
+            </button>
+          </div>
+        </div>
+      
+        <!-- KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px">
+          <div class="card" style="text-align:center;padding:18px 12px;border-left:4px solid #1a7a2e">
+            <div style="font-size:0.78rem;color:#888;margin-bottom:6px;font-weight:600">💰 Faturamento Total</div>
+            <div id="est-kpi-faturamento" style="font-size:1.3rem;font-weight:800;color:#1a7a2e">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:18px 12px;border-left:4px solid #2980b9">
+            <div style="font-size:0.78rem;color:#888;margin-bottom:6px;font-weight:600">🧾 Ticket Médio</div>
+            <div id="est-kpi-ticket" style="font-size:1.3rem;font-weight:800;color:#2980b9">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:18px 12px;border-left:4px solid #27ae60">
+            <div style="font-size:0.78rem;color:#888;margin-bottom:6px;font-weight:600">📈 Lucro Estimado</div>
+            <div id="est-kpi-lucro" style="font-size:1.3rem;font-weight:800;color:#27ae60">—</div>
+          </div>
+          <div class="card" style="text-align:center;padding:18px 12px;border-left:4px solid #e67e22">
+            <div style="font-size:0.78rem;color:#888;margin-bottom:6px;font-weight:600">📦 Pedidos</div>
+            <div id="est-kpi-pedidos" style="font-size:1.3rem;font-weight:800;color:#e67e22">—</div>
+          </div>
+        </div>
+      
+        <!-- Gráfico -->
+        <div class="card" style="margin-bottom:20px;padding:16px">
+          <h4 style="margin:0 0 12px 0;color:#333;font-size:0.95rem">Top 15 produtos por faturamento</h4>
+          <div style="position:relative;height:260px">
+            <canvas id="est-grafico"></canvas>
+          </div>
+        </div>
+      
+        <!-- Tabela de todos os produtos -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 16px;border-bottom:1px solid #f0f0f0">
+            <h4 style="margin:0;color:#333;font-size:0.95rem">📋 Todos os Produtos Vendidos</h4>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table" style="margin:0">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Categoria</th>
+                  <th style="text-align:center">Qtd / Peso</th>
+                  <th style="text-align:center">Markup</th>
+                  <th style="text-align:right">Faturamento</th>
+                </tr>
+              </thead>
+              <tbody id="est-tabela-body">
+                <tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">Clique em "Atualizar" para carregar</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      
+      
+      <!-- ════════════════════════ ABA: FICHA TÉCNICA ════════════════════════ -->
+      <div id="ficha-tecnica" class="tab-content">
+        <h2 class="section-title">🧮 Calculadora de Produtos — Ficha Técnica</h2>
+      
+        <!-- Sub-nav -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap">
+          <button onclick="ftMostrarPanel('insumos')" id="ft-nav-insumos"
+            class="btn btn-primary" style="font-size:0.85rem">
+            🥫 Insumos / Ingredientes
+          </button>
+          <button onclick="ftMostrarPanel('fichas')" id="ft-nav-fichas"
+            class="btn btn-secondary" style="font-size:0.85rem">
+            📋 Fichas Técnicas
+          </button>
+        </div>
+      
+        <!-- PANEL: Insumos -->
+        <div id="ft-panel-insumos">
+          <div class="card" style="padding:0">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f0f0f0">
+              <h4 style="margin:0;font-size:0.95rem">🥫 Insumos Cadastrados</h4>
+              <button onclick="ftAbrirModalInsumo()" class="btn btn-primary" style="font-size:0.83rem">
+                <i class="fas fa-plus"></i> Novo Insumo
+              </button>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="table" style="margin:0">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th style="text-align:center">Unidade</th>
+                    <th style="text-align:right">Custo Unit.</th>
+                    <th style="text-align:center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="ft-lista-insumos">
+                  <tr><td colspan="4" class="ft-empty">Carregando...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      
+        <!-- PANEL: Fichas -->
+        <div id="ft-panel-fichas" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="color:#666;font-size:0.88rem">Monte a composição de cada produto e veja o custo + preço sugerido automaticamente.</span>
+            <button onclick="ftAbrirModalFicha()" class="btn btn-primary" style="font-size:0.83rem">
+              <i class="fas fa-plus"></i> Nova Ficha
+            </button>
+          </div>
+          <div id="ft-lista-fichas">
+            <p style="text-align:center;color:#aaa;padding:30px">Nenhuma ficha técnica cadastrada.</p>
+          </div>
+        </div>
+      </div>
+      
+      
+      <!-- ════════════════════════ ABA: CRM ════════════════════════ -->
+      <div id="crm" class="tab-content">
+        <h2 class="section-title">👥 Clientes — CRM & Cashback</h2>
+      
+        <!-- KPIs -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px">
+          <div class="card" style="text-align:center;padding:14px 10px;border-left:4px solid #2980b9">
+            <div style="font-size:0.72rem;color:#888;font-weight:600;margin-bottom:4px">👤 Total Clientes</div>
+            <div id="crm-kpi-total" style="font-size:1.4rem;font-weight:800;color:#2980b9">0</div>
+          </div>
+          <div class="card" style="text-align:center;padding:14px 10px;border-left:4px solid #ff9800">
+            <div style="font-size:0.72rem;color:#888;font-weight:600;margin-bottom:4px">💰 Com Saldo</div>
+            <div id="crm-kpi-comSaldo" style="font-size:1.4rem;font-weight:800;color:#ff9800">0</div>
+          </div>
+          <div class="card" style="text-align:center;padding:14px 10px;border-left:4px solid #27ae60">
+            <div style="font-size:0.72rem;color:#888;font-weight:600;margin-bottom:4px">🎁 Cashback Total</div>
+            <div id="crm-kpi-cashback" style="font-size:1.1rem;font-weight:800;color:#27ae60">—</div>
+          </div>
+          <!-- Widget Aniversariantes -->
+          <div class="card" style="padding:12px;border-left:4px solid #e74c3c;grid-column:span 1">
+            <div style="font-size:0.78rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🎂 Aniversariantes</div>
+            <div id="crm-widget-aniversariantes" style="font-size:0.83rem"></div>
+          </div>
+        </div>
+      
+        <!-- Config Cashback -->
+        <div class="card" style="margin-bottom:16px;padding:14px">
+          <div style="font-weight:700;color:#333;margin-bottom:10px;font-size:0.9rem">⚙️ Configurações de Cashback</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">% sobre o pedido</label>
+              <input type="number" id="crm-cfg-pct" class="form-control" style="width:100px" min="0" max="100" step="0.5">
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;color:#555;display:block;margin-bottom:4px">Validade (dias)</label>
+              <select id="crm-cfg-val" class="form-control" style="width:140px">
+                <option value="7">7 dias</option>
+                <option value="10">10 dias</option>
+                <option value="15">15 dias</option>
+                <option value="20">20 dias</option>
+                <option value="30" selected>30 dias</option>
+                <option value="60">60 dias</option>
+                <option value="90">90 dias</option>
+              </select>
+            </div>
+            <button onclick="crmSalvarConfig()" class="btn btn-primary" style="height:38px">
+              <i class="fas fa-save"></i> Salvar
+            </button>
+          </div>
+        </div>
+      
+        <!-- Barra de ações -->
+        <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+          <button id="crm-aba-todos" class="crm-aba-btn active" onclick="crmMudarAba('todos')">
+            👤 Todos
+          </button>
+          <button id="crm-aba-aniversariantes" class="crm-aba-btn" onclick="crmMudarAba('aniversariantes')">
+            🎂 Aniversariantes
+          </button>
+          <input type="text" placeholder="🔍 Buscar por nome ou telefone..."
+            class="form-control" style="flex:1;min-width:200px;max-width:320px"
+            oninput="crmFiltrarClientes(this.value)">
+          <button onclick="crmAbrirModalCliente()" class="btn btn-primary" style="margin-left:auto">
+            <i class="fas fa-user-plus"></i> Novo Cliente
+          </button>
+        </div>
+      
+        <!-- Tabela -->
+        <div class="card" style="padding:0">
+          <div style="overflow-x:auto">
+            <table class="table" style="margin:0">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Telefone</th>
+                  <th>Aniversário</th>
+                  <th>Cashback</th>
+                  <th>Total Gasto</th>
+                  <th style="text-align:center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="crm-lista-clientes">
+                <tr><td colspan="6" style="text-align:center;color:#aaa;padding:20px">Carregando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /main-content -->
 
 
@@ -1396,6 +1690,13 @@
           <label for="prod-somente-balcao" style="font-weight:bold; cursor:pointer;">
             🏪 Somente Balcão (PDV)
             <small style="display:block; font-weight:normal; color:#888;">Não aparece no cardápio online</small>
+          </label>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#e0f7fa; padding:10px; border-radius:8px;">
+          <input type="checkbox" id="prod-es-bebida" style="width:20px; height:20px;">
+          <label for="prod-es-bebida" style="font-weight:bold; cursor:pointer;">
+            🥤 Es una bebida
+            <small style="display:block; font-weight:normal; color:#888;">Aparece destacado na mensagem do motoboy (LEVAR)</small>
           </label>
         </div>
 
@@ -1944,6 +2245,9 @@
     <script src="supabaseClient.js"></script>
     <script src="admin-i18n.js"></script>
     <script src="admin.js"></script>
+    <script src="ficha-tecnica.js"></script>
+    <script src="estatisticas.js"></script>
+    <script src="crm.js"></script>
   
     <!-- ===== MODAL GRÁFICOS ===== -->
 <div id="modal-graficos" class="modal-overlay" style="display:none; align-items:flex-start; padding:20px; overflow-y:auto">
@@ -2087,6 +2391,208 @@
       <button id="ob-btn-next" onclick="_obNext()"
         style="padding:10px 24px;background:var(--primary,#1a7a2e);color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:0.9rem">
         Próximo →
+      </button>
+    </div>
+  </div>
+</div>
+<div id="modal-ft-insumo" class="modal-overlay" style="display:none">
+  <div class="modal-content" style="max-width:400px">
+    <h3>🥫 Insumo</h3>
+    <input type="hidden" id="ft-insumo-id">
+    <div class="form-group">
+      <label>Nome do Insumo</label>
+      <input type="text" id="ft-insumo-nome" class="form-control" placeholder="Ex: Farinha de Trigo">
+    </div>
+    <div class="form-group">
+      <label>Unidade de Medida</label>
+      <select id="ft-insumo-unidade" class="form-control">
+        <option value="un">Unidade (un)</option>
+        <option value="kg">Quilograma (kg)</option>
+        <option value="g">Grama (g)</option>
+        <option value="l">Litro (l)</option>
+        <option value="ml">Mililitro (ml)</option>
+        <option value="pct">Pacote (pct)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Preço de Custo (Gs)</label>
+      <input type="number" id="ft-insumo-preco" class="form-control" placeholder="Ex: 15000" min="0">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-ft-insumo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="ftSalvarInsumo()">
+        <i class="fas fa-save"></i> Salvar
+      </button>
+    </div>
+  </div>
+</div>
+ 
+<!-- MODAL: Nova/Editar Ficha Técnica -->
+<div id="modal-ft-ficha" class="modal-overlay" style="display:none;align-items:flex-start;padding:10px;overflow-y:auto">
+  <div class="modal-content" style="max-width:540px;margin:auto;max-height:90vh;overflow-y:auto">
+    <h3>📋 Ficha Técnica</h3>
+    <input type="hidden" id="ft-ficha-id">
+ 
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:180px">
+        <label>Produto <span style="color:#e74c3c">*</span></label>
+        <input type="text" id="ft-ficha-produto" class="form-control" placeholder="Nome do produto">
+      </div>
+      <div class="form-group" style="width:170px">
+        <label>Ou selecione do cardápio</label>
+        <select id="ft-ficha-prod-sel" class="form-control">
+          <option value="">— Cardápio —</option>
+        </select>
+      </div>
+    </div>
+ 
+    <div class="form-group">
+      <label>Markup % (quanto acima do custo você vende)</label>
+      <input type="number" id="ft-ficha-markup" class="form-control"
+        placeholder="Ex: 300" min="0" step="10"
+        oninput="ftAtualizarCustoModal()">
+      <small style="color:#888;font-size:0.75rem">300% = custo de Gs 1.000 → vende por Gs 4.000</small>
+    </div>
+ 
+    <div style="background:#f0f9f4;border:1.5px solid #d1fae5;border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-weight:700;color:#333;font-size:0.88rem;margin-bottom:10px">➕ Adicionar Insumo</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <div style="flex:2;min-width:160px">
+          <label style="font-size:0.75rem;font-weight:600;color:#555;display:block;margin-bottom:3px">Insumo</label>
+          <select id="ft-sel-insumo" class="form-control" style="font-size:0.85rem">
+            <option value="">— Selecione —</option>
+          </select>
+        </div>
+        <div style="width:110px">
+          <label style="font-size:0.75rem;font-weight:600;color:#555;display:block;margin-bottom:3px">Quantidade</label>
+          <input type="number" id="ft-qtd-insumo" class="form-control" placeholder="Ex: 0.5" min="0" step="0.01" style="font-size:0.85rem">
+        </div>
+        <button onclick="ftAdicionarInsumo()" class="btn btn-primary" style="height:38px;font-size:0.83rem">
+          + Adicionar
+        </button>
+      </div>
+    </div>
+ 
+    <div style="margin-bottom:14px">
+      <div style="font-weight:700;color:#333;font-size:0.88rem;margin-bottom:8px">🧾 Composição atual</div>
+      <div id="ft-composicao-lista"></div>
+    </div>
+ 
+    <!-- Resumo de custo -->
+    <div style="background:#f8fafc;border:1.5px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+        <div>
+          <div style="font-size:0.7rem;color:#888;font-weight:600;margin-bottom:3px">Custo Total</div>
+          <div id="ft-custo-calculado" style="font-weight:800;color:#e74c3c">Gs 0</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem;color:#888;font-weight:600;margin-bottom:3px">Preço Sugerido</div>
+          <div id="ft-preco-sugerido" style="font-weight:800;color:#1a7a2e">Gs 0</div>
+        </div>
+        <div>
+          <div style="font-size:0.7rem;color:#888;font-weight:600;margin-bottom:3px">Lucro Bruto</div>
+          <div id="ft-lucro-calculado" style="font-weight:800;color:#2980b9">Gs 0</div>
+        </div>
+      </div>
+    </div>
+ 
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-ft-ficha')">Cancelar</button>
+      <button class="btn btn-primary" onclick="ftSalvarFicha()">
+        <i class="fas fa-save"></i> Salvar Ficha
+      </button>
+    </div>
+  </div>
+</div>
+ 
+<!-- MODAL: Novo/Editar Cliente -->
+<div id="modal-crm-cliente" class="modal-overlay" style="display:none">
+  <div class="modal-content" style="max-width:420px">
+    <h3>👤 Cliente</h3>
+    <input type="hidden" id="crm-cli-id">
+    <div class="form-group">
+      <label>Nome completo <span style="color:#e74c3c">*</span></label>
+      <input type="text" id="crm-cli-nome" class="form-control" placeholder="Nome do cliente">
+    </div>
+    <div class="form-group">
+      <label>WhatsApp / Telefone <span style="color:#e74c3c">*</span></label>
+      <input type="tel" id="crm-cli-tel" class="form-control" placeholder="Ex: 0981234567">
+    </div>
+    <div class="form-group">
+      <label>Data de Nascimento</label>
+      <input type="date" id="crm-cli-nasc" class="form-control">
+    </div>
+    <div class="form-group">
+      <label>Saldo de Cashback (Gs)</label>
+      <input type="number" id="crm-cli-saldo" class="form-control" min="0" step="1000">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-crm-cliente')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crmSalvarCliente()">
+        <i class="fas fa-save"></i> Salvar
+      </button>
+    </div>
+  </div>
+</div>
+ 
+<!-- MODAL: Histórico de Cashback -->
+<div id="modal-crm-hist" class="modal-overlay" style="display:none;align-items:flex-start;padding:10px;overflow-y:auto">
+  <div class="modal-content" style="max-width:500px;margin:auto;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 style="margin:0">📋 Histórico de Cashback</h3>
+      <button onclick="fecharModal('modal-crm-hist')"
+        style="background:#e74c3c;color:#fff;border:none;border-radius:50%;width:30px;height:30px;font-size:1rem;cursor:pointer">×</button>
+    </div>
+    <div style="margin-bottom:12px;padding:10px;background:#f0f9f4;border-radius:8px">
+      <b id="hist-cli-nome">—</b>
+      <span style="float:right;font-weight:700;color:#1a7a2e">Saldo: <span id="hist-cli-saldo">—</span></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="table" style="margin:0;font-size:0.85rem">
+        <thead>
+          <tr><th>Data</th><th>Valor</th><th>Expira</th><th>Status</th></tr>
+        </thead>
+        <tbody id="hist-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Editar Despesa -->
+<div id="modal-editar-despesa" class="modal-overlay" style="display:none">
+  <div class="modal-content" style="max-width:420px">
+    <h3>✏️ Editar Despesa</h3>
+    <input type="hidden" id="edit-despesa-id">
+    <div class="form-group">
+      <label>Valor (Gs)</label>
+      <input type="number" id="edit-despesa-valor" class="form-control" placeholder="Ex: 50000" min="1">
+    </div>
+    <div class="form-group">
+      <label>Categoria</label>
+      <select id="edit-despesa-tipo" class="form-control"
+        onchange="document.getElementById('edit-box-outro').style.display=this.value==='outro'?'block':'none'">
+        <option value="despesas_gerais">📦 Despesas Gerais</option>
+        <option value="contas_fixas">🏠 Contas Fixas</option>
+        <option value="pagamento_fornecedor">🤝 Fornecedor</option>
+        <option value="pagamento_funcionario">👷 Funcionário</option>
+        <option value="pagamento_terceiros">👥 Terceiros</option>
+        <option value="manutencao">🔧 Manutenção</option>
+        <option value="retirada">💵 Retirada / Pro-Labore</option>
+        <option value="motoboy">🛵 Motoboy</option>
+        <option value="outro">✏️ Outro (especificar)</option>
+      </select>
+      <div id="edit-box-outro" style="display:none;margin-top:8px">
+        <input type="text" id="edit-despesa-outro" class="form-control" placeholder="Descreva o tipo de despesa">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Observação</label>
+      <input type="text" id="edit-despesa-desc" class="form-control" placeholder="Detalhes opcionais">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-editar-despesa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEdicaoDespesa()">
+        <i class="fas fa-save"></i> Salvar Alterações
       </button>
     </div>
   </div>

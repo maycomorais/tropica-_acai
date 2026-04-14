@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Para não disparar alert('Acesso restrito') antes de perfilUsuario estar definido,
   // começa sempre no dashboard e restaura a aba real após o login
   let lastTab = localStorage.getItem("app_lastTab");
-  const _restrictedTabs = ["inventario", "financeiro", "adminmaster"];
+  const _restrictedTabs = ["inventario", "financeiro", "adminmaster", "estatisticas", "ficha-tecnica", "crm"];
   if (
     !lastTab ||
     !document.getElementById(lastTab) ||
@@ -142,13 +142,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (menuEst) menuEst.style.display = "flex";
     }
 
+    // ── Mostrar menus novos para dono/gerente/adminMaster ──
+    if (
+      perfilUsuario === "dono" ||
+      perfilUsuario === "gerente" ||
+      perfilUsuario === "adminMaster"
+    ) {
+      ["menu-estatisticas", "menu-ficha-tecnica", "menu-crm"].forEach((id) => {
+        const m = document.getElementById(id);
+        if (m) m.style.display = "flex";
+      });
+    }
+
     carregarDashboard();
     carregarMotoboysSelect();
   }
 
+  let _lastWidth = window.innerWidth;
   window.addEventListener("resize", () => {
-    if (document.getElementById("pdv")?.classList.contains("active"))
-      pdvIniciarTabs();
+    if (window.innerWidth !== _lastWidth) {
+      _lastWidth = window.innerWidth;
+      if (document.getElementById("pdv")?.classList.contains("active")) {
+        pdvIniciarTabs();
+      }
+    }
   });
 
   // === DESBLOQUEIO DE SOM — AudioContext (sem AbortError) ===
@@ -233,7 +250,10 @@ function showTab(tabId, event) {
   if (realTabId === "produtos") {
     if (tabId === "categorias") showSubTab("lista-categorias-wrapper");
     else if (tabId === "motoboys") showSubTab("lista-motos-wrapper");
-    else showSubTab("lista-produtos-wrapper"); // Padrão
+    else {
+      const savedSub = localStorage.getItem("app_lastSubTab");
+      showSubTab(savedSub || "lista-produtos-wrapper"); // Restaura a última sub-aba ou Padrão
+    }
   }
 
   // 6. Carregamento de dados
@@ -249,6 +269,16 @@ function showTab(tabId, event) {
   if (realTabId === "adminmaster") {
     amCarregarUsuarios();
     renderPainelFeatures();
+  }
+  if (realTabId === 'estatisticas') {
+    initEstatisticas();
+    _estPopularCategorias();
+  }
+  if (realTabId === 'ficha-tecnica') {
+    initFichaTecnica();
+  }
+  if (realTabId === 'crm') {
+    initCRM();
   }
   if (realTabId === "configuracoes") {
     carregarConfiguracoes();
@@ -273,6 +303,7 @@ function showTab(tabId, event) {
 
 function showSubTab(subId) {
   console.log("Alternando para sub-aba:", subId);
+  localStorage.setItem("app_lastSubTab", subId);
 
   // 1. Seleciona todas as sub-abas e esconde TODAS
   const subtabs = document.querySelectorAll(".subtab-content");
@@ -356,6 +387,10 @@ function _aplicarVisibilidadeAbas() {
     "menu-equipe": "equipe",
     "menu-configuracoes": "configuracoes",
     "menu-dashboard": "dashboard",
+    "menu-estatisticas":  "estatisticas",
+    "menu-ficha-tecnica": "ficha-tecnica",
+    "menu-crm":           "crm",
+    "menu-turnos":        "turnos"
   };
   // Só aplica restrições para cargos abaixo de adminMaster
   if (perfilUsuario === "adminMaster") return;
@@ -415,6 +450,7 @@ async function renderPainelFeatures() {
     ["equipe", "Equipe"],
     ["configuracoes", "Configurações"],
     ["dashboard", "Dashboard"],
+    ["turnos", "Painel Turnos/TV"],
   ]
     .map(
       ([
@@ -1387,6 +1423,45 @@ async function calcularFinanceiro() {
       : `💼 Seu caixa — ${emailAtual}`;
   }
 
+  // ── Tabela de despesas com Editar/Excluir ───────────────────────
+  const tbD = document.getElementById("lista-despesas-caixa");
+  if (tbD) {
+    const despesas = (caixa || []).filter((c) => c.tipo === "despesa");
+    const _DLABELS = {
+      despesas_gerais:"📦 Despesas Gerais", contas_fixas:"🏠 Contas Fixas",
+      pagamento_fornecedor:"🤝 Fornecedor", pagamento_funcionario:"👷 Funcionário",
+      pagamento_terceiros:"👥 Terceiros", manutencao:"🔧 Manutenção",
+      retirada:"💵 Retirada", motoboy:"🛵 Motoboy", outro:"✏️ Outro",
+    };
+    if (!despesas.length) {
+      tbD.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa no período</td></tr>';
+    } else {
+      tbD.innerHTML = despesas.map((d) => {
+        const dt = new Date(d.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+        const tipoLabel = _DLABELS[d.tipo_despesa] || d.tipo_despesa || "—";
+        const descExtra = d.tipo_despesa === "outro" && d.descricao_outro ? ` (${d.descricao_outro})` : "";
+        const obs = d.descricao || "";
+        const enc = encodeURIComponent(JSON.stringify({
+          id:d.id, valor:d.valor,
+          tipo_despesa:d.tipo_despesa||"despesas_gerais",
+          descricao:d.descricao||"", descricao_outro:d.descricao_outro||"",
+        }));
+        return `<tr>
+          <td style="white-space:nowrap;color:#666;font-size:0.82rem">${dt}</td>
+          <td><span style="background:#fdecea;color:#a93226;padding:2px 7px;border-radius:10px;font-size:0.78rem">${tipoLabel}${descExtra}</span></td>
+          <td style="color:#555;font-size:0.85rem">${obs}</td>
+          <td style="text-align:right;font-weight:700;color:#c0392b;white-space:nowrap">${fmt(d.valor)}</td>
+          <td style="text-align:center;white-space:nowrap">
+            <button onclick="abrirEditarDespesa('${enc}')"
+              style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem;margin-right:4px">✏️</button>
+            <button onclick="excluirDespesa(${d.id})"
+              style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem">🗑️</button>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+  }
+
   // Tabela motoboys
   const tbM = document.getElementById("lista-financeiro-motoboys");
   if (tbM) {
@@ -2207,20 +2282,22 @@ function enviarRotaZap() {
 
       if (p.itens && Array.isArray(p.itens)) {
         // Separa bebidas (para levar imediatamente) do restante
-        const bebidas = p.itens.filter((i) => {
+        const _esBebida = (i) => {
+          if (i.es_bebida) return true;
           const cat = (i.categoria_slug || i.cat || "").toLowerCase();
-          return (
-            cat === "bebidas" || cat.includes("bebida") || cat.includes("drink")
-          );
-        });
-        const naoFoodKds = p.itens.filter((i) => {
-          const cat = (i.categoria_slug || i.cat || "").toLowerCase();
-          return !(
-            cat === "bebidas" ||
-            cat.includes("bebida") ||
-            cat.includes("drink")
-          );
-        });
+          const _SLUGS_BEBIDA = [
+            "bebida", "bebidas", "drink", "drinks",
+            "refrigerante", "refrigerantes", "gaseosa", "gaseosas",
+            "suco", "sucos", "jugo", "jugos",
+            "cerveja", "cervejas", "cerveza", "cervezas",
+            "trago", "tragos", "licor", "licores",
+            "agua", "aguas", "água", "águas",
+            "vino", "vinos", "vinho", "vinhos",
+          ];
+          return _SLUGS_BEBIDA.some(s => cat === s || cat.includes(s));
+        };
+        const bebidas = p.itens.filter(_esBebida);
+        const naoFoodKds = p.itens.filter((i) => !_esBebida(i));
 
         // Helper: formata um item com variação + montagem
         const _fmtItem = (b) => {
@@ -2864,6 +2941,8 @@ async function salvarProduto() {
       ativo: true,
       somente_balcao:
         document.getElementById("prod-somente-balcao")?.checked || false,
+      es_bebida:
+        document.getElementById("prod-es-bebida")?.checked || false,
       inventario_id: inventarioId,
     };
 
@@ -2892,6 +2971,8 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
   document.getElementById("prod-img").value = "";
   document.getElementById("box-preview").style.display = "none";
   document.getElementById("prod-somente-balcao").checked = false;
+  const _esBebidaEl = document.getElementById("prod-es-bebida");
+  if (_esBebidaEl) _esBebidaEl.checked = false;
   document.getElementById("prod-tem-extras").checked = false;
   const _pkgEl = document.getElementById("prod-preco-kg");
   if (_pkgEl) _pkgEl.value = "";
@@ -2956,6 +3037,8 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
     document.getElementById("prod-img").value = produto.imagem_url || "";
     document.getElementById("prod-somente-balcao").checked =
       produto.somente_balcao || false;
+    const _esBebidaLoad = document.getElementById("prod-es-bebida");
+    if (_esBebidaLoad) _esBebidaLoad.checked = produto.es_bebida || false;
     if (produto.inventario_id) {
       const _te = document.getElementById("prod-tem-estoque");
       const _ea = document.getElementById("estoque-area");
@@ -6143,6 +6226,7 @@ function _calcularIntervalo(periodo, idI, idF) {
 // PDV MOBILE — Tabs de navegação
 // ══════════════════════════════════════════════════════════
 function pdvMudarAba(aba, btn) {
+  localStorage.setItem('app_pdv_aba', aba);
   document.querySelectorAll(".pdv-tab-btn").forEach(b => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
 
@@ -6199,13 +6283,15 @@ function pdvIniciarTabs() {
     document
       .querySelectorAll(".pdv-tab-btn")
       .forEach((b) => b.classList.remove("active"));
-    const btnCardapio = tabsEl
-      ? tabsEl.querySelector(".pdv-tab-btn:nth-child(1)")
-      : null;
-    if (btnCardapio) {
-      btnCardapio.classList.add("active");
+    
+    const savedPdvAba = localStorage.getItem("app_pdv_aba") || "produtos";
+    let activeBtn = null;
+    if (tabsEl) {
+      if (savedPdvAba === "produtos") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(1)");
+      else if (savedPdvAba === "carrinho") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(2)");
+      else if (savedPdvAba === "mesas") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(3)");
     }
-    pdvMudarAba("produtos", null);
+    pdvMudarAba(savedPdvAba, activeBtn);
   } else {
     if (tabsEl) tabsEl.style.display = "none";
     if (footer) footer.style.display = "none";
@@ -7063,6 +7149,7 @@ function _pdvModalConfirmar(cacheKey) {
     nome: produto.nome,
     img: produto.imagem_url,
     categoria_slug: produto.categoria_slug || "",
+    es_bebida: produto.es_bebida || false,
     preco,
     qtd: 1,
     variacao: variacaoLabel,
@@ -7222,6 +7309,8 @@ function _mostrarModalPesoPDV(produto, precoKg) {
       qtd: 1,
       _isKg: true,
       img: produto.imagem_url || "",
+      categoria_slug: produto.categoria_slug || "",
+      es_bebida: produto.es_bebida || false,
       montagem: [],
       obs: "",
     });
@@ -7426,6 +7515,8 @@ function _mostrarModalVariacaoPDV(produto, variacoes) {
           id: p.id,
           nome: p.nome,
           img: p.imagem_url,
+          categoria_slug: p.categoria_slug || "",
+          es_bebida: p.es_bebida || false,
           preco: v.preco || p.preco || 0,
           qtd: 1,
           variacao: v.nome,
@@ -7566,6 +7657,16 @@ function atualizarCarrinhoPDV() {
 
   lista.innerHTML = "";
   let total = 0;
+
+  const cashDesc = pdvGetCashbackDesconto(total);
+  total = Math.max(0, total - cashDesc);
+  // Se quiser exibir linha de cashback no resumo, atualize o elemento:
+  const elCash = document.getElementById('pdv-row-cashback');
+  if (elCash) {
+    elCash.style.display = cashDesc > 0 ? 'flex' : 'none';
+    const elCashVal = document.getElementById('balcao-cashback');
+    if (elCashVal) elCashVal.textContent = cashDesc.toLocaleString('es-PY');
+  }
 
   // ── Itens existentes da mesa (snapshot do DB) ──────────────────
   const itensExistentes = window._mesaAbertaPedido
@@ -7930,6 +8031,8 @@ async function salvarPedidoBalcao() {
     qtd: i.qtd,
     montagem: i.montagem || [],
     obs: i.obs || "",
+    categoria_slug: i.categoria_slug || "",
+    es_bebida: i.es_bebida || false,
     ...(i._isKg
       ? { peso_gramas: i.peso_gramas, preco_kg: i.preco_kg, _isKg: true }
       : {}),
@@ -8051,6 +8154,19 @@ async function salvarPedidoBalcao() {
   }
   // Descontar estoque imediatamente (PDV não passa por mudarStatus)
   if (novoPedido?.id) await _descontarEstoqueVenda(novoPedido.id, novosItens);
+
+  if (_pdvCashbackUsando && tel) {
+    const descCash = pdvGetCashbackDesconto(totalNovo);
+    if (descCash > 0) await crmUsarCashback(tel, descCash);
+    _pdvCashbackUsando    = false;
+    _pdvCashbackDisponivel = 0;
+    document.getElementById('pdv-cashback-box').style.display = 'none';
+  }
+ 
+  // ── Cashback: gerar crédito pela nova compra ──────────────────
+  if (tel) {
+    await crmGerarCashback(tel, totalNovo, novoPedido?.id || null);
+  }
 
   // ── Impressão automática ───────────────────────────────────────
   if (novoPedido?.id) {
@@ -9375,6 +9491,7 @@ function toggleSidebar() {
   const btn = document.getElementById("btn-toggle-sidebar");
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle("collapsed");
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
   if (btn)
     btn.innerHTML = collapsed
       ? '<i class="fas fa-bars"></i>'
@@ -9386,6 +9503,7 @@ function toggleSidebar() {
 document.addEventListener("DOMContentLoaded", () => {
   if (localStorage.getItem("app_sidebar_collapsed") === "1") {
     document.querySelector(".sidebar")?.classList.add("collapsed");
+    document.body.classList.add("sidebar-collapsed");
     const btn = document.getElementById("btn-toggle-sidebar");
     if (btn) btn.innerHTML = '<i class="fas fa-bars"></i>';
   }
@@ -10208,3 +10326,73 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 1500);
 });
+
+function ftMostrarPanel(panel) {
+  ['insumos', 'fichas'].forEach(p => {
+    const el = document.getElementById(`ft-panel-${p}`);
+    const btn = document.getElementById(`ft-nav-${p}`);
+    if (el)  el.style.display  = p === panel ? 'block' : 'none';
+    if (btn) {
+      btn.classList.toggle('btn-primary',   p === panel);
+      btn.classList.toggle('btn-secondary', p !== panel);
+    }
+  });
+}
+ 
+ 
+// ─────────────────────────────────────────────────────────────
+//  PATCH 7 — Editar/Excluir Despesas (porta da aplicação-modelo)
+//  Se estas funções NÃO existirem no seu admin.js atual, adicione-as:
+// ─────────────────────────────────────────────────────────────
+function abrirEditarDespesa(dadosEncoded) {
+  try {
+    const d = JSON.parse(decodeURIComponent(dadosEncoded));
+    document.getElementById('edit-despesa-id').value       = d.id;
+    document.getElementById('edit-despesa-valor').value    = d.valor;
+    document.getElementById('edit-despesa-desc').value     = d.descricao;
+    const tipoSel = document.getElementById('edit-despesa-tipo');
+    if (tipoSel) tipoSel.value = d.tipo_despesa || 'despesas_gerais';
+    const outroBox   = document.getElementById('edit-box-outro');
+    const outroInput = document.getElementById('edit-despesa-outro');
+    if (d.tipo_despesa === 'outro') {
+      if (outroBox)   outroBox.style.display = 'block';
+      if (outroInput) outroInput.value = d.descricao_outro || '';
+    } else {
+      if (outroBox)   outroBox.style.display = 'none';
+      if (outroInput) outroInput.value = '';
+    }
+    document.getElementById('modal-editar-despesa').style.display = 'flex';
+  } catch(e) {
+    alert('Erro ao abrir edição: ' + e.message);
+  }
+}
+ 
+async function salvarEdicaoDespesa() {
+  const id    = document.getElementById('edit-despesa-id').value;
+  const valor = parseFloat(document.getElementById('edit-despesa-valor').value);
+  const desc  = document.getElementById('edit-despesa-desc').value.trim();
+  const tipo  = document.getElementById('edit-despesa-tipo').value;
+ 
+  if (!id || !valor || valor <= 0) { alert('Preencha o valor corretamente.'); return; }
+ 
+  let descOutro = null;
+  if (tipo === 'outro') {
+    descOutro = document.getElementById('edit-despesa-outro')?.value?.trim() || '';
+    if (!descOutro) { alert('Descreva o tipo da despesa.'); return; }
+  }
+ 
+  const { error } = await supa.from('movimentacoes_caixa')
+    .update({ valor, descricao: desc, tipo_despesa: tipo, descricao_outro: descOutro })
+    .eq('id', id);
+ 
+  if (error) { alert('Erro ao salvar: ' + error.message); return; }
+  fecharModal('modal-editar-despesa');
+  calcularFinanceiro();
+}
+ 
+async function excluirDespesa(id) {
+  if (!confirm('Excluir esta despesa? Esta ação não pode ser desfeita.')) return;
+  const { error } = await supa.from('movimentacoes_caixa').delete().eq('id', id);
+  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  calcularFinanceiro();
+}

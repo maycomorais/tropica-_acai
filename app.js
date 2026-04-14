@@ -271,6 +271,15 @@ let MENU = {
 document.addEventListener('DOMContentLoaded', async () => {
   const overlay = document.getElementById('loading-overlay');
 
+  // Filtro de telefone Genérico (LATAM)
+  const cliTelInput = document.getElementById('cli-tel');
+  if (cliTelInput) {
+    cliTelInput.addEventListener('input', (e) => {
+      // Remove letras e caracteres estranhos, mantendo números, espaços e traços
+      e.target.value = e.target.value.replace(/[^\d\s-]/g, '');
+    });
+  }
+
   try {
     // 1. Carrega dados salvos (Nome, Tel, Último Pedido)
     carregarDadosLocal();
@@ -592,6 +601,7 @@ async function renderMenu() {
       e_montavel: p.e_montavel,
       categoria_slug: cat || null,   // ← necessário para filtro de bebidas no motoboy
       subcategoria_slug: sub || null,
+      es_bebida: p.es_bebida || false,
     };
 
     if (sub) {
@@ -1342,6 +1352,7 @@ function adicionarDoModal() {
     obs:            document.getElementById('modal-obs').value,
     img:            prodAtual._variacaoImg || prodAtual.img,
     categoria_slug: prodAtual.categoria_slug || '',  // para filtro bebidas no motoboy
+    es_bebida:      prodAtual.es_bebida || false,
     ...(pizzaMeta ? { pizzaMeta } : {}),
   });
 
@@ -2117,6 +2128,7 @@ async function enviarZap() {
   const ddi = document.getElementById('cli-ddi').value;
   const tel = document.getElementById('cli-tel').value.trim();
   const pag = document.getElementById('forma-pag').value;
+  const nasc = document.getElementById('cli-nasc') ? document.getElementById('cli-nasc').value : null;
 
   // Resolve o nome final do método de pagamento (CartaoBR tem sub-tipos)
   const pagFinal = pag === 'CartaoBR'
@@ -2224,7 +2236,8 @@ async function enviarZap() {
         pr: i.preparo || '',
         m: i.montagem,
         o: i.obs,
-        categoria_slug: i.categoria_slug || i.cat || ''  // para filtro de bebidas no motoboy
+        categoria_slug: i.categoria_slug || i.cat || '',  // para filtro de bebidas no motoboy
+        es_bebida: i.es_bebida || false
       })),
       endereco_entrega: ref,
       geo_lat: localCliente ? localCliente.lat.toString() : null,
@@ -2266,6 +2279,36 @@ async function enviarZap() {
       numeroPedido = pedidoSalvo.id; // USA O ID DO BANCO
       console.log('✅ Pedido salvo com ID:', pedidoDbId);
 
+      // Cadastra ou atualiza o cliente automaticamente pelo frontend
+      if (typeof supa !== 'undefined' && nasc) {
+        try {
+          const telClean = telCompleto.replace(/\D/g, '');
+          let { data: clienteEx } = await supa.from('clientes')
+            .select('id')
+            .or(`telefone.eq.${telCompleto},telefone.eq.${telClean}`)
+            .maybeSingle();
+
+          if (!clienteEx) {
+            await supa.from('clientes').insert([{
+              nome: nome,
+              telefone: telCompleto,
+              data_nascimento: nasc,
+              saldo_cashback: 0,
+              total_gasto: totalGeral
+            }]);
+            console.log('✅ Novo cliente criado automaticamente com data de nascimento!');
+          } else {
+            // Atualiza apenas se a data de nascimento estiver vazia
+            await supa.from('clientes')
+              .update({ data_nascimento: nasc })
+              .eq('id', clienteEx.id)
+              .is('data_nascimento', null);
+          }
+        } catch (e) {
+          console.error('Erro ao salvar cliente automaticamente:', e);
+        }
+      }
+
       // Incrementa contador de usos do cupom com UPDATE atômico (evita race condition)
       if (cupomAplicado?.id) {
         await supa.rpc('incrementar_uso_cupom', { cupom_id: cupomAplicado.id })
@@ -2282,7 +2325,7 @@ async function enviarZap() {
 
   // Salva localmente para "Repetir Pedido"
   localStorage.setItem('app_last', JSON.stringify(carrinho));
-  localStorage.setItem('app_user', JSON.stringify({ nome, tel }));
+  localStorage.setItem('app_user', JSON.stringify({ nome, tel, nasc }));
 
   // 2. Usa o número real do pedido na mensagem
   const idDisplay = numeroPedido || 'TEMP';
@@ -2489,6 +2532,7 @@ function carregarDadosLocal() {
   if (user) {
     if (document.getElementById('cli-nome')) document.getElementById('cli-nome').value = user.nome;
     if (document.getElementById('cli-tel')) document.getElementById('cli-tel').value = user.tel;
+    if (document.getElementById('cli-nasc') && user.nasc) document.getElementById('cli-nasc').value = user.nasc;
   }
 
   const last = JSON.parse(localStorage.getItem('app_last'));
@@ -3113,7 +3157,8 @@ async function iniciarEdicaoCarrinho(pedidoId) {
             montagem: i.montagem || i.m || [],
             obs: i.obs || i.o || '',
             img: i.img || '',
-            categoria_slug: i.categoria_slug || ''
+            categoria_slug: i.categoria_slug || '',
+            es_bebida: i.es_bebida || false
         }));
         updateUI();
     }

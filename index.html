@@ -173,6 +173,7 @@ const _traducoes = {
         'checkout-title':    'Finalizar Pedido',
         'label-nome':        'Nombre Completo *',
         'label-zap':         'WhatsApp *',
+        'label-nasc':        'Fecha de Nacimiento (Opcional)',
         'label-end':         'Dirección de Entrega *',
         'label-ref':         'Punto de Referencia',
         'label-pag':         'Forma de Pago *',
@@ -228,6 +229,7 @@ const _traducoes = {
         'checkout-title':    'Finalizar Pedido',
         'label-nome':        'Nome Completo *',
         'label-zap':         'WhatsApp *',
+        'label-nasc':        'Data de Nascimento (Opcional)',
         'label-end':         'Endereço de Entrega *',
         'label-ref':         'Ponto de Referência',
         'label-pag':         'Forma de Pagamento *',
@@ -283,6 +285,7 @@ const _traducoes = {
         'checkout-title':    'Checkout',
         'label-nome':        'Full Name *',
         'label-zap':         'WhatsApp *',
+        'label-nasc':        'Date of Birth (Optional)',
         'label-end':         'Delivery Address *',
         'label-ref':         'Reference Point',
         'label-pag':         'Payment Method *',
@@ -338,6 +341,7 @@ const _traducoes = {
         'checkout-title':    'Bestellung abschließen',
         'label-nome':        'Vollständiger Name *',
         'label-zap':         'WhatsApp *',
+        'label-nasc':        'Geburtsdatum (Optional)',
         'label-end':         'Lieferadresse *',
         'label-ref':         'Referenzpunkt',
         'label-pag':         'Zahlungsmethode *',
@@ -697,6 +701,9 @@ window.addEventListener('DOMContentLoaded', () => {
                         <input type="tel" id="cli-tel" placeholder="99123-4567" class="input-field">
                         <span id="erro-tel" class="msg-erro-texto">El teléfono es obligatorio</span>
                     </div>
+
+                    <label style="font-size: 0.8rem; color: #666; margin-top: 10px; display: block;" data-lang-key="label-nasc">Fecha de Nacimiento (Opcional)</label>
+                    <input type="date" id="cli-nasc" class="input-field" style="margin-bottom: 10px;">
                 </div>
 
                 <div class="form-section" id="box-endereco">

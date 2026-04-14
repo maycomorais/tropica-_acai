@@ -1,4 +1,4 @@
-const CACHE_NAME = 'app-v3';
+const CACHE_NAME = 'app-v4';
 
 const BLOCKED_ORIGINS = [
   'instagram.', 'fbcdn.net', 'facebook.com',
@@ -15,6 +15,9 @@ const ASSETS_TO_CACHE = [
   '/style.css',
   '/supabaseClient.js',
   '/turnos.html',
+  '/ficha-tecnica.js',
+  '/estatisticas.js',
+  '/crm.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
 ];
 

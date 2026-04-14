@@ -62,6 +62,10 @@ body {
     background: var(--primary);
     color: white;
 }
+.menu-item.active i, .menu-item:hover i {
+    color: white !important;
+    opacity: 1 !important;
+}
 
 .menu-item i {
     width: 20px;
@@ -246,7 +250,7 @@ tr:hover { background: #f9f9f9; }
     right: 15px; 
     width: 36px;
     height: 36px;
-    border-radius: 50%;
+    border-radius: 8px;
     border: none;
     background: #f0f0f0;
     color: #666;
@@ -513,7 +517,7 @@ select.form-control, select.input-modern {
     color: white;
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 8px;
     text-align: center;
     line-height: 35px;
     font-size: 24px;
@@ -691,39 +695,45 @@ select.form-control, select.input-modern {
 /* Card — horizontal: image left, text right */
 .pdv-card {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: stretch;
-    border-radius: 5px;
+    border-radius: 12px;
     cursor: pointer;
     background: #fff;
-    border: 1px solid #ddd;
-    transition: border-color 0.1s, background 0.08s;
+    border: 1px solid #eaeaea;
+    transition: all 0.2s ease;
     overflow: hidden;
     user-select: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     min-height: 58px;
 }
-.pdv-card:hover { border-color: var(--primary); background: #f0fdf4; }
-.pdv-card:active { opacity: 0.85; }
+.pdv-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 8px 12px -2px rgba(0, 0, 0, 0.1); }
+.pdv-card:active { transform: translateY(0); opacity: 0.9; }
 
 .pdv-card-img {
-    width: 58px; min-width: 58px;
+    width: 100%; min-width: 100px;
+    aspect-ratio: 16 / 10;
+    border-radius: 12px 12px 0 0;
+    min-height: 80px;
     background-size: cover;
     background-position: center;
-    background-color: #efefef;
+    background-color: #f8f9fa;
     flex-shrink: 0;
+    border-bottom: 1px solid #eaeaea;
 }
 .pdv-card-img-none {
     display: flex; align-items: center; justify-content: center;
     color: #ccc; font-size: 1.2rem;
+    aspect-ratio: 16 / 10;
 }
 .pdv-card-body {
-    padding: 5px 7px;
+    padding: 8px 10px;
     display: flex; flex-direction: column;
-    justify-content: center; gap: 2px;
+    justify-content: center; gap: 4px;
     flex: 1; min-width: 0;
 }
-.pdv-card-name { font-size: 0.76rem; font-weight: 700; color: #222; line-height: 1.2; word-break: break-word; }
-.pdv-card-price { font-size: 0.76rem; font-weight: 800; color: var(--primary); }
+.pdv-card-name { font-size: 0.8rem; font-weight: 700; color: #2d3748; line-height: 1.2; word-break: break-word; }
+.pdv-card-price { font-size: 0.85rem; font-weight: 800; color: var(--primary); margin-top: auto; }
 .pdv-card-unit { font-size: 0.65em; font-weight: 500; color: #0891b2; }
 .pdv-card-kg-badge {
     display: inline-block; font-size: 0.6rem;
@@ -878,6 +888,7 @@ select.form-control, select.input-modern {
     }
     .pdv-tab-btn:last-child { border-right: none; }
     .pdv-tab-btn.active { background: var(--primary); color: #fff; }
+    .pdv-tab-btn.active i { color: #fff !important; opacity: 1 !important; }
     .pdv-tab-btn i { font-size: 1.1rem; }
 
     /* On mobile: single-column, tabs switch panels */
@@ -909,9 +920,8 @@ select.form-control, select.input-modern {
     .pdv-cat-chip { padding: 9px 14px; font-size: 0.74rem; }
 
     /* Mobile: product cards smaller */
-    .pdv-cat-row { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 4px; }
+    .pdv-cat-row { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
     .pdv-card { min-height: 52px; }
-    .pdv-card-img { width: 52px; min-width: 52px; }
 
     /* Mobile: right column full width */
     .pdv-col-dir {
@@ -931,7 +941,7 @@ select.form-control, select.input-modern {
 
 @media (max-width: 480px) {
     .pdv-cat-row { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-    .pdv-card-img { width: 46px; min-width: 46px; }
+    .pdv-card-img { width: 100%; }
     .pdv-dir-valor-total strong { font-size: 1.2rem; }
 }
 
@@ -1248,7 +1258,7 @@ select.form-control, select.input-modern {
     }
 
     /* Inputs ocupam 100% da largura */
-    input, select, button, .form-control {
+    input, select, button:not([style*="32px"]):not([id$="close"]):not(.close-btn-modern), .form-control {
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
@@ -1320,7 +1330,8 @@ select.form-control, select.input-modern {
         border-bottom: 3px solid transparent;
         margin-bottom: -2px;
     }
-    .pdv-tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .pdv-tab-btn.active { background: var(--primary); color: #fff; border-bottom-color: var(--primary); }
+    .pdv-tab-btn.active i { color: #fff !important; opacity: 1 !important; }
     
     .pdv-carrinho, .pdv-produtos, .pdv-monitor {
         display: none !important;
@@ -3610,7 +3621,7 @@ hr.modal-divisor {
   width: 18px; height: 18px;
   left: 3px; top: 3px;
   background: #fff;
-  border-radius: 50%;
+  border-radius: 8px;
   transition: .25s;
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
 }
@@ -3879,6 +3890,10 @@ hr.modal-divisor {
 /* Badge do menu mesas: não esconder */
 .sidebar.collapsed .pdv-badge-mesas { display: inline !important; }
 
+body.sidebar-collapsed .main-content {
+  margin-left: 60px !important;
+}
+
 /* ══════════════════════════════════════════════════════
    INVENTÁRIO — card layout
    ══════════════════════════════════════════════════════ */
@@ -3927,3 +3942,123 @@ hr.modal-divisor {
 .topbar-btn.btn-baixar-mesas:hover { background: #2980b9; color: #fff; }
 .topbar-btn.btn-baixar-nd { background: #f3e5f5; color: #7b1fa2; }
 .topbar-btn.btn-baixar-nd:hover { background: #7b1fa2; color: #fff; }
+
+.crm-aba-btn {
+  padding: 7px 16px;
+  border: 1.5px solid #ddd;
+  border-radius: 20px;
+  background: #f8f9fa;
+  color: #555;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.crm-aba-btn.active {
+  background: #1a7a2e;
+  color: #fff;
+  border-color: #1a7a2e;
+}
+.ft-empty {
+  text-align: center;
+  color: #aaa;
+  padding: 20px;
+}
+/* ══════════════════════════════════════════════
+   MÓDULOS NOVOS — Estatísticas · Ficha · CRM
+   ══════════════════════════════════════════════ */
+
+/* ── Menus novos no sidebar ── */
+#menu-estatisticas,
+#menu-ficha-tecnica,
+#menu-crm {
+  display: none; /* mostrado via JS após auth */
+}
+
+/* ── KPI cards dos novos módulos ── */
+.est-kpi-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* ── Ficha técnica: sub-nav ── */
+#ft-nav-insumos,
+#ft-nav-fichas {
+  transition: all 0.15s;
+}
+
+/* ── Tabela de despesas ── */
+#lista-despesas-caixa tr:hover {
+  background: #fef9f9;
+}
+#lista-despesas-caixa td {
+  vertical-align: middle;
+}
+
+/* ── CRM aba btns ── */
+.crm-aba-btn {
+  padding: 7px 16px;
+  border: 1.5px solid #ddd;
+  border-radius: 20px;
+  background: #f8f9fa;
+  color: #555;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.crm-aba-btn.active {
+  background: #1a7a2e;
+  color: #fff;
+  border-color: #1a7a2e;
+}
+.crm-aba-btn:hover:not(.active) {
+  background: #e8f5e9;
+  border-color: #1a7a2e;
+  color: #1a7a2e;
+}
+
+/* ── Ficha empty state ── */
+.ft-empty {
+  text-align: center;
+  color: #aaa;
+  padding: 20px;
+}
+
+/* ── Cashback box no PDV ── */
+#pdv-cashback-box {
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Aniversariante highlight ── */
+.aniversario-hoje {
+  background: #fff8e1 !important;
+  border-left: 3px solid #ff9800;
+}
+
+/* ── Loading spinner estatísticas ── */
+#est-loading {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  gap: 12px;
+  color: #666;
+}
+
+/* ── Responsivo novas abas ── */
+@media (max-width: 600px) {
+  .est-kpi-wrap {
+    grid-template-columns: 1fr 1fr;
+  }
+  #ft-panel-insumos table,
+  #crm-lista-clientes {
+    font-size: 0.78rem;
+  }
+}
