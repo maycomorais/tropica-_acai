@@ -94,7 +94,7 @@ function _estRender() {
   _est_pedidos.forEach(pedido => {
     const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
     itens.forEach(item => {
-      const nome     = item.nome || item.n || 'Desconhecido';
+      const nome     = item.nome || item.n || t('est.desconocido', 'Desconhecido');
       const isKg     = item._isKg || item.peso_gramas > 0;
       const qtd      = isKg ? 0 : (item.qtd || item.q || 1);
       const pesoG    = isKg ? (item.peso_gramas || 0) : 0;
@@ -167,7 +167,7 @@ function _estRenderTabela(produtos) {
   if (!tbody) return;
 
   if (!produtos.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">Nenhum dado no período</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">' + t('est.ningun_dado', 'Nenhum dado no período') + '</td></tr>';
     return;
   }
 
@@ -214,7 +214,7 @@ function _estRenderGrafico(produtos) {
     data: {
       labels: top.map(p => p.nome),
       datasets: [{
-        label: 'Faturamento (Gs)',
+        label: t('est.facturacion_grafico', 'Faturamento (Gs)'),
         data:  top.map(p => Math.round(p.faturamento)),
         backgroundColor: '#1a7a2e',
         borderRadius: 6,
@@ -253,7 +253,7 @@ async function _estPopularCategorias() {
   const { data } = await supa.from('categorias').select('slug, nome').order('nome');
   const sel = document.getElementById('est-filtro-cat');
   if (!sel || !data) return;
-  sel.innerHTML = '<option value="">Todas as categorias</option>' +
+  sel.innerHTML = '<option value="">' + t('est.todas_opcao', 'Todas') + '</option>' +
     data.map(c => `<option value="${c.slug}">${c.nome}</option>`).join('');
 }
 

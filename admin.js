@@ -1,7 +1,132 @@
 // Fallback para t() caso admin-i18n.js não esteja carregado ainda
-if (typeof t === 'undefined') {
-  window.t = function(key, fallback) { return fallback || key; };
+if (typeof t === "undefined") {
+  window.t = function (key, fallback) {
+    return fallback || key;
+  };
 }
+
+// Intercepta e traduz alert/confirm/prompt caso idioma seja 'es'
+(function() {
+  const origAlert = window.alert;
+  const origConfirm = window.confirm;
+  const origPrompt = window.prompt;
+
+  const translationDict = {
+    // Alerts
+    "Horário estendido em +": "¡Horario extendido en +",
+    "minutos hoje!": "minutos hoy!",
+    "Extensão removida.": "Extensión removida.",
+    "Erro ao salvar nova ordem. Tente novamente.": "Error al guardar el nuevo orden. Inténtelo de nuevo.",
+    "Preencha o slug e o nome!": "¡Complete el slug y el nombre!",
+    "Erro ao salvar:": "Error al guardar:",
+    "Erro ao deletar:": "Error al eliminar:",
+    "Erro inesperado:": "Error inesperado:",
+    "Produto reativado!": "¡Producto reactivado!",
+    "Produto pausado!": "¡Producto pausado!",
+    "Categoria deletada com sucesso!": "¡Categoría eliminada con éxito!",
+    "Motoboy deletado com sucesso!": "¡Repartidor eliminado con éxito!",
+    "Nome do motoboy é obrigatório!": "¡El nombre del repartidor es obligatorio!",
+    "Máximo de 2 turnos por dia.": "Máximo de 2 turnos por día.",
+    "Preencha os horários de abertura e fechamento.": "Complete los horarios de apertura y cierre.",
+    "Informe o ID do produto para o banner.": "Ingrese el ID del producto para el banner.",
+    "Falha no upload do banner:": "Fallo al subir el banner:",
+    "O banner não foi salvo.": "El banner no fue guardado.",
+    "Selecione uma foto ou informe a URL do banner.": "Seleccione una foto o ingrese la URL del banner.",
+    "Banner ": "Banner ",
+    "ativado!": "¡activado!",
+    "Maquininhas salvas!": "¡Terminales de tarjeta guardadas!",
+    "Falha no upload do ícone:": "Fallo al subir el ícono:",
+    "A personalização não foi salva.": "La personalización no fue guardada.",
+    "Erro ao enviar imagem:": "Error al enviar la imagen:",
+    "Erro ao sair:": "Error al salir:",
+    "Todas as variações estão pausadas.": "Todas las variaciones están pausadas.",
+    "sabores": "sabores",
+    "itens": "ítems",
+    "Escolha pelo menos 1 sabor.": "Elija al menos 1 sabor.",
+    "Adicione ao menos 1 novo item antes de lançar.": "Agregue al menos 1 nuevo ítem antes de lanzar.",
+    "Adicione ao menos 1 forma de pagamento!": "¡Agregue al menos 1 forma de pago!",
+    "Erro ao atualizar mesa:": "Error al actualizar mesa:",
+    "item(s) enviado(s) para a cozinha!": "¡ítem(s) enviado(s) a la cocina!",
+    "Erro ao buscar comanda.": "Error al buscar comanda.",
+    "Erro ao baixar item:": "Error al cerrar ítem:",
+    "Cargo alterado para ": "¡Cargo modificado a ",
+    "Usuário excluído com sucesso!": "¡Usuario eliminado con éxito!",
+    "Preencha email, nome e senha (mín. 6 caracteres).": "Complete correo, nombre y contraseña (mín. 6 caracteres).",
+    "Auth criado mas erro no perfil:": "Auth creado pero con error en el perfil:",
+    "Usuário excluído.": "Usuario eliminado.",
+    "Email e senha (mín. 6 caracteres) são obrigatórios": "Correo y contraseña (mín. 6 caracteres) son obligatorios",
+    "O nome de exibição é obrigatório": "El nombre de exhibición es obligatorio",
+    "Apenas o Admin Master pode criar usuários com cargo Dono.": "Solo el Admin Master puede crear usuarios con el cargo de Dueño.",
+    "Erro ao criar usuário:": "Error al crear usuario:",
+    "Usuário criado. Aguardando confirmação de email para ativar.": "Usuario creado. Esperando confirmación de correo para activar.",
+    "Digite um código para o cupom": "Ingrese un código para el cupón",
+    "Cupom salvo com sucesso!": "¡Cupón guardado con éxito!",
+    "Pedido não encontrado.": "Pedido no encontrado.",
+    "Este pedido não tem número de telefone registrado.": "Este pedido no tiene número de teléfono registrado.",
+    "Entrega confirmada com sucesso!": "¡Entrega confirmada con éxito!",
+    "Erro ao confirmar entrega": "Error al confirmar entrega",
+    "Nenhum pedido de Mesa/Retirada/Local em aberto.": "Ningún pedido de Mesa/Retiro/Local abierto.",
+    "pedido(s) baixado(s)!": "¡pedido(s) cobrado(s)/cerrado(s)!",
+    "Nenhum delivery para confirmar entrega.": "Ningún delivery para confirmar entrega.",
+    "delivery(s) confirmado(s)!": "¡delivery(s) confirmado(s)!",
+    "Erro ao carregar gráfico": "Error al cargar gráfico",
+    "Informe o nome do item.": "Ingrese el nombre del ítem.",
+    "Quantidade inválida.": "Cantidad inválida.",
+    "Configuração inicial salva com sucesso!": "¡Configuración inicial guardada con éxito!",
+    "Preencha o valor corretamente.": "Complete el valor correctamente.",
+    "Descreva o tipo da despesa.": "Describa el tipo de gasto.",
+    "Você precisa aceitar o contrato de serviços para continuar.": "Debe aceptar el contrato de servicios para continuar.",
+    "Preencha seu nome completo e RUC/C.I. para assinar.": "Complete su nombre completo y RUC/C.I. para firmar.",
+    "Erro ao registrar assinatura:": "Error al registrar la firma:",
+
+    // Confirms
+    "Remover a extensão de horário de hoje?": "¿Remover la extensión de horario de hoy?",
+    "Deseja pausar este produto?": "¿Desea pausar este producto?",
+    "Deseja reactivar este produto?": "¿Desea reactivar este producto?",
+    "Deseja reativar este produto?": "¿Desea reactivar este producto?",
+    "Remover esta etapa?": "¿Remover esta etapa?",
+    "Deletar este cupom?": "¿Eliminar este cupón?",
+    "Confirmar entrega e pagamento desta mesa?": "¿Confirmar entrega y pago de esta mesa?",
+    "Excluir este item?": "¿Eliminar este ítem?",
+    "Excluir esta despesa? Esta ação não pode ser desfeita.": "¿Eliminar este gasto? Esta acción no se puede deshacer.",
+    "Alterar cargo para": "¿Alterar cargo a",
+    "Confirmar que este pedido foi entregue ao cliente?": "¿Confirmar que este pedido fue entregado al cliente?",
+    "Confirmar entrega de ": "¿Confirmar entrega de ",
+    "Baixar ": "¿Cobrar/cerrar "
+  };
+
+  function translateText(str) {
+    if (!str || typeof str !== 'string') return str;
+    const lang = localStorage.getItem('admin_lang') || 'es';
+    if (lang !== 'es') return str;
+
+    // Check exact match
+    let trimmed = str.trim();
+    if (translationDict[trimmed]) {
+      return str.replace(trimmed, translationDict[trimmed]);
+    }
+
+    // Partial search / replacement for dynamic strings
+    let translated = str;
+    for (const [key, val] of Object.entries(translationDict)) {
+      if (translated.includes(key)) {
+        translated = translated.replaceAll(key, val);
+      }
+    }
+    return translated;
+  }
+
+  window.alert = function(msg) {
+    return origAlert(translateText(msg));
+  };
+  window.confirm = function(msg) {
+    return origConfirm(translateText(msg));
+  };
+  window.prompt = function(msg, defaultVal) {
+    return origPrompt(translateText(msg), defaultVal);
+  };
+})();
+
 
 // =========================================
 // 1. CONSTANTES E INICIALIZAÇÃO
@@ -13,7 +138,7 @@ let COORD_LOJA = { lat: 0, lng: 0 }; // coord_lat / coord_lng
 let CHAVE_PIX_CFG = ""; // chave_pix
 let NOME_PIX_CFG = ""; // nome_pix
 let DADOS_ALIAS_CFG = ""; // dados_alias
-let QR_PY_URL      = ""; // URL do QR Paraguay
+let QR_PY_URL = ""; // URL do QR Paraguay
 let NOME_ALIAS_CFG = ""; // nome_alias
 let WHATSAPP_LOJA_CFG = ""; // whatsapp_loja (dígitos)
 let NOME_RESTAURANTE = ""; // nome_restaurante
@@ -25,12 +150,36 @@ let _perfilId = null; // UUID do usuário logado
 let _perfilNome = null; // nome_display do usuário logado
 let audioHabilitado = false; // Controle de permissão do navegador
 
+const ADMIN_APP_VERSION = "2026-04-17-v1";
+const ADMIN_APP_STORAGE_KEYS = [
+  "app_lastTab",
+  "app_lastSubTab",
+  "app_pdv_aba",
+  "app_sidebar_collapsed",
+];
+
+function resetAdminStorageOnVersionChange() {
+  const storedVersion = localStorage.getItem("admin_app_version");
+  if (storedVersion !== ADMIN_APP_VERSION) {
+    ADMIN_APP_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+    localStorage.setItem("admin_app_version", ADMIN_APP_VERSION);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  resetAdminStorageOnVersionChange();
   // Recupera a última aba — mas só restaura depois do auth carregar
   // Para não disparar alert('Acesso restrito') antes de perfilUsuario estar definido,
   // começa sempre no dashboard e restaura a aba real após o login
   let lastTab = localStorage.getItem("app_lastTab");
-  const _restrictedTabs = ["inventario", "financeiro", "adminmaster", "estatisticas", "ficha-tecnica", "crm"];
+  const _restrictedTabs = [
+    "inventario",
+    "financeiro",
+    "adminmaster",
+    "estatisticas",
+    "ficha-tecnica",
+    "crm",
+  ];
   if (
     !lastTab ||
     !document.getElementById(lastTab) ||
@@ -76,6 +225,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
     if (!session) return; // checkUser já redirecionou
+
+    // Verifica se o usuário aceitou o contrato de serviços
+    await verificarContratoAdmin(session);
 
     // Remove overlay IMEDIATAMENTE após sessão confirmada
     const overlay = document.getElementById("auth-overlay");
@@ -125,6 +277,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         .forEach((m) => (m.style.display = "flex"));
       const menuAM = document.getElementById("menu-adminmaster");
       if (menuAM) menuAM.style.display = "flex";
+      const menuFil = document.getElementById("menu-filiais");
+      if (menuFil) menuFil.style.display = "flex";
       // Exibe opção Dono no select de equipe
       const optDono = document.getElementById("opt-cargo-dono");
       if (optDono) optDono.style.display = "";
@@ -148,7 +302,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       perfilUsuario === "gerente" ||
       perfilUsuario === "adminMaster"
     ) {
-      ["menu-estatisticas", "menu-ficha-tecnica", "menu-crm"].forEach((id) => {
+      [
+        "menu-estatisticas",
+        "menu-ficha-tecnica",
+        "menu-crm",
+        "menu-mensalistas",
+      ].forEach((id) => {
         const m = document.getElementById(id);
         if (m) m.style.display = "flex";
       });
@@ -156,6 +315,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     carregarDashboard();
     carregarMotoboysSelect();
+
+    // ── Controle de Assinatura (barra de aviso / bloqueio) ──
+    if (typeof SubscriptionUI !== "undefined") {
+      SubscriptionUI.inicializar({
+        supabaseUrl:  typeof _SUPABASE_URL !== "undefined" ? _SUPABASE_URL : "",
+        supabaseKey:  typeof _SUPABASE_KEY !== "undefined" ? _SUPABASE_KEY : "",
+        contatoFone:  "595976771714",
+        contatoNome:  "SuporteLinkPY",
+      });
+    }
+
+    // Exibe menu Assinatura somente para adminMaster
+    const menuAssin = document.getElementById("menu-assinatura");
+    if (menuAssin) menuAssin.style.display = perfilUsuario === "adminMaster" ? "flex" : "none";
   }
 
   let _lastWidth = window.innerWidth;
@@ -201,10 +374,54 @@ document.addEventListener("DOMContentLoaded", async () => {
 // selecionarTipo do Gemini removido — o sistema usa selecionarTipoBuilder() abaixo
 
 // =========================================
+// CLOUDINARY — UPLOAD UTILITÁRIO
+// =========================================
+const CLOUDINARY_CLOUD_NAME = "dsxwnbj0o";
+const CLOUDINARY_UPLOAD_PRESET = "ml_default";
+const CLOUDINARY_ENDPOINT = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+
+/**
+ * Faz upload de um arquivo de imagem diretamente para o Cloudinary
+ * usando um Unsigned Upload Preset público.
+ *
+ * @param {File} file - O objeto File selecionado pelo usuário.
+ * @returns {Promise<string>} - A secure_url final da imagem no Cloudinary.
+ * @throws {Error} - Lança um erro se o upload falhar, impedindo o salvamento no Supabase.
+ */
+async function uploadImageToCloudinary(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const response = await fetch(CLOUDINARY_ENDPOINT, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errMsg = `HTTP ${response.status}`;
+    try {
+      const errData = await response.json();
+      errMsg = errData?.error?.message || errMsg;
+    } catch (_) {}
+    throw new Error(`Cloudinary upload falhou: ${errMsg}`);
+  }
+
+  const data = await response.json();
+
+  if (!data.secure_url) {
+    throw new Error("Cloudinary não retornou uma URL válida.");
+  }
+
+  return data.secure_url;
+}
+
+// =========================================
 // 2. CONTROLE DE ABAS
 // =========================================
 function showTab(tabId, event) {
   console.log("Tentando abrir aba:", tabId);
+  console.log("Event:", event);
 
   // 1. O 'de-para' para garantir que IDs como 'categorias' ou 'motoboys'
   // abram a aba pai correta no seu novo HTML
@@ -215,22 +432,28 @@ function showTab(tabId, event) {
 
   let target = document.getElementById(realTabId);
   if (!target) {
+    console.log("Target not found for", realTabId);
     target = document.getElementById("pedidos");
     realTabId = "pedidos";
+  } else {
+    console.log("Target found:", target);
   }
 
   localStorage.setItem("app_lastTab", realTabId);
 
   // 2. Reset visual
-  document
-    .querySelectorAll(".tab-content")
-    .forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach((t) => {
+    t.classList.remove("active");
+    t.style.display = "none";
+  });
   document
     .querySelectorAll(".menu-item")
     .forEach((m) => m.classList.remove("active"));
 
   // 3. Ativa a aba pai
   target.classList.add("active");
+  target.style.display = "block";
+  console.log("Added active class to", realTabId);
 
   // 4. Ativa o botão no menu lateral
   if (event && event.currentTarget) {
@@ -248,11 +471,13 @@ function showTab(tabId, event) {
   // 5. PULO DO GATO: Se a aba for produtos, categorias ou motoboys,
   // precisamos ativar a SUB-ABA correspondente
   if (realTabId === "produtos") {
+    console.log("Calling showSubTab for produtos");
     if (tabId === "categorias") showSubTab("lista-categorias-wrapper");
     else if (tabId === "motoboys") showSubTab("lista-motos-wrapper");
     else {
-      const savedSub = localStorage.getItem("app_lastSubTab");
-      showSubTab(savedSub || "lista-produtos-wrapper"); // Restaura a última sub-aba ou Padrão
+      // Clique direto em "Produtos": sempre abre a lista de produtos,
+      // ignorando qualquer sub-aba salva de navegação anterior (ex: Categorias).
+      showSubTab("lista-produtos-wrapper");
     }
   }
 
@@ -270,15 +495,22 @@ function showTab(tabId, event) {
     amCarregarUsuarios();
     renderPainelFeatures();
   }
-  if (realTabId === 'estatisticas') {
+  if (realTabId === "assinatura") carregarPainelAssinatura();
+  if (realTabId === "estatisticas") {
     initEstatisticas();
     _estPopularCategorias();
   }
-  if (realTabId === 'ficha-tecnica') {
+  if (realTabId === "ficha-tecnica") {
     initFichaTecnica();
   }
-  if (realTabId === 'crm') {
+  if (realTabId === "crm") {
     initCRM();
+  }
+  if (realTabId === "filiais") {
+    initFiliais();
+  }
+  if (realTabId === "mensalistas") {
+    initMensalistas();
   }
   if (realTabId === "configuracoes") {
     carregarConfiguracoes();
@@ -301,12 +533,24 @@ function showTab(tabId, event) {
   }
 }
 
+const SUBTABS_VALIDAS = [
+  "lista-produtos-wrapper",
+  "lista-categorias-wrapper",
+  "lista-motos-wrapper",
+];
+
 function showSubTab(subId) {
   console.log("Alternando para sub-aba:", subId);
+
+  if (!SUBTABS_VALIDAS.includes(subId)) {
+    subId = "lista-produtos-wrapper";
+  }
+
   localStorage.setItem("app_lastSubTab", subId);
 
   // 1. Seleciona todas as sub-abas e esconde TODAS
   const subtabs = document.querySelectorAll(".subtab-content");
+  console.log("Hiding all subtabs, found:", subtabs.length);
   subtabs.forEach((tab) => {
     tab.style.display = "none";
   });
@@ -314,7 +558,10 @@ function showSubTab(subId) {
   // 2. Mostra apenas a que foi clicada
   const target = document.getElementById(subId);
   if (target) {
+    console.log("Showing subtab:", subId);
     target.style.display = "block";
+  } else {
+    console.log("Subtab not found:", subId);
   }
 
   // 3. Carrega os dados específicos
@@ -355,17 +602,20 @@ async function _carregarFeaturesGlobais() {
 // ── Filtra formas de pagamento no PDV conforme features_ativas.pagamentos ──────
 function _aplicarFormasPagamentoPDV(features) {
   const pags = features?.pagamentos;
-  const select = document.getElementById('balcao-pag');
+  const select = document.getElementById("balcao-pag");
   if (!select) return;
-  Array.from(select.options).forEach(opt => {
+  Array.from(select.options).forEach((opt) => {
     if (!opt.value) return;
-    if (!pags) { opt.style.display = ''; return; }
+    if (!pags) {
+      opt.style.display = "";
+      return;
+    }
     if (pags[opt.value] === false) {
-      opt.style.display = 'none';
+      opt.style.display = "none";
       // Se a opção oculta estava selecionada, reset para Efetivo
-      if (select.value === opt.value) select.value = 'Efetivo';
+      if (select.value === opt.value) select.value = "Efetivo";
     } else {
-      opt.style.display = '';
+      opt.style.display = "";
     }
   });
 }
@@ -387,10 +637,11 @@ function _aplicarVisibilidadeAbas() {
     "menu-equipe": "equipe",
     "menu-configuracoes": "configuracoes",
     "menu-dashboard": "dashboard",
-    "menu-estatisticas":  "estatisticas",
+    "menu-estatisticas": "estatisticas",
     "menu-ficha-tecnica": "ficha-tecnica",
-    "menu-crm":           "crm",
-    "menu-turnos":        "turnos"
+    "menu-crm": "crm",
+    "menu-turnos": "turnos",
+    "menu-produtos": "produtos",
   };
   // Só aplica restrições para cargos abaixo de adminMaster
   if (perfilUsuario === "adminMaster") return;
@@ -402,7 +653,7 @@ function _aplicarVisibilidadeAbas() {
 
 // Salva features (adminMaster only)
 async function salvarFeatures() {
-  if (perfilUsuario !== "adminMaster") return alert(t('alert.acesso_negado'));
+  if (perfilUsuario !== "adminMaster") return alert(t("alert.acesso_negado"));
   const tabs = {},
     tipos = {},
     funcs = {};
@@ -419,14 +670,19 @@ async function salvarFeatures() {
   document.querySelectorAll("[data-feat-pag]").forEach((el) => {
     pagamentos[el.dataset.featPag] = el.checked;
   });
-  const features = { tabs, tipos_produto: tipos, funcionalidades: funcs, pagamentos };
+  const features = {
+    tabs,
+    tipos_produto: tipos,
+    funcionalidades: funcs,
+    pagamentos,
+  };
   const { error } = await supa
     .from("configuracoes")
     .update({ features_ativas: features })
     .gt("id", 0);
   if (error) return alert("Erro: " + error.message);
   FEATURES_ATIVAS = features;
-  alert(t('alert.features_salvas'));
+  alert(t("alert.features_salvas"));
 }
 
 // Renderiza painel de features (adminMaster)
@@ -508,18 +764,21 @@ async function renderPainelFeatures() {
 
   const pags = f.pagamentos || {};
   const chkPags = [
-    ["Efetivo",       "💵 Efectivo/Dinheiro"],
-    ["Cartao",        "💳 Tarjeta PY"],
-    ["CartaoBR",      "💳🇧🇷 Cartão Brasileiro (R$)"],
-    ["Pix",           "🟢 Pix (BR)"],
+    ["Efetivo", "💵 Efectivo/Dinheiro"],
+    ["Cartao", "💳 Tarjeta PY"],
+    ["CartaoBR", "💳🇧🇷 Cartão Brasileiro (R$)"],
+    ["Pix", "🟢 Pix (BR)"],
     ["Transferencia", "🏦 Alias/Transferência PY"],
-    ["QrPy",          "📱 QR Paraguay"],
-    ["Multipagamento","🔀 Dividir Pagamento"],
-  ].map(([k,l]) =>
-    `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
-      <input type="checkbox" data-feat-pag="${k}" ${pags[k]!==false?"checked":""} style="width:18px;height:18px">
-      <span>${l}</span></label>`
-  ).join("");
+    ["QrPy", "📱 QR Paraguay"],
+    ["Multipagamento", "🔀 Dividir Pagamento"],
+  ]
+    .map(
+      ([k, l]) =>
+        `<label style="display:flex;align-items:center;gap:8px;padding:6px;background:#f9f9f9;border-radius:6px">
+      <input type="checkbox" data-feat-pag="${k}" ${pags[k] !== false ? "checked" : ""} style="width:18px;height:18px">
+      <span>${l}</span></label>`,
+    )
+    .join("");
 
   const html = `
     <div style="display:grid;gap:20px">
@@ -644,7 +903,9 @@ async function carregarPedidos(silencioso = false) {
   const { data: pedidos } = await supa
     .from("pedidos")
     .select("*")
-    .or("status.eq.pendente,status.eq.em_preparo,status.eq.pronto_entrega,status.eq.saiu_entrega")
+    .or(
+      "status.eq.pendente,status.eq.em_preparo,status.eq.pronto_entrega,status.eq.saiu_entrega",
+    )
     .order("id", { ascending: false });
 
   const tbody = document.getElementById("lista-pedidos");
@@ -680,10 +941,9 @@ async function carregarPedidos(silencioso = false) {
 
   // Badge de cancelamento pendente para o dono / adminMaster
   const _podeCancel = ["dono", "adminMaster"].includes(perfilUsuario);
-  const badgeCancelPendente =
-    _podeCancel
-      ? `<span style="background:#e74c3c;color:white;font-size:0.7rem;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">CANC. PENDENTE</span>`
-      : "";
+  const badgeCancelPendente = _podeCancel
+    ? `<span style="background:#e74c3c;color:white;font-size:0.7rem;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">CANC. PENDENTE</span>`
+    : "";
 
   if (pedidos && pedidos.length > 0) {
     pedidos.forEach((p) => {
@@ -721,23 +981,21 @@ async function carregarPedidos(silencioso = false) {
       // EM PREPARO (na cozinha — visível para acompanhamento)
       if (p.status === "em_preparo") {
         linhaCor = "background-color: #fff8e6;";
-        const _btnCancelPreparo =
-          _podeCancel
-            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
-            : !temSolicitacaoCancelamento
-              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
-              : `<span style="font-size:0.72rem;color:#e67e22;font-weight:600">⏳ Cancel. Pendente</span>`;
+        const _btnCancelPreparo = _podeCancel
+          ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
+          : !temSolicitacaoCancelamento
+            ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
+            : `<span style="font-size:0.72rem;color:#e67e22;font-weight:600">⏳ Cancel. Pendente</span>`;
         acoes = `${btnPrint} <button class="btn btn-sm" style="background:#e67e22;color:#fff" onclick="mudarStatus(${p.id}, 'pronto_entrega')"><i class="fas fa-check"></i> Pronto</button> ${_btnCancelPreparo}`;
       }
 
       if (p.status === "saiu_entrega") {
         linhaCor = "background-color: #ddf0ff;";
-        const _btnCancelSaiu =
-          _podeCancel
-            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
-            : !temSolicitacaoCancelamento
-              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})" title="Solicitar cancelamento"><i class="fas fa-ban"></i> Cancelar</button>`
-              : `<span style="font-size:0.72rem;color:#e67e22;font-weight:600">⏳ Cancel. Pendente</span>`;
+        const _btnCancelSaiu = _podeCancel
+          ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
+          : !temSolicitacaoCancelamento
+            ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})" title="Solicitar cancelamento"><i class="fas fa-ban"></i> Cancelar</button>`
+            : `<span style="font-size:0.72rem;color:#e67e22;font-weight:600">⏳ Cancel. Pendente</span>`;
         acoes = `${btnPrint} <button class="btn btn-success btn-sm" onclick="confirmarEntregaFuncionario(${p.id})"><i class="fas fa-check-circle"></i> Confirmar</button> ${_btnCancelSaiu}`;
       }
       // PRONTO
@@ -745,12 +1003,11 @@ async function carregarPedidos(silencioso = false) {
         linhaCor = "background-color: #d4edda;";
 
         // Botão cancelamento para pronto_entrega
-        const btnCancelar =
-          _podeCancel
-            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
-            : !temSolicitacaoCancelamento
-              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
-              : "";
+        const btnCancelar = _podeCancel
+          ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')" title="Cancelar"><i class="fas fa-times"></i></button>`
+          : !temSolicitacaoCancelamento
+            ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
+            : "";
 
         if (p.tipo_entrega === "delivery") {
           const jsonSeguro = encodeURIComponent(JSON.stringify(p));
@@ -803,12 +1060,11 @@ async function carregarPedidos(silencioso = false) {
         let cardAcoes = "";
         const cardBgSaiu = p.status === "saiu_entrega" ? "#ddf0ff" : "";
         if (p.status === "saiu_entrega") {
-          const _btnCancelSaiuCard =
-            _podeCancel
-              ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
-              : !temSolicitacaoCancelamento
-                ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
-                : `<span style="font-size:0.7rem;color:#e67e22;font-weight:600">⏳ Pendente</span>`;
+          const _btnCancelSaiuCard = _podeCancel
+            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
+            : !temSolicitacaoCancelamento
+              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
+              : `<span style="font-size:0.7rem;color:#e67e22;font-weight:600">⏳ Pendente</span>`;
           cardAcoes = `
                         <button class="btn btn-success btn-sm" onclick="confirmarEntregaFuncionario(${p.id})"><i class="fas fa-check-circle"></i> Confirmar</button>
                         <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i> Imprimir</button>
@@ -823,12 +1079,11 @@ async function carregarPedidos(silencioso = false) {
                             : `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
                         }`;
         } else if (p.status === "em_preparo") {
-          const _btnCancelPreparoCard =
-            _podeCancel
-              ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
-              : !temSolicitacaoCancelamento
-                ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
-                : `<span style="font-size:0.7rem;color:#e67e22;font-weight:600">⏳ Pendente</span>`;
+          const _btnCancelPreparoCard = _podeCancel
+            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
+            : !temSolicitacaoCancelamento
+              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
+              : `<span style="font-size:0.7rem;color:#e67e22;font-weight:600">⏳ Pendente</span>`;
           cardAcoes = `
                         <button class="btn btn-sm" style="background:#e67e22;color:#fff" onclick="mudarStatus(${p.id}, 'pronto_entrega')"><i class="fas fa-check"></i> Pronto</button>
                         <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i> Imprimir</button>
@@ -837,23 +1092,21 @@ async function carregarPedidos(silencioso = false) {
           p.status === "pronto_entrega" &&
           p.tipo_entrega === "balcao"
         ) {
-          const _btnCancelBalcao =
-            _podeCancel
-              ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
-              : !temSolicitacaoCancelamento
-                ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
-                : "";
+          const _btnCancelBalcao = _podeCancel
+            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
+            : !temSolicitacaoCancelamento
+              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
+              : "";
           cardAcoes = `<button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})"><i class="fas fa-check"></i> Entregar</button>
                         <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})"><i class="fab fa-whatsapp"></i></button>
                         <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i></button>
                         ${_btnCancelBalcao}`;
         } else if (p.status === "pronto_entrega") {
-          const _btnCancelPronto =
-            _podeCancel
-              ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
-              : !temSolicitacaoCancelamento
-                ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
-                : "";
+          const _btnCancelPronto = _podeCancel
+            ? `<button class="btn btn-danger btn-sm" onclick="mudarStatus(${p.id}, 'cancelado')"><i class="fas fa-times"></i></button>`
+            : !temSolicitacaoCancelamento
+              ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i></button>`
+              : "";
           cardAcoes = `<label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:#155724;font-weight:600;">
                         <input type="checkbox" class="check-pedido" value="${jsonSeguro}" style="width:18px;height:18px;"> Incluir na Rota
                     </label>
@@ -903,9 +1156,7 @@ async function carregarPedidos(silencioso = false) {
 
 // === CANCELAMENTO WORKFLOW ===
 async function solicitarCancelamento(pedidoId) {
-  const motivo = prompt(
-    t('prompt.motivo_cancel'),
-  );
+  const motivo = prompt(t("prompt.motivo_cancel"));
   if (!motivo || !motivo.trim()) return;
 
   const user = await supa.auth.getUser();
@@ -927,16 +1178,18 @@ async function solicitarCancelamento(pedidoId) {
   }
 
   // Registra na tabela de solicitações (falha silenciosa não bloqueia o fluxo)
-  const { error: errSol } = await supa.from("solicitacoes_cancelamento").insert([
-    {
-      pedido_id: pedidoId,
-      motivo: motivo.trim(),
-      solicitado_por: email,
-    },
-  ]);
+  const { error: errSol } = await supa
+    .from("solicitacoes_cancelamento")
+    .insert([
+      {
+        pedido_id: pedidoId,
+        motivo: motivo.trim(),
+        solicitado_por: email,
+      },
+    ]);
   if (errSol) console.warn("solicitacoes_cancelamento insert:", errSol.message);
 
-  alert(t('alert.cancel_enviado'));
+  alert(t("alert.cancel_enviado"));
   carregarPedidos();
 }
 
@@ -976,12 +1229,12 @@ async function aprovarCancelamento(pedidoId) {
     .eq("pedido_id", pedidoId)
     .eq("aprovado", false);
 
-  alert(t('alert.cancelado'));
+  alert(t("alert.cancelado"));
   carregarPedidos();
 }
 
 async function negarCancelamento(pedidoId) {
-  const obs = prompt(t('prompt.negar_cancel')) || "";
+  const obs = prompt(t("prompt.negar_cancel")) || "";
   const user = await supa.auth.getUser();
   const email = user?.data?.user?.email || "dono";
 
@@ -1004,7 +1257,7 @@ async function negarCancelamento(pedidoId) {
     .eq("pedido_id", pedidoId)
     .eq("aprovado", false);
 
-  alert(t('alert.cancel_negado'));
+  alert(t("alert.cancel_negado"));
   carregarPedidos();
 }
 
@@ -1049,19 +1302,28 @@ async function mudarStatus(id, novoStatus) {
 // Dispara a Edge Function notificar-cliente de forma fire-and-forget
 async function _notificarClientePush(pedidoId, status) {
   try {
-    const supaUrl = window._SUPABASE_URL || (typeof _SUPABASE_URL !== 'undefined' ? _SUPABASE_URL : '');
+    const supaUrl =
+      window._SUPABASE_URL ||
+      (typeof _SUPABASE_URL !== "undefined" ? _SUPABASE_URL : "");
     if (!supaUrl) return;
-    const fnUrl = supaUrl.replace('/rest/v1', '').replace(/\/+$/, '') + '/functions/v1/notificar-cliente';
+    const fnUrl =
+      supaUrl.replace("/rest/v1", "").replace(/\/+$/, "") +
+      "/functions/v1/notificar-cliente";
     // Usa a chave anon — a Edge Function usa service role internamente
     const { data: session } = await supa.auth.getSession();
     const token = session?.session?.access_token;
     if (!token) return;
     fetch(fnUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ pedido_id: pedidoId, status }),
     }).catch(() => {}); // fire-and-forget, nunca bloqueia
-  } catch (_) { /* silencioso */ }
+  } catch (_) {
+    /* silencioso */
+  }
 }
 
 // === FUNÇÃO DE IMPRESSÃO (RESTAURADA) ===
@@ -1081,15 +1343,15 @@ async function imprimirPedido(id) {
     itens: (p.itens || [])
       .filter((i) => !i.status_item || i.status_item === "pendente")
       .map((i) => ({
-        q:           i.qtd || i.q || 1,
-        n:           i.nome || i.n,
-        p:           i.preco || i.p || 0,
-        t:           i.variacao || i.t || "",
-        pr:          i.preparo || i.pr || "",
-        m:           i.montagem || i.m,
-        o:           i.obs || i.o,
+        q: i.qtd || i.q || 1,
+        n: i.nome || i.n,
+        p: i.preco || i.p || 0,
+        t: i.variacao || i.t || "",
+        pr: i.preparo || i.pr || "",
+        m: i.montagem || i.m,
+        o: i.obs || i.o,
         // Kg — necessário para imprimir.html mostrar peso em vez de qtd
-        _isKg:       i._isKg || false,
+        _isKg: i._isKg || false,
         peso_gramas: i.peso_gramas || 0,
       })),
     valores: {
@@ -1257,48 +1519,143 @@ let _caixaState = {
   qtdPedidos: 0,
 };
 
+// Sessão de caixa ativa (carregada ao abrir a aba financeiro)
+let _sessaoCaixaAtiva = null;
+// { id, usuario_email, aberto_em, fechado_em, valor_abertura }
+
+// ─────────────────────────────────────────────────────────────
+// GERENCIAMENTO DE SESSÃO DE CAIXA
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Carrega a sessão de caixa ativa para o usuário corrente.
+ * Gestores veem qualquer sessão aberta (ou a mais recente).
+ * Funcionário vê apenas a sua própria.
+ */
+async function _carregarSessaoCaixa() {
+  const ehGestor   = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
+  const emailAtual = document.getElementById("user-email")?.innerText || "";
+
+  let q = supa
+    .from("sessoes_caixa")
+    .select("*")
+    .is("fechado_em", null)          // só sessões ABERTAS
+    .order("aberto_em", { ascending: false })
+    .limit(1);
+
+  if (!ehGestor) q = q.eq("usuario_email", emailAtual);
+
+  const { data } = await q;
+  _sessaoCaixaAtiva = data?.[0] || null;
+
+  // Atualiza o indicador visual de status do caixa (se existir no HTML)
+  const elStatus = document.getElementById("status-sessao-caixa");
+  if (elStatus) {
+    if (_sessaoCaixaAtiva) {
+      const dAbr = new Date(_sessaoCaixaAtiva.aberto_em).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+      elStatus.innerHTML = `<span style="color:#27ae60">🟢 Caixa aberto desde ${dAbr}</span>`;
+    } else {
+      elStatus.innerHTML = `<span style="color:#e74c3c">🔴 Nenhum caixa aberto</span>`;
+    }
+  }
+}
+
+/**
+ * Exibe alerta de abertura de caixa e abre o modal para registro.
+ */
+function _exibirAlertaAberturaCaixa() {
+  const ehGestor = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
+  const msg = ehGestor
+    ? "⚠️ Nenhuma sessão de caixa está aberta no momento.\n\nDeseja abrir o caixa agora?"
+    : "⚠️ Você ainda não abriu o caixa hoje.\n\nÉ necessário registrar a abertura para contabilizar as vendas nesta sessão.\n\nDeseja abrir o caixa agora?";
+
+  if (confirm(msg)) {
+    abrirModalCaixa("abertura");
+  }
+}
+
+/**
+ * Abre nova sessão de caixa no Supabase e carrega em _sessaoCaixaAtiva.
+ * Chamado ao salvar uma movimentação do tipo "abertura".
+ */
+async function _abrirSessaoCaixa(valorAbertura, descricao) {
+  const emailAtual = document.getElementById("user-email")?.innerText || "";
+  const nome       = document.getElementById("user-nome-display")?.innerText || emailAtual;
+
+  const { data, error } = await supa
+    .from("sessoes_caixa")
+    .insert([{
+      usuario_email:  emailAtual,
+      usuario_nome:   nome,
+      aberto_em:      new Date().toISOString(),
+      valor_abertura: valorAbertura || 0,
+      observacao:     descricao || null,
+    }])
+    .select()
+    .single();
+
+  if (error) throw error;
+  _sessaoCaixaAtiva = data;
+  return data;
+}
+
 async function calcularFinanceiro() {
   const abaFin = document.getElementById("financeiro");
   if (!abaFin || !abaFin.classList.contains("active")) return;
 
-  const elInicio = document.getElementById("fin-inicio");
-  const elFim = document.getElementById("fin-fim");
-  const elTipo = document.getElementById("fin-tipo");
+  const elInicio  = document.getElementById("fin-inicio");
+  const elFim     = document.getElementById("fin-fim");
+  const elTipo    = document.getElementById("fin-tipo");
   const elFactura = document.getElementById("fin-factura");
   if (!elInicio || !elFim || !elTipo) return;
 
-  const hoje = new Date();
-  const ano = hoje.getFullYear();
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoje.getDate()).padStart(2, "0");
-  if (!elInicio.value) elInicio.value = `${ano}-${mes}-${dia}`;
-  if (!elFim.value) elFim.value = `${ano}-${mes}-${dia}`;
-
-  const inicio = elInicio.value,
-    fim = elFim.value;
-  const tipoFiltro = elTipo.value;
-  const facturaFiltro = elFactura ? elFactura.value : "todos";
-
-  // UTC correction for PY (UTC-4)
-  const _tz = 4 * 60 * 60 * 1000;
-  const utcI = new Date(
-    new Date(inicio + "T00:00:00").getTime() + _tz,
-  ).toISOString();
-  const utcF = new Date(
-    new Date(fim + "T23:59:59").getTime() + _tz,
-  ).toISOString();
-
-  // ── Determina se é visão geral ou caixa próprio ────────────────
-  const ehGestor = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
+  const ehGestor   = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
   const emailAtual = document.getElementById("user-email")?.innerText || "";
 
+  // ── 1. Carrega/verifica sessão ativa ─────────────────────────────
+  await _carregarSessaoCaixa();
+
+  // ── 2. Se não houver sessão aberta, exibe alerta de abertura ─────
+  if (!_sessaoCaixaAtiva) {
+    _exibirAlertaAberturaCaixa();
+    return; // não renderiza nada enquanto não houver sessão
+  }
+
+  // ── 3. Define intervalo de tempo baseado na SESSÃO, não no calendário ─
+  const sessaoInicio = _sessaoCaixaAtiva.aberto_em;
+  const sessaoFim    = _sessaoCaixaAtiva.fechado_em || new Date().toISOString();
+
+  // Gestores podem sobrepor o intervalo com o filtro de datas da tela
+  let utcI = sessaoInicio;
+  let utcF = sessaoFim;
+  if (ehGestor && elInicio.value && elFim.value) {
+    const _tz = 4 * 60 * 60 * 1000; // UTC-4 PY
+    utcI = new Date(new Date(elInicio.value + "T00:00:00").getTime() + _tz).toISOString();
+    utcF = new Date(new Date(elFim.value   + "T23:59:59").getTime() + _tz).toISOString();
+  } else if (!elInicio.value || !elFim.value) {
+    // Preenche os campos de data com os valores da sessão para exibição
+    const dAbr = new Date(sessaoInicio);
+    elInicio.value = dAbr.toISOString().split("T")[0];
+    const dFch = new Date(sessaoFim);
+    elFim.value    = dFch.toISOString().split("T")[0];
+  }
+
+  const tipoFiltro    = elTipo.value;
+  const facturaFiltro = elFactura ? elFactura.value : "todos";
+
+  // ── 4. Busca pedidos dentro da janela da sessão ───────────────────
   let query = supa
     .from("pedidos")
     .select("*, motoboys(nome)")
     .in("status", ["entregue", "em_preparo", "pronto_entrega", "saiu_entrega"])
     .gte("created_at", utcI)
     .lte("created_at", utcF);
+
   if (tipoFiltro !== "todos") query = query.eq("forma_pagamento", tipoFiltro);
+
+  // Funcionário: filtra apenas pedidos relacionados ao seu usuário
+  // (via mesa/operador, se seu schema tiver esse campo — ajuste o campo se necessário)
+  // if (!ehGestor) query = query.eq("operador_email", emailAtual);
 
   const { data: pedidos } = await query;
   let peds = pedidos || [];
@@ -1308,12 +1665,11 @@ async function calcularFinanceiro() {
   else if (facturaFiltro === "sem_factura")
     peds = peds.filter((p) => !p.dados_factura?.ruc && !p.dados_factura?.ci);
 
-  // ── Movimentações de caixa ─────────────────────────────────────
+  // ── 5. Movimentações de caixa da SESSÃO ──────────────────────────
   let caixaQuery = supa
     .from("movimentacoes_caixa")
     .select("*")
-    .gte("created_at", inicio + " 00:00:00")
-    .lte("created_at", fim + " 23:59:59");
+    .eq("sessao_id", _sessaoCaixaAtiva.id); // vínculo direto à sessão
   if (!ehGestor) caixaQuery = caixaQuery.eq("usuario_email", emailAtual);
 
   const { data: caixa } = await caixaQuery;
@@ -1321,28 +1677,16 @@ async function calcularFinanceiro() {
   // Verifica bloqueio de caixa (sangria limite)
   _verificarBloqueioCaixa(emailAtual);
 
-  // ── Cálculos ───────────────────────────────────────────────────
+  // ── 6. Cálculos (inalterado) ──────────────────────────────────────
   const safeNum = (v) => {
     if (!v) return 0;
     if (typeof v === "number") return v;
-    return (
-      parseFloat(
-        v
-          .toString()
-          .replace(/[^\d.,-]/g, "")
-          .replace(",", "."),
-      ) || 0
-    );
+    return parseFloat(v.toString().replace(/[^\d.,-]/g,"").replace(",",".")) || 0;
   };
   const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
 
-  let faturamento = 0,
-    totalPix = 0,
-    totalTransf = 0,
-    totalCartao = 0,
-    totalEfetivo = 0;
-  let custoEntregas = 0,
-    qtdPedidos = 0;
+  let faturamento = 0, totalPix = 0, totalTransf = 0, totalCartao = 0, totalEfetivo = 0;
+  let custoEntregas = 0, qtdPedidos = 0;
   const motoMap = {};
 
   peds.forEach((p) => {
@@ -1350,135 +1694,105 @@ async function calcularFinanceiro() {
     faturamento += val;
     qtdPedidos++;
     const pag = (p.forma_pagamento || "").toLowerCase();
-    if (pag.includes("pix")) totalPix += val;
+    if (pag.includes("pix"))          totalPix    += val;
     else if (pag.includes("transfer")) totalTransf += val;
-    else if (pag.includes("cartao") || pag.includes("cartão"))
-      totalCartao += val;
-    else if (pag.includes("efetivo") || pag.includes("dinheiro"))
-      totalEfetivo += val;
-
+    else if (pag.includes("cartao") || pag.includes("cartão")) totalCartao += val;
+    else if (pag.includes("efetivo") || pag.includes("dinheiro")) totalEfetivo += val;
     if (p.tipo_entrega === "delivery") {
       const taxa = safeNum(p.frete_motoboy) || TAXA_MOTOBOY || 0;
       custoEntregas += taxa;
       const nm = p.motoboys?.nome || "Sem Motoboy";
-      if (!motoMap[nm]) {
-        motoMap[nm] = { entregas: 0, frete_total: 0 };
-        // Combustível NÃO somado aqui — calculado uma vez por motoboy identificado abaixo
-      }
+      if (!motoMap[nm]) motoMap[nm] = { entregas: 0, frete_total: 0 };
       motoMap[nm].entregas++;
       motoMap[nm].frete_total += taxa;
     }
   });
 
-  // Soma combustível uma vez por motoboy IDENTIFICADO (exclui "Sem Motoboy")
   const qtdMotoboyUnicos = Object.keys(motoMap).filter(n => n !== "Sem Motoboy").length;
   custoEntregas += (AJUDA_COMBUSTIVEL || 0) * qtdMotoboyUnicos;
 
-  let totalSaidas = 0,
-    totalEntradas = 0,
-    totalSangria = 0;
+  let totalSaidas = 0, totalEntradas = 0, totalSangria = 0;
   (caixa || []).forEach((c) => {
     const v = safeNum(c.valor);
-    if (c.tipo === "despesa") totalSaidas += v;
-    if (c.tipo === "sangria") {
-      totalSaidas += v;
-      totalSangria += v;
-    }
+    if (c.tipo === "despesa")  totalSaidas  += v;
+    if (c.tipo === "sangria")  { totalSaidas += v; totalSangria += v; }
     if (c.tipo === "suprimento" || c.tipo === "abertura") totalEntradas += v;
   });
 
-  _caixaState = {
-    faturamento,
-    custoEntregas,
-    totalSaidas,
-    totalEntradas,
-    totalPix,
-    totalTransf,
-    totalCartao,
-    totalEfetivo,
-    qtdPedidos,
-    totalSangria,
-  };
+  _caixaState = { faturamento, custoEntregas, totalSaidas, totalEntradas,
+                  totalPix, totalTransf, totalCartao, totalEfetivo, qtdPedidos, totalSangria };
 
   const lucro = faturamento + totalEntradas - custoEntregas - totalSaidas;
-  const setV = (id, v) => {
-    const el = document.getElementById(id);
-    if (el) el.innerText = v;
-  };
-  setV("card-faturamento", fmt(faturamento));
-  setV("card-custo-moto", fmt(custoEntregas));
-  setV("card-lucro", fmt(lucro));
-  setV("total-pix", fmt(totalPix));
-  setV("total-transf", fmt(totalTransf));
-  setV("total-cartao", fmt(totalCartao));
-  setV("total-efetivo", fmt(totalEfetivo));
-  setV("card-qtd-pedidos", qtdPedidos);
+  const setV  = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+
+  setV("card-faturamento",  fmt(faturamento));
+  setV("card-custo-moto",   fmt(custoEntregas));
+  setV("card-lucro",        fmt(lucro));
+  setV("total-pix",         fmt(totalPix));
+  setV("total-transf",      fmt(totalTransf));
+  setV("total-cartao",      fmt(totalCartao));
+  setV("total-efetivo",     fmt(totalEfetivo));
+  setV("card-qtd-pedidos",  qtdPedidos);
   setV("card-ticket-medio", fmt(qtdPedidos > 0 ? faturamento / qtdPedidos : 0));
 
-  // Identificação do caixa atual
+  // Badge do operador / info da sessão
   const badgeCaixa = document.getElementById("badge-caixa-operador");
   if (badgeCaixa) {
+    const dAbr = new Date(_sessaoCaixaAtiva.aberto_em).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    const dFch = _sessaoCaixaAtiva.fechado_em
+      ? new Date(_sessaoCaixaAtiva.fechado_em).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })
+      : "em aberto";
     badgeCaixa.textContent = ehGestor
-      ? "📊 Visão geral — todos os caixas"
-      : `💼 Seu caixa — ${emailAtual}`;
+      ? `📊 Visão geral — sessão ${_sessaoCaixaAtiva.id} (${_sessaoCaixaAtiva.usuario_email}) · ${dAbr} → ${dFch}`
+      : `💼 Seu caixa — aberto ${dAbr} → ${dFch}`;
   }
 
-  // ── Tabela de despesas com Editar/Excluir ───────────────────────
+  // Tabelas de despesas e motoboys (código original preservado)
   const tbD = document.getElementById("lista-despesas-caixa");
   if (tbD) {
     const despesas = (caixa || []).filter((c) => c.tipo === "despesa");
     const _DLABELS = {
       despesas_gerais:"📦 Despesas Gerais", contas_fixas:"🏠 Contas Fixas",
-      pagamento_fornecedor:"🤝 Fornecedor", pagamento_funcionario:"👷 Funcionário",
-      pagamento_terceiros:"👥 Terceiros", manutencao:"🔧 Manutenção",
+      pagamento_fornecedor:"🤝 Fornecedor",  pagamento_funcionario:"👷 Funcionário",
+      pagamento_terceiros:"👥 Terceiros",    manutencao:"🔧 Manutenção",
       retirada:"💵 Retirada", motoboy:"🛵 Motoboy", outro:"✏️ Outro",
     };
     if (!despesas.length) {
-      tbD.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa no período</td></tr>';
+      tbD.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa nesta sessão</td></tr>';
     } else {
       tbD.innerHTML = despesas.map((d) => {
-        const dt = new Date(d.created_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+        const dt = new Date(d.created_at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
         const tipoLabel = _DLABELS[d.tipo_despesa] || d.tipo_despesa || "—";
         const descExtra = d.tipo_despesa === "outro" && d.descricao_outro ? ` (${d.descricao_outro})` : "";
         const obs = d.descricao || "";
-        const enc = encodeURIComponent(JSON.stringify({
-          id:d.id, valor:d.valor,
-          tipo_despesa:d.tipo_despesa||"despesas_gerais",
-          descricao:d.descricao||"", descricao_outro:d.descricao_outro||"",
-        }));
+        const enc = encodeURIComponent(JSON.stringify({ id:d.id, valor:d.valor, tipo_despesa:d.tipo_despesa||"despesas_gerais", descricao:d.descricao||"", descricao_outro:d.descricao_outro||"" }));
         return `<tr>
           <td style="white-space:nowrap;color:#666;font-size:0.82rem">${dt}</td>
           <td><span style="background:#fdecea;color:#a93226;padding:2px 7px;border-radius:10px;font-size:0.78rem">${tipoLabel}${descExtra}</span></td>
           <td style="color:#555;font-size:0.85rem">${obs}</td>
           <td style="text-align:right;font-weight:700;color:#c0392b;white-space:nowrap">${fmt(d.valor)}</td>
           <td style="text-align:center;white-space:nowrap">
-            <button onclick="abrirEditarDespesa('${enc}')"
-              style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem;margin-right:4px">✏️</button>
-            <button onclick="excluirDespesa(${d.id})"
-              style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem">🗑️</button>
-          </td>
-        </tr>`;
+            <button onclick="abrirEditarDespesa('${enc}')" style="background:#3498db;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem;margin-right:4px">✏️</button>
+            <button onclick="excluirDespesa(${d.id})" style="background:#e74c3c;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.8rem">🗑️</button>
+          </td></tr>`;
       }).join("");
     }
   }
 
-  // Tabela motoboys
   const tbM = document.getElementById("lista-financeiro-motoboys");
   if (tbM) {
     tbM.innerHTML = "";
     if (!Object.keys(motoMap).length) {
-      tbM.innerHTML =
-        '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega no período</td></tr>';
+      tbM.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega nesta sessão</td></tr>';
     } else {
       for (const [nome, d] of Object.entries(motoMap)) {
         const semNome = nome === "Sem Motoboy";
-        const comb = semNome ? 0 : (AJUDA_COMBUSTIVEL || 0);
-        const tot = d.frete_total + comb;
+        const comb = semNome ? 0 : AJUDA_COMBUSTIVEL || 0;
+        const tot  = d.frete_total + comb;
         const combLabel = semNome
           ? '<span style="color:#aaa;font-size:0.78rem">sem combustível</span>'
           : `+ comb. ${fmt(comb)}`;
-        tbM.innerHTML += `<tr>
-          <td>${nome}</td><td>${d.entregas}</td>
+        tbM.innerHTML += `<tr><td>${nome}</td><td>${d.entregas}</td>
           <td style="font-size:0.82rem">Frete: ${fmt(d.frete_total)} ${combLabel}</td>
           <td><strong>${fmt(tot)}</strong></td></tr>`;
       }
@@ -1545,7 +1859,7 @@ async function _verificarBloqueioCaixa(emailAtual) {
 
 async function autorizarReaberturaCaixa(emailAlvo) {
   if (!["dono", "gerente", "adminMaster"].includes(perfilUsuario)) {
-    alert(t('alert.acesso_negado'));
+    alert(t("alert.acesso_negado"));
     return;
   }
   if (!confirm(`Autorizar reabertura do caixa de ${emailAlvo}?`)) return;
@@ -1561,7 +1875,7 @@ async function autorizarReaberturaCaixa(emailAlvo) {
     autorizado_em: new Date().toISOString(),
   };
   await supa.from("configuracoes").update({ caixa_status: status }).gt("id", 0);
-  alert(t('alert.caixa_reaberto'));
+  alert(t("alert.caixa_reaberto"));
   calcularFinanceiro();
 }
 
@@ -1973,93 +2287,106 @@ function abrirModalCaixa(tipo) {
 }
 
 async function salvarMovimentacaoCaixa() {
-  const tipo = document.getElementById("tipo-caixa").value;
+  const tipo  = document.getElementById("tipo-caixa").value;
   const valor = parseFloat(document.getElementById("valor-caixa").value);
-  const desc = document.getElementById("desc-caixa").value.trim();
-  if (!valor || valor <= 0) {
-    alert("Digite um valor válido.");
-    return;
-  }
+  const desc  = document.getElementById("desc-caixa").value.trim();
+
+  if (!valor || valor <= 0) { alert("Digite um valor válido."); return; }
 
   const emailAtual = document.getElementById("user-email")?.innerText || "";
 
-  // Bloquear se caixa bloqueado (apenas para tipos que movimentam efetivo)
-  const { data: cfg } = await supa
-    .from("configuracoes")
-    .select("caixa_status")
-    .maybeSingle();
+  // Bloquear se caixa bloqueado
+  const { data: cfg } = await supa.from("configuracoes").select("caixa_status").maybeSingle();
   const status = cfg?.caixa_status || {};
   if (status[emailAtual]?.bloqueado && tipo !== "sangria") {
-    alert(
-      "⛔ Caixa bloqueado por sangria. Solicite autorização de um gestor para reabrir.",
-    );
+    alert("⛔ Caixa bloqueado por sangria. Solicite autorização de um gestor para reabrir.");
     return;
   }
 
-  // Tipo de despesa
-  let tipoDespesa = null;
-  let descOutro = null;
+  let tipoDespesa = null, descOutro = null;
   if (tipo === "despesa") {
-    tipoDespesa =
-      document.getElementById("tipo-despesa-sel")?.value || "despesas_gerais";
+    tipoDespesa = document.getElementById("tipo-despesa-sel")?.value || "despesas_gerais";
     if (tipoDespesa === "outro") {
-      descOutro =
-        document.getElementById("desc-outro-despesa")?.value?.trim() || "";
-      if (!descOutro) {
-        alert("Descreva o tipo da despesa.");
-        return;
-      }
+      descOutro = document.getElementById("desc-outro-despesa")?.value?.trim() || "";
+      if (!descOutro) { alert("Descreva o tipo da despesa."); return; }
     }
+  }
+
+  // ── Se for ABERTURA, cria a sessão primeiro ───────────────────────
+  if (tipo === "abertura") {
+    try {
+      await _abrirSessaoCaixa(valor, desc);
+      alert(`✅ Caixa aberto com fundo de Gs ${valor.toLocaleString("es-PY")}!`);
+      fecharModal("modal-caixa");
+      calcularFinanceiro();
+      return;
+    } catch (e) {
+      alert("Erro ao abrir caixa: " + e.message);
+      return;
+    }
+  }
+
+  // ── Para outros tipos, verifica se há sessão aberta ───────────────
+  if (!_sessaoCaixaAtiva) {
+    alert("⚠️ Nenhum caixa aberto. Abra o caixa antes de registrar movimentações.");
+    return;
   }
 
   const insert = {
     tipo,
     valor,
-    descricao: desc,
-    usuario_email: emailAtual,
-    tipo_despesa: tipoDespesa,
+    descricao:      desc,
+    usuario_email:  emailAtual,
+    tipo_despesa:   tipoDespesa,
     descricao_outro: descOutro,
+    sessao_id:      _sessaoCaixaAtiva.id,  // ← vínculo com a sessão
   };
 
   const { error } = await supa.from("movimentacoes_caixa").insert([insert]);
-  if (error) {
-    alert("Erro: " + error.message);
-    return;
-  }
-  alert(t('alert.operacao_registrada'));
+  if (error) { alert("Erro: " + error.message); return; }
+
+  alert(t("alert.operacao_registrada"));
   fecharModal("modal-caixa");
   calcularFinanceiro();
 }
 
 async function fecharCaixaResumo() {
-  if (
-    !confirm(
-      "Fechar o caixa de hoje?\nIsso registra o fechamento e zera os totais exibidos.",
-    )
-  )
+  if (!_sessaoCaixaAtiva) {
+    alert("Nenhum caixa aberto para fechar.");
     return;
-  await calcularFinanceiro();
-  const s = _caixaState;
-  const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
-  const lucro =
-    s.faturamento + s.totalEntradas - s.custoEntregas - s.totalSaidas;
+  }
 
-  // Registra fechamento no banco como movimentação
+  if (!confirm("Fechar o caixa desta sessão?\nIsso encerra a sessão e registra o fechamento.")) return;
+
+  await calcularFinanceiro(); // garante que _caixaState está atualizado
+  const s   = _caixaState;
+  const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
+  const lucro = s.faturamento + s.totalEntradas - s.custoEntregas - s.totalSaidas;
+
   try {
-    await supa.from("movimentacoes_caixa").insert([
-      {
-        tipo: "fechamento",
-        valor: lucro,
-        descricao: `Fechamento ${new Date().toLocaleDateString("pt-BR")} | Fat: ${fmt(s.faturamento)} | Res: ${fmt(lucro)}`,
-        usuario_email:
-          document.getElementById("user-email")?.innerText || "admin",
-      },
-    ]);
+    // 1. Marca a sessão como fechada
+    await supa
+      .from("sessoes_caixa")
+      .update({
+        fechado_em:       new Date().toISOString(),
+        valor_fechamento: lucro,
+        observacao:       `Fat: ${fmt(s.faturamento)} | Res: ${fmt(lucro)}`,
+      })
+      .eq("id", _sessaoCaixaAtiva.id);
+
+    // 2. Registra movimentação de fechamento vinculada à sessão
+    await supa.from("movimentacoes_caixa").insert([{
+      tipo:          "fechamento",
+      valor:         lucro,
+      descricao:     `Fechamento ${new Date().toLocaleDateString("pt-BR")} | Fat: ${fmt(s.faturamento)} | Res: ${fmt(lucro)}`,
+      usuario_email: document.getElementById("user-email")?.innerText || "admin",
+      sessao_id:     _sessaoCaixaAtiva.id,
+    }]);
   } catch (e) {
     console.warn("Aviso fechamento:", e.message);
   }
 
-  alert(`📊 FECHAMENTO DO DIA
+  alert(`📊 FECHAMENTO DA SESSÃO #${_sessaoCaixaAtiva.id}
 ═══════════════════════════
 Faturamento Total: ${fmt(s.faturamento)}
 
@@ -2077,35 +2404,19 @@ Faturamento Total: ${fmt(s.faturamento)}
 💵 RESULTADO: ${fmt(lucro)}
 ═══════════════════════════
 ✅ Dinheiro na gaveta: ${fmt(s.totalEfetivo)}
-Fechamento registrado!`);
+Sessão encerrada!`);
 
-  // Zera os cards na tela
-  [
-    "card-faturamento",
-    "card-custo-moto",
-    "card-lucro",
-    "total-pix",
-    "total-transf",
-    "total-cartao",
-    "total-efetivo",
-    "card-ticket-medio",
-  ].forEach((id) => {
+  // Limpa estado
+  _sessaoCaixaAtiva = null;
+  ["card-faturamento","card-custo-moto","card-lucro","total-pix","total-transf",
+   "total-cartao","total-efetivo","card-ticket-medio"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.innerText = "Gs 0";
   });
   const qEl = document.getElementById("card-qtd-pedidos");
   if (qEl) qEl.innerText = "0";
-  _caixaState = {
-    faturamento: 0,
-    custoEntregas: 0,
-    totalSaidas: 0,
-    totalEntradas: 0,
-    totalPix: 0,
-    totalTransf: 0,
-    totalCartao: 0,
-    totalEfetivo: 0,
-    qtdPedidos: 0,
-  };
+  _caixaState = { faturamento:0, custoEntregas:0, totalSaidas:0, totalEntradas:0,
+                  totalPix:0, totalTransf:0, totalCartao:0, totalEfetivo:0, qtdPedidos:0 };
 }
 
 // =========================================
@@ -2113,94 +2424,161 @@ Fechamento registrado!`);
 // =========================================
 
 async function _buscarDadosRelatorio() {
-  const elI = document.getElementById('fin-inicio');
-  const elF = document.getElementById('fin-fim');
-  const hoje = new Date().toISOString().split('T')[0];
-  const ini  = (elI?.value || hoje) + 'T00:00:00';
-  const fim  = (elF?.value || hoje) + 'T23:59:59';
-  const { data } = await supa.from('pedidos').select('*')
-    .in('status', ['entregue','em_preparo','pronto_entrega','saiu_entrega'])
-    .gte('created_at', ini).lte('created_at', fim);
+  const elI = document.getElementById("fin-inicio");
+  const elF = document.getElementById("fin-fim");
+  const hoje = new Date().toISOString().split("T")[0];
+  const ini = (elI?.value || hoje) + "T00:00:00";
+  const fim = (elF?.value || hoje) + "T23:59:59";
+  const { data } = await supa
+    .from("pedidos")
+    .select("*")
+    .in("status", ["entregue", "em_preparo", "pronto_entrega", "saiu_entrega"])
+    .gte("created_at", ini)
+    .lte("created_at", fim);
   return data || [];
 }
 
 // ── CSV rico para Power BI ────────────────────────────────
 async function exportarCSVPowerBI() {
   const pedidos = await _buscarDadosRelatorio();
-  if (!pedidos.length) { alert('Nenhum pedido no período.'); return; }
+  if (!pedidos.length) {
+    alert("Nenhum pedido no período.");
+    return;
+  }
 
-  const escape = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   const cols = [
-    'id','uid_temporal','status','tipo_entrega','created_at',
-    'cliente_nome','cliente_telefone','endereco_entrega',
-    'forma_pagamento','obs_pagamento',
-    'subtotal','desconto_cupom','frete_cobrado_cliente','total_geral',
-    'cupom_codigo','frete_motoboy','garcom_nome',
-    'tempo_recebido','tempo_confirmado','tempo_preparo_iniciado',
-    'tempo_pronto','tempo_saiu_entrega','tempo_entregue',
-    'itens_qtd','itens_nomes','ruc_factura','razao_factura'
+    "id",
+    "uid_temporal",
+    "status",
+    "tipo_entrega",
+    "created_at",
+    "cliente_nome",
+    "cliente_telefone",
+    "endereco_entrega",
+    "forma_pagamento",
+    "obs_pagamento",
+    "subtotal",
+    "desconto_cupom",
+    "frete_cobrado_cliente",
+    "total_geral",
+    "cupom_codigo",
+    "frete_motoboy",
+    "garcom_nome",
+    "tempo_recebido",
+    "tempo_confirmado",
+    "tempo_preparo_iniciado",
+    "tempo_pronto",
+    "tempo_saiu_entrega",
+    "tempo_entregue",
+    "itens_qtd",
+    "itens_nomes",
+    "ruc_factura",
+    "razao_factura",
   ];
 
-  const rows = pedidos.map(p => {
+  const rows = pedidos.map((p) => {
     const itens = Array.isArray(p.itens) ? p.itens : [];
-    const itensQtd   = itens.reduce((a,i) => a + (i.qtd || i.q || 1), 0);
-    const itensNomes = itens.map(i => `${i.qtd||i.q||1}x ${i.nome||i.n}`).join(' | ');
+    const itensQtd = itens.reduce((a, i) => a + (i.qtd || i.q || 1), 0);
+    const itensNomes = itens
+      .map((i) => `${i.qtd || i.q || 1}x ${i.nome || i.n}`)
+      .join(" | ");
     const f = p.dados_factura || {};
     return [
-      p.id, p.uid_temporal || '', p.status, p.tipo_entrega,
-      p.created_at ? new Date(p.created_at).toLocaleString('pt-BR') : '',
-      p.cliente_nome || '', p.cliente_telefone || '', p.endereco_entrega || '',
-      p.forma_pagamento || '', p.obs_pagamento || '',
-      p.subtotal || 0, p.desconto_cupom || 0, p.frete_cobrado_cliente || 0, p.total_geral || 0,
-      p.cupom_codigo || '', p.frete_motoboy || 0, p.garcom_nome || '',
-      p.tempo_recebido || '', p.tempo_confirmado || '', p.tempo_preparo_iniciado || '',
-      p.tempo_pronto || '', p.tempo_saiu_entrega || '', p.tempo_entregue || '',
-      itensQtd, itensNomes, f.ruc || f.ci || '', f.razao || ''
-    ].map(escape).join(',');
+      p.id,
+      p.uid_temporal || "",
+      p.status,
+      p.tipo_entrega,
+      p.created_at ? new Date(p.created_at).toLocaleString("pt-BR") : "",
+      p.cliente_nome || "",
+      p.cliente_telefone || "",
+      p.endereco_entrega || "",
+      p.forma_pagamento || "",
+      p.obs_pagamento || "",
+      p.subtotal || 0,
+      p.desconto_cupom || 0,
+      p.frete_cobrado_cliente || 0,
+      p.total_geral || 0,
+      p.cupom_codigo || "",
+      p.frete_motoboy || 0,
+      p.garcom_nome || "",
+      p.tempo_recebido || "",
+      p.tempo_confirmado || "",
+      p.tempo_preparo_iniciado || "",
+      p.tempo_pronto || "",
+      p.tempo_saiu_entrega || "",
+      p.tempo_entregue || "",
+      itensQtd,
+      itensNomes,
+      f.ruc || f.ci || "",
+      f.razao || "",
+    ]
+      .map(escape)
+      .join(",");
   });
 
-  const csv = '\uFEFF' + cols.join(',') + '\n' + rows.join('\n'); // BOM para Excel/PBI
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const hoje = new Date().toISOString().split('T')[0];
-  a.href = url; a.download = `relatorio_${hoje}_powerbi.csv`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const csv = "\uFEFF" + cols.join(",") + "\n" + rows.join("\n"); // BOM para Excel/PBI
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const hoje = new Date().toISOString().split("T")[0];
+  a.href = url;
+  a.download = `relatorio_${hoje}_powerbi.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  alert(t('alert.csv_exportado') + ` (${pedidos.length} pedidos)`);
+  alert(t("alert.csv_exportado") + ` (${pedidos.length} pedidos)`);
 }
 
 // ── PDF via janela de impressão ───────────────────────────
 async function exportarPDF() {
   const pedidos = await _buscarDadosRelatorio();
-  if (!pedidos.length) { alert('Nenhum pedido no período.'); return; }
+  if (!pedidos.length) {
+    alert("Nenhum pedido no período.");
+    return;
+  }
 
-  const elI = document.getElementById('fin-inicio');
-  const elF = document.getElementById('fin-fim');
-  const hoje = new Date().toISOString().split('T')[0];
+  const elI = document.getElementById("fin-inicio");
+  const elF = document.getElementById("fin-fim");
+  const hoje = new Date().toISOString().split("T")[0];
   const periodoLabel = `${elI?.value || hoje} a ${elF?.value || hoje}`;
 
-  const fmt = n => 'Gs ' + (n||0).toLocaleString('es-PY');
-  const total = pedidos.reduce((a,p) => a + (p.total_geral||0), 0);
-  const totalPix = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('pix')).reduce((a,p)=>a+(p.total_geral||0),0);
-  const totalEfet = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('efetivo')||(p.forma_pagamento||'').toLowerCase().includes('dinheiro')).reduce((a,p)=>a+(p.total_geral||0),0);
-  const totalCard = pedidos.filter(p=>(p.forma_pagamento||'').toLowerCase().includes('cart')).reduce((a,p)=>a+(p.total_geral||0),0);
+  const fmt = (n) => "Gs " + (n || 0).toLocaleString("es-PY");
+  const total = pedidos.reduce((a, p) => a + (p.total_geral || 0), 0);
+  const totalPix = pedidos
+    .filter((p) => (p.forma_pagamento || "").toLowerCase().includes("pix"))
+    .reduce((a, p) => a + (p.total_geral || 0), 0);
+  const totalEfet = pedidos
+    .filter(
+      (p) =>
+        (p.forma_pagamento || "").toLowerCase().includes("efetivo") ||
+        (p.forma_pagamento || "").toLowerCase().includes("dinheiro"),
+    )
+    .reduce((a, p) => a + (p.total_geral || 0), 0);
+  const totalCard = pedidos
+    .filter((p) => (p.forma_pagamento || "").toLowerCase().includes("cart"))
+    .reduce((a, p) => a + (p.total_geral || 0), 0);
 
-  const rows = pedidos.map(p => {
-    const tz = { timeZone: 'America/Asuncion' };
-    const hora = new Date(p.created_at).toLocaleString('pt-BR', tz);
-    const itens = (Array.isArray(p.itens) ? p.itens : []).map(i=>`${i.qtd||i.q||1}x ${i.nome||i.n}`).join(', ');
-    return `<tr>
-      <td>${p.uid_temporal||('#'+p.id)}</td>
+  const rows = pedidos
+    .map((p) => {
+      const tz = { timeZone: "America/Asuncion" };
+      const hora = new Date(p.created_at).toLocaleString("pt-BR", tz);
+      const itens = (Array.isArray(p.itens) ? p.itens : [])
+        .map((i) => `${i.qtd || i.q || 1}x ${i.nome || i.n}`)
+        .join(", ");
+      return `<tr>
+      <td>${p.uid_temporal || "#" + p.id}</td>
       <td>${hora}</td>
-      <td>${p.cliente_nome||'-'}</td>
-      <td>${itens||'-'}</td>
-      <td>${p.forma_pagamento||'-'}</td>
+      <td>${p.cliente_nome || "-"}</td>
+      <td>${itens || "-"}</td>
+      <td>${p.forma_pagamento || "-"}</td>
       <td style="text-align:right">${fmt(p.total_geral)}</td>
     </tr>`;
-  }).join('');
+    })
+    .join("");
 
-  const nomeRestaurante = NOME_RESTAURANTE || 'Relatório';
+  const nomeRestaurante = NOME_RESTAURANTE || "Relatório";
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>Relatório ${periodoLabel}</title>
@@ -2223,11 +2601,11 @@ async function exportarPDF() {
   </style>
   </head><body>
   <h1>${nomeRestaurante} — Relatório Financeiro</h1>
-  <div class="sub">Período: ${periodoLabel} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="sub">Período: ${periodoLabel} &nbsp;|&nbsp; Gerado em: ${new Date().toLocaleString("pt-BR")}</div>
   <div class="resumo">
     <div class="card"><div class="lbl">Total Faturado</div><div class="val">${fmt(total)}</div></div>
     <div class="card"><div class="lbl">Pedidos</div><div class="val">${pedidos.length}</div></div>
-    <div class="card"><div class="lbl">Ticket Médio</div><div class="val">${fmt(pedidos.length ? Math.round(total/pedidos.length) : 0)}</div></div>
+    <div class="card"><div class="lbl">Ticket Médio</div><div class="val">${fmt(pedidos.length ? Math.round(total / pedidos.length) : 0)}</div></div>
     <div class="card"><div class="lbl">Pix</div><div class="val">${fmt(totalPix)}</div></div>
     <div class="card"><div class="lbl">Dinheiro</div><div class="val">${fmt(totalEfet)}</div></div>
     <div class="card"><div class="lbl">Cartão</div><div class="val">${fmt(totalCard)}</div></div>
@@ -2236,11 +2614,11 @@ async function exportarPDF() {
     <thead><tr><th>#</th><th>Data/Hora</th><th>Cliente</th><th>Itens</th><th>Pagamento</th><th>Total</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <div class="footer">${nomeRestaurante} &nbsp;·&nbsp; ${new Date().toLocaleDateString('pt-BR')} &nbsp;·&nbsp; ${pedidos.length} registros</div>
+  <div class="footer">${nomeRestaurante} &nbsp;·&nbsp; ${new Date().toLocaleDateString("pt-BR")} &nbsp;·&nbsp; ${pedidos.length} registros</div>
   <script>window.onload=()=>window.print();<\/script>
   </body></html>`;
 
-  const w = window.open('', 'PDF', 'width=900,height=700');
+  const w = window.open("", "PDF", "width=900,height=700");
   w.document.write(html);
   w.document.close();
 }
@@ -2253,7 +2631,7 @@ function enviarRotaZap() {
   const selMoto = document.getElementById("sel-motoboy");
 
   if (checks.length === 0 || !selMoto.value)
-    return alert(t('alert.sel_pedidos_moto'));
+    return alert(t("alert.sel_pedidos_moto"));
 
   // Pega dados do motoboy selecionado
   const opt = selMoto.options[selMoto.selectedIndex];
@@ -2278,7 +2656,7 @@ function enviarRotaZap() {
         .then();
 
       msg += `📦 *PEDIDO #${p.uid_temporal || p.id}*\n`;
-      msg += `👤 ${p.cliente_nome || 'Cliente'} | 📞 ${p.cliente_telefone || ''}\n`;
+      msg += `👤 ${p.cliente_nome || "Cliente"} | 📞 ${p.cliente_telefone || ""}\n`;
 
       if (p.itens && Array.isArray(p.itens)) {
         // Separa bebidas (para levar imediatamente) do restante
@@ -2286,15 +2664,36 @@ function enviarRotaZap() {
           if (i.es_bebida) return true;
           const cat = (i.categoria_slug || i.cat || "").toLowerCase();
           const _SLUGS_BEBIDA = [
-            "bebida", "bebidas", "drink", "drinks",
-            "refrigerante", "refrigerantes", "gaseosa", "gaseosas",
-            "suco", "sucos", "jugo", "jugos",
-            "cerveja", "cervejas", "cerveza", "cervezas",
-            "trago", "tragos", "licor", "licores",
-            "agua", "aguas", "água", "águas",
-            "vino", "vinos", "vinho", "vinhos",
+            "bebida",
+            "bebidas",
+            "drink",
+            "drinks",
+            "refrigerante",
+            "refrigerantes",
+            "gaseosa",
+            "gaseosas",
+            "suco",
+            "sucos",
+            "jugo",
+            "jugos",
+            "cerveja",
+            "cervejas",
+            "cerveza",
+            "cervezas",
+            "trago",
+            "tragos",
+            "licor",
+            "licores",
+            "agua",
+            "aguas",
+            "água",
+            "águas",
+            "vino",
+            "vinos",
+            "vinho",
+            "vinhos",
           ];
-          return _SLUGS_BEBIDA.some(s => cat === s || cat.includes(s));
+          return _SLUGS_BEBIDA.some((s) => cat === s || cat.includes(s));
         };
         const bebidas = p.itens.filter(_esBebida);
         const naoFoodKds = p.itens.filter((i) => !_esBebida(i));
@@ -2336,9 +2735,9 @@ function enviarRotaZap() {
       }
 
       // LÓGICA DE PAGAMENTO
-      const forma = (p.forma_pagamento || '').toLowerCase();
+      const forma = (p.forma_pagamento || "").toLowerCase();
       const totalGeral = p.total_geral || 0;
-      const totalFmt = totalGeral.toLocaleString('es-PY');
+      const totalFmt = totalGeral.toLocaleString("es-PY");
 
       if (
         forma.includes("pix") ||
@@ -2355,10 +2754,10 @@ function enviarRotaZap() {
       } else {
         msg += `💰 *COBRAR: Gs ${totalFmt}*\n`;
 
-        const obsPag = p.obs_pagamento || '';
+        const obsPag = p.obs_pagamento || "";
         const nums = obsPag.match(/\d+/g);
         if (nums) {
-          let valorTroco = parseInt(nums.join(''));
+          let valorTroco = parseInt(nums.join(""));
           if (valorTroco < 1000) valorTroco *= 1000;
           if (valorTroco > totalGeral) {
             const devolver = valorTroco - totalGeral;
@@ -2370,7 +2769,7 @@ function enviarRotaZap() {
 
       msg += `-----------------\n`;
       const _freteM = parseFloat(p.frete_motoboy);
-      taxaTotal += isNaN(_freteM) ? (TAXA_MOTOBOY || 0) : _freteM;
+      taxaTotal += isNaN(_freteM) ? TAXA_MOTOBOY || 0 : _freteM;
     } catch (e) {
       console.error("Erro ao processar pedido na rota:", e);
     }
@@ -2406,10 +2805,13 @@ function enviarRotaZap() {
 // =========================================
 // Cache dos produtos para filtro local
 let _todosProdutos = [];
+let _produtosMap = {}; // mapa id→produto para onclick seguro sem JSON inline
 
 async function carregarProdutos() {
   const { data } = await supa.from("produtos").select("*").order("nome");
   _todosProdutos = data || [];
+  _produtosMap = {};
+  _todosProdutos.forEach(p => { _produtosMap[p.id] = p; });
   renderizarCardsProdutos(_todosProdutos);
   // Só recarrega o select de categorias se o modal de produto estiver fechado
   const modalAberto =
@@ -2495,9 +2897,7 @@ function renderizarCardsProdutos(lista) {
         ? `<span title="${extrasQtd} adicionais" style="font-size:0.7rem;color:#3498db;font-weight:700">➕${extrasQtd}</span>`
         : "";
 
-    const pJson = JSON.stringify(p)
-      .replace(/'/g, "&apos;")
-      .replace(/"/g, "&quot;");
+    // produto referenciado pelo id via _produtosMap (sem JSON inline no onclick)
 
     const card = document.createElement("div");
     card.className = `produto-card${!p.ativo ? " pausado" : ""}`;
@@ -2519,7 +2919,7 @@ function renderizarCardsProdutos(lista) {
         <div class="produto-card-preco">Gs ${(p.preco || 0).toLocaleString("es-PY")}</div>
       </div>
       <div class="produto-card-actions">
-        <button class="btn btn-sm btn-primary" onclick='editarProduto(${pJson})'>
+        <button class="btn btn-sm btn-primary" onclick="editarProdutoById(${p.id})">
           <i class="fas fa-edit"></i> Editar
         </button>
         <button class="btn btn-sm btn-info" onclick="duplicarProduto(${p.id})" title="Duplicar produto">
@@ -2537,6 +2937,11 @@ function renderizarCardsProdutos(lista) {
     `;
     grid.appendChild(card);
   });
+}
+
+function editarProdutoById(id) {
+  const p = _produtosMap[id];
+  if (p) editarProduto(p);
 }
 
 function editarProduto(p) {
@@ -2558,20 +2963,24 @@ function previewUpload(input) {
 
 async function salvarProduto() {
   const btn = event.target;
-  btn.innerText = "Salvando...";
   btn.disabled = true;
   try {
     const id = document.getElementById("prod-id").value;
     const fileInput = document.getElementById("prod-img-file");
     let urlFinal = document.getElementById("prod-img").value;
 
+    // ── Upload para o Cloudinary (substitui Supabase Storage) ──
     if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      const nomeArq = Date.now() + "-" + file.name.replace(/\s+/g, "-");
-      await supa.storage.from("produtos").upload(nomeArq, file);
-      const { data } = supa.storage.from("produtos").getPublicUrl(nomeArq);
-      urlFinal = data.publicUrl;
+      btn.innerText = "Enviando imagem...";
+      try {
+        urlFinal = await uploadImageToCloudinary(fileInput.files[0]);
+      } catch (uploadErr) {
+        alert("❌ Falha no upload da imagem: " + uploadErr.message + "\nO produto não foi salvo.");
+        return;
+      }
     }
+
+    btn.innerText = "Salvando...";
 
     const tipo = document.getElementById("prod-tipo-builder").value || "padrao";
 
@@ -2683,12 +3092,15 @@ async function salvarProduto() {
       document.querySelectorAll(".pizza-sabor-row").forEach((row) => {
         const nome = row.querySelector('[data-f="snome"]').value.trim();
         if (!nome) return;
+        const toggleBtn = row.querySelector(".pizza-sabor-toggle-ativo");
+        const ativo = !toggleBtn || toggleBtn.dataset.ativo !== "false";
         sabores.push({
           nome,
-          desc: row.querySelector('[data-f="sdesc"]')?.value?.trim() || "",
-          tipo: row.querySelector('[data-f="stipo"]').value,
-          img: row.querySelector('[data-f="simg"]')?.value || "",
+          desc:  row.querySelector('[data-f="sdesc"]')?.value?.trim() || "",
+          tipo:  row.querySelector('[data-f="stipo"]').value,
+          img:   row.querySelector('[data-f="simg"]')?.value || "",
           preco: 0,
+          ativo,
         });
       });
 
@@ -2941,8 +3353,7 @@ async function salvarProduto() {
       ativo: true,
       somente_balcao:
         document.getElementById("prod-somente-balcao")?.checked || false,
-      es_bebida:
-        document.getElementById("prod-es-bebida")?.checked || false,
+      es_bebida: document.getElementById("prod-es-bebida")?.checked || false,
       inventario_id: inventarioId,
     };
 
@@ -3089,6 +3500,7 @@ async function abrirModalProduto(produto = null, tipoInicial = null) {
         if (pizzaCfg.sabores && pizzaCfg.sabores.length > 0) {
           document.getElementById("pizza-sabores-lista").innerHTML = "";
           pizzaCfg.sabores.forEach((s) => addPizzaSabor(s));
+          // Drag já é vinculado dentro de addPizzaSabor
         }
       }
       // ── SHAKE ──
@@ -3478,58 +3890,125 @@ function addPizzaSabor(dados = {}) {
   const tipos = _pizzaTiposAtuais();
   const row = document.createElement("div");
   row.className = "pizza-sabor-row";
-  const imgSrc = dados.img || "";
+  row.draggable = true;
+  const imgSrc   = dados.img || "";
+  const isAtivo  = dados.ativo !== false; // default true
   row.innerHTML = `
     <div class="pizza-sabor-main" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-      <input data-f="snome" class="form-control" value="${dados.nome || ""}" placeholder="Nome do sabor" style="flex:2;min-width:140px">
-      <select data-f="stipo" class="form-control pizza-sabor-tipo" style="flex:1;min-width:110px">
+      <span class="drag-handle" title="Arrastar para reordenar"
+        style="cursor:grab;font-size:1.1rem;color:#aaa;padding:0 4px;user-select:none">⠿</span>
+      <input data-f="snome" class="form-control" value="${dados.nome || ""}" placeholder="Nome do sabor" style="flex:2;min-width:120px">
+      <select data-f="stipo" class="form-control pizza-sabor-tipo" style="flex:1;min-width:100px">
         ${
           tipos.length
-            ? tipos
-                .map(
-                  (t) =>
-                    `<option value="${t}" ${dados.tipo === t ? "selected" : ""}>${t}</option>`,
-                )
-                .join("")
+            ? tipos.map(t =>
+                `<option value="${t}" ${dados.tipo === t ? "selected" : ""}>${t}</option>`
+              ).join("")
             : `<option value="${dados.tipo || ""}">${dados.tipo || "—"}</option>`
         }
       </select>
-      <button class="btn btn-sm btn-danger" onclick="this.closest('.pizza-sabor-row').remove()">✕</button>
+      <button type="button" class="btn btn-sm pizza-sabor-toggle-ativo"
+        data-ativo="${isAtivo}"
+        style="background:${isAtivo ? "#27ae60" : "#e74c3c"};color:#fff;border:none;
+               border-radius:6px;padding:4px 9px;cursor:pointer;font-size:0.78rem;white-space:nowrap"
+        onclick="pizzaSaborToggleAtivo(this)">
+        ${isAtivo ? "✅ Ativo" : "⏸ Pausado"}
+      </button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.pizza-sabor-row').remove()">✕</button>
     </div>
     <textarea data-f="sdesc" class="form-control" rows="1" placeholder="Descrição (opcional)" style="margin-bottom:6px">${dados.desc || ""}</textarea>
     <div style="display:flex;gap:8px;align-items:center">
-      ${imgSrc ? `<img src="${imgSrc}" style="width:40px;height:40px;border-radius:6px;object-fit:cover">` : ""}
+      ${imgSrc ? `<img src="${imgSrc}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;flex-shrink:0">` : ""}
       <input data-f="simg" type="text" class="form-control" value="${imgSrc}" placeholder="URL da imagem (opcional)" style="flex:1;font-size:0.8rem">
       <label style="cursor:pointer;background:#e8f4fd;border:1px solid #3498db;border-radius:6px;padding:5px 8px;font-size:0.75rem;white-space:nowrap">
         📷 <input type="file" accept="image/*" style="display:none" onchange="uploadSaborImagem(this, this.closest('.pizza-sabor-row'))">
       </label>
     </div>
   `;
+  _pizzaSaborDragBind(row);
   lista.appendChild(row);
+}
+
+function pizzaSaborToggleAtivo(btn) {
+  const atual = btn.dataset.ativo === "true";
+  const novo  = !atual;
+  btn.dataset.ativo = String(novo);
+  btn.style.background = novo ? "#27ae60" : "#e74c3c";
+  btn.textContent = novo ? "✅ Ativo" : "⏸ Pausado";
+}
+
+// ── Drag & Drop nativo para reordenar sabores ──────────────────
+let _dragSaborRow = null;
+
+function _pizzaSaborDragBind(row) {
+  row.addEventListener("dragstart", e => {
+    _dragSaborRow = row;
+    row.style.opacity = "0.4";
+    e.dataTransfer.effectAllowed = "move";
+  });
+  row.addEventListener("dragend", () => {
+    row.style.opacity = "";
+    _dragSaborRow = null;
+    // Remove indicadores visuais
+    document.querySelectorAll(".pizza-sabor-row").forEach(r => r.classList.remove("drag-over"));
+  });
+  row.addEventListener("dragover", e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (_dragSaborRow && _dragSaborRow !== row) {
+      row.classList.add("drag-over");
+    }
+  });
+  row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+  row.addEventListener("drop", e => {
+    e.preventDefault();
+    row.classList.remove("drag-over");
+    if (!_dragSaborRow || _dragSaborRow === row) return;
+    const lista = document.getElementById("pizza-sabores-lista");
+    const rows  = [...lista.querySelectorAll(".pizza-sabor-row")];
+    const fromIdx = rows.indexOf(_dragSaborRow);
+    const toIdx   = rows.indexOf(row);
+    if (fromIdx < toIdx) {
+      lista.insertBefore(_dragSaborRow, row.nextSibling);
+    } else {
+      lista.insertBefore(_dragSaborRow, row);
+    }
+  });
+}
+
+// Inicializa drag em sabores existentes (chamado ao abrir modal de edição)
+function _pizzaSaboresDragInit() {
+  document.querySelectorAll("#pizza-sabores-lista .pizza-sabor-row").forEach(_pizzaSaborDragBind);
 }
 
 async function uploadSaborImagem(fileInput, row) {
   if (!fileInput.files.length) return;
   const file = fileInput.files[0];
-  const nomeArq = `sabores/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
   fileInput.disabled = true;
+
+  // Feedback visual no botão/label pai
+  const labelBtn = fileInput.closest("label");
+  const originalLabel = labelBtn ? labelBtn.innerHTML : null;
+  if (labelBtn) labelBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
   try {
-    const { error } = await supa.storage.from("produtos").upload(nomeArq, file);
-    if (error) throw error;
-    const { data } = supa.storage.from("produtos").getPublicUrl(nomeArq);
+    // ── Upload para o Cloudinary (substitui Supabase Storage) ──
+    const url = await uploadImageToCloudinary(file);
+
     const inp =
       row.querySelector('[data-f="simg"]') ||
       row.querySelector('[data-f="img"]');
-    if (inp) inp.value = data.publicUrl;
+    if (inp) inp.value = url;
     const prev = row.querySelector("img.img-preview-mini");
     if (prev) {
-      prev.src = data.publicUrl;
+      prev.src = url;
       prev.style.display = "block";
     }
   } catch (e) {
     alert("Erro ao enviar imagem: " + e.message);
   } finally {
     fileInput.disabled = false;
+    if (labelBtn && originalLabel) labelBtn.innerHTML = originalLabel;
   }
 }
 
@@ -3761,7 +4240,7 @@ async function duplicarProduto(id) {
     alert("Erro ao duplicar: " + errIns.message);
     return;
   }
-  alert(t('alert.produto_duplicado'));
+  alert(t("alert.produto_duplicado"));
   carregarProdutos();
 }
 
@@ -3982,7 +4461,7 @@ async function _confirmarEncerramentoDelivery() {
   }
 
   document.getElementById("modal-encerramento-delivery")?.remove();
-  alert(t('alert.delivery_encerrado'));
+  alert(t("alert.delivery_encerrado"));
 
   // Atualiza badge no painel se existir
   const badge = document.getElementById("badge-delivery-status");
@@ -4008,7 +4487,7 @@ async function reabrirDelivery() {
     return;
   }
 
-  alert(t('alert.delivery_reaberto'));
+  alert(t("alert.delivery_reaberto"));
 
   const badge = document.getElementById("badge-delivery-status");
   if (badge) {
@@ -4865,7 +5344,7 @@ async function deletarProduto(id) {
     if (error) {
       alert("❌ Erro ao deletar: " + error.message);
     } else {
-      alert(t('alert.produto_excluido'));
+      alert(t("alert.produto_excluido"));
       carregarProdutos();
     }
   } catch (e) {
@@ -5128,7 +5607,7 @@ async function salvarMotoboy() {
       if (error) throw error;
     }
 
-    alert(t('alert.moto_salvo'));
+    alert(t("alert.moto_salvo"));
     fecharModal("modal-moto");
     carregarMotoboys();
     carregarMotoboysSelect(); // Atualiza o select da Rota
@@ -5599,7 +6078,7 @@ async function salvarConfiguracoes() {
 
   const { error } = await supa.from("configuracoes").update(dados).gt("id", 0);
   if (error) alert("Erro: " + error.message);
-  else alert(t('alert.cfg_salvas'));
+  else alert(t("alert.cfg_salvas"));
 }
 
 function previewBanner(input, num = 1) {
@@ -5639,15 +6118,14 @@ async function salvarBanner(num = 1) {
 
     if (fileInput?.files?.length) {
       const file = fileInput.files[0];
-      const nomeArq = `banner${suf}_${Date.now()}.${file.name.split(".").pop()}`;
-      const { error: uploadErr } = await supa.storage
-        .from("produtos")
-        .upload(nomeArq, file, { upsert: true });
-      if (uploadErr) throw uploadErr;
-      const { data: urlData } = supa.storage
-        .from("produtos")
-        .getPublicUrl(nomeArq);
-      urlFinal = urlData.publicUrl;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando imagem...';
+      // ── Upload para o Cloudinary (substitui Supabase Storage) ──
+      try {
+        urlFinal = await uploadImageToCloudinary(file);
+      } catch (uploadErr) {
+        alert("❌ Falha no upload do banner: " + uploadErr.message + "\nO banner não foi salvo.");
+        return;
+      }
     }
 
     if (!urlFinal) {
@@ -5828,7 +6306,7 @@ async function salvarTabelaFrete() {
     return;
   }
   TABELA_FRETE_ADMIN = tabela;
-  alert(t('alert.frete_salvo'));
+  alert(t("alert.frete_salvo"));
 }
 
 // ── MAQUININHAS DE CARTÃO ─────────────────────────────────────────
@@ -5942,29 +6420,29 @@ async function salvarPersonalizacao() {
     // Upload do ícone se houver arquivo selecionado
     const iconeFile = document.getElementById("cfg-icone-file")?.files?.[0];
     if (iconeFile) {
-      const ext = iconeFile.name.split(".").pop();
-      const nomeArq = `icone-loja-${Date.now()}.${ext}`;
-      const { error: upErr } = await supa.storage
-        .from("produtos")
-        .upload(nomeArq, iconeFile, { upsert: true });
-      if (upErr) throw new Error("Erro no upload: " + upErr.message);
-      const { data: urlData } = supa.storage
-        .from("produtos")
-        .getPublicUrl(nomeArq);
-      dados.icone_url = urlData.publicUrl;
-      dados.logo_url = urlData.publicUrl;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando ícone...';
+      // ── Upload para o Cloudinary (substitui Supabase Storage) ──
+      let iconeUrl;
+      try {
+        iconeUrl = await uploadImageToCloudinary(iconeFile);
+      } catch (uploadErr) {
+        alert("❌ Falha no upload do ícone: " + uploadErr.message + "\nA personalização não foi salva.");
+        return;
+      }
+      dados.icone_url = iconeUrl;
+      dados.logo_url = iconeUrl;
       // Atualiza preview
       const prev = document.getElementById("cfg-icone-preview");
       const box = document.getElementById("cfg-icone-preview-box");
       if (prev) {
-        prev.src = dados.icone_url;
+        prev.src = iconeUrl;
       }
       if (box) {
         box.style.display = "block";
       }
       // Preenche campo URL
       const urlInp = document.getElementById("cfg-logo-url");
-      if (urlInp) urlInp.value = dados.icone_url;
+      if (urlInp) urlInp.value = iconeUrl;
     }
 
     if (Object.keys(dados).length > 0) {
@@ -5995,16 +6473,8 @@ async function _uploadLogoIdentidade(input) {
   if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
 
   try {
-    const ext = file.name.split(".").pop();
-    const nomeArq = `logo-${Date.now()}.${ext}`;
-    const { error: upErr } = await supa.storage
-      .from("produtos")
-      .upload(nomeArq, file, { upsert: true });
-    if (upErr) throw upErr;
-    const { data: urlData } = supa.storage
-      .from("produtos")
-      .getPublicUrl(nomeArq);
-    const url = urlData.publicUrl;
+    // ── Upload para o Cloudinary (substitui Supabase Storage) ──
+    const url = await uploadImageToCloudinary(file);
 
     // Preenche o campo de URL de texto
     const urlInput = document.getElementById("cfg-logo-url");
@@ -6226,17 +6696,25 @@ function _calcularIntervalo(periodo, idI, idF) {
 // PDV MOBILE — Tabs de navegação
 // ══════════════════════════════════════════════════════════
 function pdvMudarAba(aba, btn) {
-  localStorage.setItem('app_pdv_aba', aba);
-  document.querySelectorAll(".pdv-tab-btn").forEach(b => b.classList.remove("active"));
+  localStorage.setItem("app_pdv_aba", aba);
+  document
+    .querySelectorAll(".pdv-tab-btn")
+    .forEach((b) => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
 
   // Hide all panels, show the selected one
-  document.querySelectorAll(".pdv-tab-panel").forEach(el => el.classList.remove("pdv-tab-active"));
+  document
+    .querySelectorAll(".pdv-tab-panel")
+    .forEach((el) => el.classList.remove("pdv-tab-active"));
 
   if (aba === "produtos") {
-    document.getElementById("pdv-panel-produtos")?.classList.add("pdv-tab-active");
+    document
+      .getElementById("pdv-panel-produtos")
+      ?.classList.add("pdv-tab-active");
   } else if (aba === "carrinho") {
-    document.getElementById("pdv-panel-carrinho")?.classList.add("pdv-tab-active");
+    document
+      .getElementById("pdv-panel-carrinho")
+      ?.classList.add("pdv-tab-active");
   } else if (aba === "monitor") {
     // On mobile: show the mesas panel instead
     const panelMesas = document.getElementById("pdv-panel-mesas");
@@ -6245,7 +6723,9 @@ function pdvMudarAba(aba, btn) {
       panelVenda.style.display = "none";
       panelMesas.style.display = "";
     } else {
-      document.getElementById("pdv-panel-monitor")?.classList.add("pdv-tab-active");
+      document
+        .getElementById("pdv-panel-monitor")
+        ?.classList.add("pdv-tab-active");
     }
   }
 }
@@ -6283,13 +6763,16 @@ function pdvIniciarTabs() {
     document
       .querySelectorAll(".pdv-tab-btn")
       .forEach((b) => b.classList.remove("active"));
-    
+
     const savedPdvAba = localStorage.getItem("app_pdv_aba") || "produtos";
     let activeBtn = null;
     if (tabsEl) {
-      if (savedPdvAba === "produtos") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(1)");
-      else if (savedPdvAba === "carrinho") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(2)");
-      else if (savedPdvAba === "mesas") activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(3)");
+      if (savedPdvAba === "produtos")
+        activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(1)");
+      else if (savedPdvAba === "carrinho")
+        activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(2)");
+      else if (savedPdvAba === "mesas")
+        activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(3)");
     }
     pdvMudarAba(savedPdvAba, activeBtn);
   } else {
@@ -6312,6 +6795,172 @@ async function logout() {
   else window.location.href = "login.html";
 }
 
+// ─────────────────────────────────────────────────────────────
+// ALTERAR SENHA
+// ─────────────────────────────────────────────────────────────
+function abrirModalAlterarSenha() {
+  const html = `
+    <div id="modal-alterar-senha" class="modal-overlay" style="display:flex;z-index:9999;backdrop-filter:blur(4px)">
+      <div style="background:#fff;border-radius:20px;width:100%;max-width:420px;
+        box-shadow:0 24px 60px rgba(0,0,0,0.18);overflow:hidden;font-family:inherit">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#1a7a2e 100%);
+          padding:24px 24px 20px;position:relative">
+          <button onclick="document.getElementById('modal-alterar-senha').remove()"
+            style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,0.12);
+            border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:14px;
+            cursor:pointer">✕</button>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="background:rgba(255,255,255,0.12);border-radius:12px;padding:10px;font-size:22px">🔐</div>
+            <div>
+              <div style="color:#fff;font-size:1.1rem;font-weight:700">Alterar Senha</div>
+              <div style="color:rgba(255,255,255,0.55);font-size:0.78rem;margin-top:2px">Escolha uma senha forte</div>
+            </div>
+          </div>
+        </div>
+        <!-- Body -->
+        <div style="padding:22px 24px 18px">
+          <div style="margin-bottom:16px">
+            <label style="font-size:0.75rem;font-weight:600;color:#64748b;text-transform:uppercase;
+              letter-spacing:.4px;display:block;margin-bottom:6px">Nova senha</label>
+            <div style="position:relative">
+              <input type="password" id="wl-nova-senha" placeholder="Digite a nova senha"
+                autocomplete="new-password" oninput="_wlAvaliarSenha(this.value)"
+                style="width:100%;padding:10px 42px 10px 13px;border:2px solid #e2e8f0;
+                border-radius:10px;font-size:0.9rem;outline:none;box-sizing:border-box"
+                onfocus="this.style.borderColor='#1a7a2e'" onblur="this.style.borderColor='#e2e8f0'"/>
+              <span onclick="_wlToggleSenha('wl-nova-senha','wl-eye1')" id="wl-eye1"
+                style="position:absolute;right:11px;top:50%;transform:translateY(-50%);
+                cursor:pointer;font-size:17px;user-select:none">👁</span>
+            </div>
+            <!-- Barra de força -->
+            <div style="margin-top:7px">
+              <div style="display:flex;gap:4px;height:5px;border-radius:4px;overflow:hidden">
+                <div id="wl-b1" style="flex:1;background:#e2e8f0;border-radius:4px;transition:background .3s"></div>
+                <div id="wl-b2" style="flex:1;background:#e2e8f0;border-radius:4px;transition:background .3s"></div>
+                <div id="wl-b3" style="flex:1;background:#e2e8f0;border-radius:4px;transition:background .3s"></div>
+                <div id="wl-b4" style="flex:1;background:#e2e8f0;border-radius:4px;transition:background .3s"></div>
+              </div>
+              <div id="wl-forca-lbl" style="font-size:0.72rem;color:#aaa;margin-top:4px;min-height:14px"></div>
+            </div>
+            <!-- Critérios -->
+            <div style="margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:3px 10px">
+              <div id="wl-c1" style="font-size:.72rem;color:#bbb;transition:color .25s">✗ Mín. 8 caracteres</div>
+              <div id="wl-c2" style="font-size:.72rem;color:#bbb;transition:color .25s">✗ Número</div>
+              <div id="wl-c3" style="font-size:.72rem;color:#bbb;transition:color .25s">✗ Maiúscula</div>
+              <div id="wl-c4" style="font-size:.72rem;color:#bbb;transition:color .25s">✗ Caractere especial</div>
+            </div>
+          </div>
+          <div style="margin-bottom:6px">
+            <label style="font-size:0.75rem;font-weight:600;color:#64748b;text-transform:uppercase;
+              letter-spacing:.4px;display:block;margin-bottom:6px">Confirmar senha</label>
+            <div style="position:relative">
+              <input type="password" id="wl-conf-senha" placeholder="Repita a nova senha"
+                autocomplete="new-password" oninput="_wlVerificarMatch()"
+                style="width:100%;padding:10px 42px 10px 13px;border:2px solid #e2e8f0;
+                border-radius:10px;font-size:0.9rem;outline:none;box-sizing:border-box"
+                onfocus="this.style.borderColor='#1a7a2e'" onblur="this.style.borderColor='#e2e8f0'"/>
+              <span onclick="_wlToggleSenha('wl-conf-senha','wl-eye2')" id="wl-eye2"
+                style="position:absolute;right:11px;top:50%;transform:translateY(-50%);
+                cursor:pointer;font-size:17px;user-select:none">👁</span>
+            </div>
+            <div id="wl-match-lbl" style="font-size:0.78rem;margin-top:5px;min-height:16px"></div>
+          </div>
+          <div id="wl-msg-senha" style="display:none;color:#e74c3c;font-size:0.82rem;
+            background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px 12px;margin-top:10px"></div>
+        </div>
+        <!-- Footer -->
+        <div style="padding:0 24px 22px;display:flex;gap:10px">
+          <button onclick="document.getElementById('modal-alterar-senha').remove()"
+            style="flex:1;padding:11px;background:#f5f5f5;color:#666;border:none;border-radius:10px;
+            font-size:0.88rem;font-weight:600;cursor:pointer">Cancelar</button>
+          <button id="wl-btn-salvar-senha" onclick="wlSalvarNovaSenha()"
+            style="flex:2;padding:11px;background:linear-gradient(135deg,#1a7a2e,#145a22);
+            color:#fff;border:none;border-radius:10px;font-size:0.88rem;font-weight:700;cursor:pointer">
+            🔒 Salvar Nova Senha
+          </button>
+        </div>
+      </div>
+    </div>`;
+  const old = document.getElementById("modal-alterar-senha");
+  if (old) old.remove();
+  document.body.insertAdjacentHTML("beforeend", html);
+  setTimeout(() => document.getElementById("wl-nova-senha")?.focus(), 120);
+}
+
+function _wlToggleSenha(inputId, spanId) {
+  const inp = document.getElementById(inputId);
+  const sp  = document.getElementById(spanId);
+  if (!inp) return;
+  inp.type = inp.type === "password" ? "text" : "password";
+  if (sp) sp.textContent = inp.type === "password" ? "👁" : "🙈";
+}
+
+function _wlAvaliarSenha(v) {
+  const checks = [v.length >= 8, /\d/.test(v), /[A-Z]/.test(v), /[^A-Za-z0-9]/.test(v)];
+  const txts   = ["Mín. 8 caracteres","Número","Maiúscula","Caractere especial"];
+  const cores  = ["#e2e8f0","#ef4444","#f97316","#eab308","#22c55e"];
+  const labels = ["","Fraca 😬","Razoável 😐","Boa 👍","Forte 💪"];
+  const score  = checks.filter(Boolean).length;
+
+  checks.forEach((ok, i) => {
+    const el = document.getElementById("wl-c" + (i + 1));
+    if (!el) return;
+    el.textContent = (ok ? "✓ " : "✗ ") + txts[i];
+    el.style.color = ok ? "#22c55e" : "#bbb";
+  });
+  for (let i = 1; i <= 4; i++) {
+    const b = document.getElementById("wl-b" + i);
+    if (b) b.style.background = i <= score ? cores[score] : "#e2e8f0";
+  }
+  const fl = document.getElementById("wl-forca-lbl");
+  if (fl) { fl.textContent = labels[score]; fl.style.color = cores[score]; }
+  _wlVerificarMatch();
+}
+
+function _wlVerificarMatch() {
+  const a   = document.getElementById("wl-nova-senha")?.value || "";
+  const b   = document.getElementById("wl-conf-senha")?.value || "";
+  const lbl = document.getElementById("wl-match-lbl");
+  const inp = document.getElementById("wl-conf-senha");
+  if (!lbl || !b) return;
+  const ok = a === b && b.length > 0;
+  lbl.textContent = ok ? "✓ Senhas coincidem" : "✗ Senhas não coincidem";
+  lbl.style.color = ok ? "#22c55e" : "#ef4444";
+  if (inp) inp.style.borderColor = b.length > 0 ? (ok ? "#22c55e" : "#ef4444") : "#e2e8f0";
+}
+
+async function wlSalvarNovaSenha() {
+  const nova   = document.getElementById("wl-nova-senha")?.value || "";
+  const conf   = document.getElementById("wl-conf-senha")?.value || "";
+  const msgEl  = document.getElementById("wl-msg-senha");
+  const showErr = (t) => { msgEl.textContent = t; msgEl.style.display = "block"; };
+  msgEl.style.display = "none";
+
+  if (nova.length < 6)  return showErr("A senha deve ter pelo menos 6 caracteres.");
+  if (nova !== conf)    return showErr("As senhas não coincidem.");
+
+  const btn = document.getElementById("wl-btn-salvar-senha");
+  if (btn) { btn.disabled = true; btn.textContent = "⏳ Salvando..."; btn.style.opacity = ".7"; }
+
+  const { error } = await supa.auth.updateUser({ password: nova });
+
+  if (btn) { btn.disabled = false; btn.textContent = "🔒 Salvar Nova Senha"; btn.style.opacity = "1"; }
+
+  if (error) {
+    showErr("Erro: " + error.message);
+  } else {
+    document.getElementById("modal-alterar-senha").remove();
+    const toast = document.createElement("div");
+    toast.textContent = "✅ Senha alterada com sucesso!";
+    toast.style.cssText = "position:fixed;bottom:28px;left:50%;transform:translateX(-50%);" +
+      "background:#1a7a2e;color:#fff;padding:12px 24px;border-radius:12px;font-weight:600;" +
+      "font-size:0.9rem;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.2)";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3200);
+  }
+}
+
 // =========================================
 // 9. VENDA BALCÃO (NOVA VERSÃO VISUAL)
 // =========================================
@@ -6322,10 +6971,10 @@ async function logout() {
 let carrinhoPDV = [];
 let produtosCachePDV = [];
 // Cotação carregada das configurações (fallback 1100)
-let _cotacaoPDV      = 1100;
-let _taxaDebitoPDV   = 1.99;
-let _taxaCreditoPDV  = 4.98;
-let _cartaoBRTipoPDV = 'debito';
+let _cotacaoPDV = 1100;
+let _taxaDebitoPDV = 1.99;
+let _taxaCreditoPDV = 4.98;
+let _cartaoBRTipoPDV = "debito";
 
 async function carregarPDV() {
   // PDV carrega TODOS os produtos ativos (inclui pausado=null e pausado=false)
@@ -6351,11 +7000,14 @@ async function carregarPDV() {
     .from("configuracoes")
     .select("cotacao_real, taxa_debito, taxa_credito")
     .maybeSingle();
-  if (cfg?.cotacao_real)  _cotacaoPDV     = Number(cfg.cotacao_real);
-  if (cfg?.taxa_debito  != null) _taxaDebitoPDV  = Number(cfg.taxa_debito);
+  if (cfg?.cotacao_real) _cotacaoPDV = Number(cfg.cotacao_real);
+  if (cfg?.taxa_debito != null) _taxaDebitoPDV = Number(cfg.taxa_debito);
   if (cfg?.taxa_credito != null) _taxaCreditoPDV = Number(cfg.taxa_credito);
   // Aplica visibilidade das formas de pagamento no PDV
-  const { data: featCfg } = await supa.from("configuracoes").select("features_ativas").maybeSingle();
+  const { data: featCfg } = await supa
+    .from("configuracoes")
+    .select("features_ativas")
+    .maybeSingle();
   _aplicarFormasPagamentoPDV(featCfg?.features_ativas);
 
   renderizarGridPDV();
@@ -6367,14 +7019,15 @@ let produtosCatsPDV = [];
 
 let _pdvCatFiltro = "todos";
 
-
 function pdvSelecionarTipo(tipo, btn) {
-  const inp = document.getElementById('balcao-tipo-entrega');
+  const inp = document.getElementById("balcao-tipo-entrega");
   if (inp) inp.value = tipo;
-  document.querySelectorAll('.pdv-tipo-tab').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  const delivRow = document.getElementById('pdv-delivery-row');
-  if (delivRow) delivRow.style.display = tipo === 'delivery' ? '' : 'none';
+  document
+    .querySelectorAll(".pdv-tipo-tab")
+    .forEach((b) => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  const delivRow = document.getElementById("pdv-delivery-row");
+  if (delivRow) delivRow.style.display = tipo === "delivery" ? "" : "none";
   atualizarCarrinhoPDV();
 }
 
@@ -6481,7 +7134,13 @@ function renderizarGridPDV(filtroNome = "") {
 function _criarCardPDV(p) {
   const img = p.imagem_url || "";
   let cfg = p.montagem_config;
-  if (typeof cfg === 'string') { try { cfg = JSON.parse(cfg); } catch(_) { cfg = null; } }
+  if (typeof cfg === "string") {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = null;
+    }
+  }
   const isKg = cfg && !Array.isArray(cfg) && cfg.__tipo === "kg";
   const precoKg = isKg ? cfg.preco_kg || p.preco || 0 : 0;
 
@@ -6552,8 +7211,12 @@ function _deveMostrarExtrasGlobais(produto) {
 function adicionarItemPDV(p) {
   // montagem_config pode chegar como string JSON de bancos antigos
   let cfg = p.montagem_config;
-  if (typeof cfg === 'string') {
-    try { cfg = JSON.parse(cfg); } catch(_) { cfg = null; }
+  if (typeof cfg === "string") {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = null;
+    }
   }
   const tipo = cfg && !Array.isArray(cfg) && cfg.__tipo ? cfg.__tipo : null;
 
@@ -6617,7 +7280,13 @@ function _mostrarModalOpcoesPDV(produto, tipo) {
   document.getElementById("pdv-opcoes-modal")?.remove();
 
   let cfg = produto.montagem_config || {};
-  if (typeof cfg === 'string') { try { cfg = JSON.parse(cfg); } catch(_) { cfg = {}; } }
+  if (typeof cfg === "string") {
+    try {
+      cfg = JSON.parse(cfg);
+    } catch (_) {
+      cfg = {};
+    }
+  }
   const cacheKey = "pdv_" + (produto.id || Date.now());
   window._pdvProdCache[cacheKey] = produto;
 
@@ -6678,129 +7347,159 @@ function _mostrarModalOpcoesPDV(produto, tipo) {
   // ── PIZZA ────────────────────────────────────────────────────
   else if (tipo === "pizza") {
     const tamanhos = cfg.tamanhos || [];
-    const tipos_pizza = cfg.tipos_pizza || [];
     const sabores = cfg.sabores || [];
     const bordas = cfg.bordas || [];
 
+    // ── Helpers de preço (igual ao app.js) ──────────────────────
+    // Retorna o preço do tamanho para um determinado tipo de sabor
+    const _pdvPrecoTipo = (tam, tipo) => {
+      if (!tam) return 0;
+      const precos = tam.precos || {};
+      if (tipo && precos[tipo] > 0) return precos[tipo];
+      if (tipo) {
+        const k = Object.keys(precos).find(k2 => k2.toLowerCase() === (tipo || "").toLowerCase());
+        if (k && precos[k] > 0) return precos[k];
+      }
+      return tam.preco || 0;
+    };
+    // Retorna o menor preço disponível no tamanho (preço base)
+    const _pdvPrecoMin = (tam) => {
+      if (!tam) return 0;
+      const vals = Object.values(tam.precos || {}).filter(v => v > 0);
+      return vals.length ? Math.min(...vals) : (tam.preco || 0);
+    };
+
     let html = "";
+
+    // ── Passo 1: Tamanho (cards com fatias, cm e preço — igual ao app.js) ──
     if (tamanhos.length) {
-      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">📐 Tamanho:</p>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${tamanhos
-            .map(
-              (t, i) => `
-            <label style="border:2px solid ${i === 0 ? "#e74c3c" : "#e5e7eb"};border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
-              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#e74c3c';this.style.background='#fff5f5';_pdvPizzaAtualizarPreco()">
+      html += `<div style="margin-bottom:14px">
+        <p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:8px">📐 Tamanho:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px" id="_pdv_pizza_tam_grid">
+          ${tamanhos.map((t, i) => `
+            <label style="border:2px solid ${i === 0 ? "#e74c3c" : "#e5e7eb"};background:${i === 0 ? "#fff5f5" : ""};border-radius:10px;padding:10px 12px;cursor:pointer;text-align:center;min-width:80px;transition:all .15s"
+              onclick="this.closest('#_pdv_pizza_tam_grid').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#e74c3c';this.style.background='#fff5f5';_pdvPizzaAtualizarPreco()">
               <input type="radio" name="_pdv_pizza_tam" value="${i}" style="display:none" ${i === 0 ? "checked" : ""}>
-              <div>${t.nome}</div><div style="font-size:0.72rem;color:#888">${t.fatias || ""}${t.fatias ? " fatias" : ""} ${t.cm || ""}${t.cm ? " cm" : ""}</div>
-            </label>`,
-            )
-            .join("")}
-        </div></div>`;
+              <div style="font-weight:700;font-size:0.9rem">${t.nome}</div>
+              ${t.fatias ? `<div style="font-size:0.7rem;color:#888">${t.fatias} fatias</div>` : ""}
+              ${t.cm ? `<div style="font-size:0.7rem;color:#888">⌀${t.cm}cm</div>` : ""}
+              <div style="font-size:0.82rem;font-weight:800;color:#e74c3c;margin-top:3px">Gs ${(t.preco || 0).toLocaleString("es-PY")}</div>
+            </label>`).join("")}
+        </div>
+      </div>`;
     }
 
-    if (tipos_pizza.length > 1) {
-      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🍕 Tipo:</p>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${tipos_pizza
-            .map(
-              (t, i) => `
-            <label style="border:2px solid ${i === 0 ? "#e74c3c" : "#e5e7eb"};border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
-              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#e74c3c';this.style.background='#fff5f5';_pdvPizzaFiltrarSabores()">
-              <input type="radio" name="_pdv_pizza_tipo" value="${t.nome}" style="display:none" ${i === 0 ? "checked" : ""}>
-              ${t.nome}
-            </label>`,
-            )
-            .join("")}
-        </div></div>`;
-    }
-
+    // ── Passo 2: Sabores — cada card mostra o preço do seu tipo (igual ao app.js) ──
     const maxSabDefault = tamanhos[0]?.max_sabores || 2;
-    html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🍽️ Sabores <span id="_pdv_pizza_maxlabel">(até ${maxSabDefault})</span>:</p>
+    const tam0 = tamanhos[0];
+    const precoMin0 = _pdvPrecoMin(tam0);
+    html += `<div style="margin-bottom:14px">
+      <p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:8px">🍽️ Sabores <span id="_pdv_pizza_maxlabel" style="font-weight:400;color:#888">(até ${maxSabDefault})</span>:</p>
       <div id="_pdv_sabores_lista" style="display:flex;flex-direction:column;gap:6px">
-        ${sabores
-          .map(
-            (s) => `
-          <label style="display:flex;align-items:center;gap:10px;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .15s"
-            data-tipo-sabor="${s.tipo || ""}"
-            onclick="var cb=this.querySelector('input');if(!cb.checked){var t=parseInt(document.getElementById('_pdv_pizza_maxlabel').textContent.match(/\d+/)?.[0]||2);var chk=document.querySelectorAll('#_pdv_sabores_lista input:checked').length;if(chk>=t){alert('Máx. '+t+' sabores');return;}cb.checked=true;this.style.borderColor='#e74c3c';this.style.background='#fff5f5';}else{cb.checked=false;this.style.borderColor='#e5e7eb';this.style.background='';}">
-            <input type="checkbox" value="${s.nome}" style="display:none">
-            ${s.img ? `<img src="${s.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover" onerror="this.style.display='none'">` : ""}
-            <div style="flex:1;font-size:0.88rem;font-weight:600">${s.nome}</div>
-            ${s.desc ? `<div style="font-size:0.75rem;color:#888">${s.desc}</div>` : ""}
-          </label>`,
-          )
-          .join("")}
-      </div></div>`;
+        ${sabores.map(s => {
+          const precoEste0 = _pdvPrecoTipo(tam0, s.tipo);
+          const diff0 = precoEste0 - precoMin0;
+          const precoLbl = diff0 > 0
+            ? `<span id="_pdv_sp_${s.nome.replace(/[^a-zA-Z0-9]/g,'_')}" style="font-size:0.78rem;font-weight:700;color:#e74c3c;white-space:nowrap">+Gs ${diff0.toLocaleString("es-PY")}</span>`
+            : `<span id="_pdv_sp_${s.nome.replace(/[^a-zA-Z0-9]/g,'_')}" style="font-size:0.78rem;font-weight:700;color:#e74c3c;white-space:nowrap"></span>`;
+          const tipoBadge = s.tipo
+            ? `<span style="font-size:0.68rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:4px;font-weight:600">${s.tipo}</span>`
+            : "";
+          return `
+            <label style="display:flex;align-items:center;gap:10px;border:1.5px solid #e5e7eb;border-radius:8px;padding:8px 10px;cursor:pointer;transition:all .15s"
+              data-tipo-sabor="${s.tipo || ""}"
+              onclick="(function(el){var cb=el.querySelector('input[type=checkbox]');if(!cb.checked){var t=parseInt(document.getElementById('_pdv_pizza_maxlabel').textContent.match(/\\d+/)?.[0]||2);var chk=document.querySelectorAll('#_pdv_sabores_lista input[type=checkbox]:checked').length;if(chk>=t){alert('Máx. '+t+' sabores');return;}cb.checked=true;el.style.borderColor='#e74c3c';el.style.background='#fff5f5';}else{cb.checked=false;el.style.borderColor='#e5e7eb';el.style.background='';}if(typeof _pdvPizzaAtualizarPreco==='function')_pdvPizzaAtualizarPreco();})(this)">
+              <input type="checkbox" value="${s.nome}" style="display:none">
+              ${s.img ? `<img src="${s.img}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">` : `<span style="font-size:1.4rem;flex-shrink:0">🍕</span>`}
+              <div style="flex:1;min-width:0">
+                <div style="font-size:0.88rem;font-weight:600">${s.nome}${tipoBadge}</div>
+                ${s.desc ? `<div style="font-size:0.73rem;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.desc}</div>` : ""}
+              </div>
+              ${precoLbl}
+            </label>`;
+        }).join("")}
+      </div>
+    </div>`;
 
+    // ── Passo 3: Borda (opcional) — com update de preço ──────────
     if (bordas.length) {
-      html += `<div style="margin-bottom:12px"><p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:6px">🧀 Borda (opcional):</p>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          <label style="border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;transition:all .15s"
-            onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4'">
+      html += `<div style="margin-bottom:14px">
+        <p style="font-size:0.82rem;font-weight:700;color:#e74c3c;margin-bottom:8px">🧀 Borda (opcional):</p>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="_pdv_pizza_borda_grid">
+          <label style="border:2px solid #27ae60;background:#f0fff4;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
+            onclick="this.closest('#_pdv_pizza_borda_grid').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4';if(typeof _pdvPizzaAtualizarPreco==='function')_pdvPizzaAtualizarPreco()">
             <input type="radio" name="_pdv_pizza_borda" value="" style="display:none" checked> Sem borda
           </label>
-          ${bordas
-            .map(
-              (b) => `
-            <label style="border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;transition:all .15s"
-              onclick="this.closest('div').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4'">
+          ${bordas.map(b => `
+            <label style="border:2px solid #e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:0.85rem;font-weight:600;transition:all .15s"
+              onclick="this.closest('#_pdv_pizza_borda_grid').querySelectorAll('label').forEach(l=>{l.style.borderColor='#e5e7eb';l.style.background=''});this.style.borderColor='#27ae60';this.style.background='#f0fff4';if(typeof _pdvPizzaAtualizarPreco==='function')_pdvPizzaAtualizarPreco()">
               <input type="radio" name="_pdv_pizza_borda" value="${b.nome}" style="display:none">
-              ${b.nome} ${b.preco ? `(+Gs ${b.preco.toLocaleString("es-PY")})` : ""}
-            </label>`,
-            )
-            .join("")}
-        </div></div>`;
+              ${b.nome}${b.preco ? ` <span style="color:#e74c3c">+Gs ${b.preco.toLocaleString("es-PY")}</span>` : ""}
+            </label>`).join("")}
+        </div>
+      </div>`;
     }
 
     html += `<div id="_pdv_pizza_preco_box" style="background:#fff5f5;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;text-align:center;margin-bottom:8px">
-      <span style="font-size:0.8rem;color:#888">Total estimado:</span>
-      <div id="_pdv_pizza_preco_val" style="font-size:1.3rem;font-weight:800;color:#e74c3c">Gs —</div>
+      <div style="font-size:0.78rem;color:#888;margin-bottom:2px">★ Prevalece o preço do tipo mais caro entre os sabores</div>
+      <div style="font-size:0.8rem;color:#888">Total estimado:</div>
+      <div id="_pdv_pizza_preco_val" style="font-size:1.4rem;font-weight:800;color:#e74c3c">Gs —</div>
     </div>`;
 
     corpo().innerHTML = html;
 
-    // Expõe dados para o calcular preço
+    // Expõe cfg para uso externo
     window._pdvPizzaCfg = cfg;
 
+    // ── _pdvPizzaAtualizarPreco: igual ao app.js ─────────────────
+    // Preço = max(tam.precos[tipo] para cada sabor selecionado) + borda
     window._pdvPizzaAtualizarPreco = function () {
       const tamIdx = parseInt(
         modal.querySelector('input[name="_pdv_pizza_tam"]:checked')?.value ?? 0,
       );
       const tam = cfg.tamanhos?.[tamIdx];
       if (!tam) return;
-      const tipoSel =
-        modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value ||
-        cfg.tipos_pizza?.[0]?.nome ||
-        "Tradicional";
-      const precoBase = tam.precos?.[tipoSel] || tam.preco || 0;
-      const bordaVal =
-        modal.querySelector('input[name="_pdv_pizza_borda"]:checked')?.value ||
-        "";
-      const bordaPreco = bordaVal
-        ? cfg.bordas?.find((b) => b.nome === bordaVal)?.preco || 0
-        : 0;
-      const el = modal.querySelector("#_pdv_pizza_preco_val");
-      if (el)
-        el.textContent =
-          "Gs " + (precoBase + bordaPreco).toLocaleString("es-PY");
-      // Atualiza max sabores
+
+      // Atualiza label de max sabores
       const maxLbl = modal.querySelector("#_pdv_pizza_maxlabel");
       if (maxLbl) maxLbl.textContent = `(até ${tam.max_sabores || 2})`;
-    };
-    window._pdvPizzaFiltrarSabores = function () {
-      const tipoSel =
-        modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value ||
-        "";
-      modal.querySelectorAll("#_pdv_sabores_lista label").forEach((l) => {
-        const tl = l.dataset.tipoSabor;
-        l.style.display =
-          !tl || !tipoSel || tl === tipoSel || cfg.tipos_pizza?.length <= 1
-            ? ""
-            : "none";
+
+      // Atualiza preço diferencial em cada card de sabor
+      const precoMin = _pdvPrecoMin(tam);
+      modal.querySelectorAll("#_pdv_sabores_lista label").forEach(lbl => {
+        const tipo = lbl.dataset.tipoSabor || "";
+        const precoEste = _pdvPrecoTipo(tam, tipo);
+        const diff = precoEste - precoMin;
+        const nomeSabor = (lbl.querySelector("input[type=checkbox]")?.value || "").replace(/[^a-zA-Z0-9]/g, "_");
+        const el = modal.querySelector(`#_pdv_sp_${nomeSabor}`);
+        if (el) el.textContent = diff > 0 ? `+Gs ${diff.toLocaleString("es-PY")}` : "";
       });
+
+      // Calcula preço: max dos tipos dos sabores selecionados (REGRA DE OURO — igual app.js)
+      const saboresSel = [...modal.querySelectorAll("#_pdv_sabores_lista input[type=checkbox]:checked")]
+        .map(c => c.closest("label")?.dataset.tipoSabor || "");
+
+      let precoBase;
+      if (saboresSel.length > 0) {
+        precoBase = Math.max(...saboresSel.map(tipo => _pdvPrecoTipo(tam, tipo)));
+      } else {
+        precoBase = tam.preco || 0;
+      }
+
+      const bordaVal = modal.querySelector('input[name="_pdv_pizza_borda"]:checked')?.value || "";
+      const bordaPreco = bordaVal
+        ? cfg.bordas?.find(b => b.nome === bordaVal)?.preco || 0
+        : 0;
+
+      const el = modal.querySelector("#_pdv_pizza_preco_val");
+      if (el) el.textContent = "Gs " + (precoBase + bordaPreco).toLocaleString("es-PY");
+    };
+
+    // Compatibilidade — mantém função de filtro mas delegando para update de preço
+    window._pdvPizzaFiltrarSabores = function () {
       _pdvPizzaAtualizarPreco();
     };
+
     _pdvPizzaAtualizarPreco();
   }
 
@@ -7053,31 +7752,43 @@ function _pdvModalConfirmar(cacheKey) {
       modal.querySelector('input[name="_pdv_pizza_tam"]:checked')?.value ?? 0,
     );
     const tam = (cfg.tamanhos || [])[tamIdx];
-    const tipoSel =
-      modal.querySelector('input[name="_pdv_pizza_tipo"]:checked')?.value ||
-      cfg.tipos_pizza?.[0]?.nome ||
-      "";
     const borda =
       modal.querySelector('input[name="_pdv_pizza_borda"]:checked')?.value ||
       "";
+    // Coleta sabores com seus tipos (igual ao app.js)
     const saboresSel = [
-      ...modal.querySelectorAll("#_pdv_sabores_lista input:checked"),
-    ].map((c) => c.value);
+      ...modal.querySelectorAll("#_pdv_sabores_lista input[type=checkbox]:checked"),
+    ].map(c => ({
+      nome: c.value,
+      tipo: c.closest("label")?.dataset.tipoSabor || "",
+    }));
 
     if (!saboresSel.length) {
       alert("Escolha pelo menos 1 sabor.");
       return;
     }
 
-    preco = tam?.precos?.[tipoSel] || tam?.preco || preco;
+    // Preço = max entre os tipos dos sabores selecionados — REGRA DE OURO (igual app.js)
+    const _pdvPrecoPorTipo = (tamObj, tipo) => {
+      if (!tamObj) return 0;
+      const precos = tamObj.precos || {};
+      if (tipo && precos[tipo] > 0) return precos[tipo];
+      if (tipo) {
+        const k = Object.keys(precos).find(k2 => k2.toLowerCase() === (tipo || "").toLowerCase());
+        if (k && precos[k] > 0) return precos[k];
+      }
+      return tamObj.preco || 0;
+    };
+    const precostipos = saboresSel.map(s => _pdvPrecoPorTipo(tam, s.tipo));
+    preco = precostipos.length > 0 ? Math.max(...precostipos) : (tam?.preco || preco);
+
     const bordaPreco = borda
       ? cfg.bordas?.find((b) => b.nome === borda)?.preco || 0
       : 0;
     preco += bordaPreco;
 
     variacaoLabel = tam?.nome || "";
-    if (tipoSel) montagem.push("Tipo: " + tipoSel);
-    montagem.push("Sabores: " + saboresSel.join(" / "));
+    montagem.push("Sabores: " + saboresSel.map(s => s.nome).join(" / "));
     if (borda) montagem.push("Borda: " + borda);
   } else if (tipo === "shake") {
     const sk = cfg.shake || {};
@@ -7256,8 +7967,12 @@ function _mostrarModalPesoPDV(produto, precoKg) {
   if (_toledoPort) {
     const btnBal = document.getElementById("_kg-btn-balanca");
     const txtBal = document.getElementById("_kg-balanca-txt");
-    if (btnBal) { btnBal.style.borderStyle="solid"; btnBal.style.background="#e0f7fa"; }
-    if (txtBal) txtBal.textContent = "🟢 Balança conectada — aguardando peso...";
+    if (btnBal) {
+      btnBal.style.borderStyle = "solid";
+      btnBal.style.background = "#e0f7fa";
+    }
+    if (txtBal)
+      txtBal.textContent = "🟢 Balança conectada — aguardando peso...";
     setTimeout(() => _kgIniciarLeituraBalanca(), 100);
   }
 
@@ -7661,11 +8376,11 @@ function atualizarCarrinhoPDV() {
   const cashDesc = pdvGetCashbackDesconto(total);
   total = Math.max(0, total - cashDesc);
   // Se quiser exibir linha de cashback no resumo, atualize o elemento:
-  const elCash = document.getElementById('pdv-row-cashback');
+  const elCash = document.getElementById("pdv-row-cashback");
   if (elCash) {
-    elCash.style.display = cashDesc > 0 ? 'flex' : 'none';
-    const elCashVal = document.getElementById('balcao-cashback');
-    if (elCashVal) elCashVal.textContent = cashDesc.toLocaleString('es-PY');
+    elCash.style.display = cashDesc > 0 ? "flex" : "none";
+    const elCashVal = document.getElementById("balcao-cashback");
+    if (elCashVal) elCashVal.textContent = cashDesc.toLocaleString("es-PY");
   }
 
   // ── Itens existentes da mesa (snapshot do DB) ──────────────────
@@ -7677,7 +8392,8 @@ function atualizarCarrinhoPDV() {
 
   if (itensExistentes.length > 0) {
     const secTitle = document.createElement("tr");
-    secTitle.innerHTML = '<td colspan="4" class="pdv-sec-title">Itens já lançados</td>';
+    secTitle.innerHTML =
+      '<td colspan="4" class="pdv-sec-title">Itens já lançados</td>';
     lista.appendChild(secTitle);
 
     itensExistentes.forEach((item, idx) => {
@@ -7688,12 +8404,13 @@ function atualizarCarrinhoPDV() {
       total += preco * qtd;
 
       const row = document.createElement("tr");
-      row.className = "pdv-item-existente" + (entregue ? " pdv-item-entregue" : "");
+      row.className =
+        "pdv-item-existente" + (entregue ? " pdv-item-entregue" : "");
       row.innerHTML = `
         <td class="pdv-item-nome">${nome}${entregue ? ' <span class="badge-entregue">✓</span>' : ""}</td>
         <td class="tc">${qtd}</td>
         <td class="tr" style="font-size:0.7rem;color:#666">Gs ${preco.toLocaleString("es-PY")}</td>
-        <td class="tr">Gs ${(preco*qtd).toLocaleString("es-PY")}
+        <td class="tr">Gs ${(preco * qtd).toLocaleString("es-PY")}
           ${!entregue ? `<button class="pdv-item-remove" title="Baixar" onclick="baixarItemMesa(${window._mesaAbertaId},${idx})"><i class="fas fa-check" style="color:#27ae60"></i></button>` : ""}
         </td>`;
       lista.appendChild(row);
@@ -7711,9 +8428,13 @@ function atualizarCarrinhoPDV() {
       const row = document.createElement("tr");
       if (item._isKg) {
         const g = item.peso_gramas || 0;
-        const pesofmt = g >= 1000
-          ? (g/1000).toFixed(3).replace(/\.?0+$/,"").replace(".",",")+"kg"
-          : g+"g";
+        const pesofmt =
+          g >= 1000
+            ? (g / 1000)
+                .toFixed(3)
+                .replace(/\.?0+$/, "")
+                .replace(".", ",") + "kg"
+            : g + "g";
         row.innerHTML = `
           <td class="pdv-item-nome"><span style="color:#0891b2;font-size:0.72rem">⚖️ ${pesofmt}</span> ${item.nome}</td>
           <td class="tc" style="color:#0891b2;font-size:0.7rem">kg</td>
@@ -7724,14 +8445,15 @@ function atualizarCarrinhoPDV() {
           <td class="pdv-item-nome">${item.nome}</td>
           <td class="tc pdv-item-qtd">${item.qtd}×</td>
           <td class="tr" style="font-size:0.7rem;color:#666">Gs ${item.preco.toLocaleString("es-PY")}</td>
-          <td class="tr">Gs ${(item.preco*item.qtd).toLocaleString("es-PY")} <button class="pdv-item-remove" onclick="removerItemPDV(${idx})">✕</button></td>`;
+          <td class="tr">Gs ${(item.preco * item.qtd).toLocaleString("es-PY")} <button class="pdv-item-remove" onclick="removerItemPDV(${idx})">✕</button></td>`;
       }
       lista.appendChild(row);
     });
   }
 
   if (itensExistentes.length === 0 && carrinhoPDV.length === 0) {
-    lista.innerHTML = '<tr><td colspan="4" class="pdv-lista-vazio">Nenhum item adicionado.</td></tr>';
+    lista.innerHTML =
+      '<tr><td colspan="4" class="pdv-lista-vazio">Nenhum item adicionado.</td></tr>';
   }
 
   if (totalEl) totalEl.innerText = total.toLocaleString("es-PY");
@@ -7797,27 +8519,34 @@ function atualizarInfoPagPDV(total) {
   if (pag === "CartaoBR" && total > 0) {
     infoBox.style.display = "block";
     const _renderCarBR = () => {
-      const taxa = _cartaoBRTipoPDV === 'debito' ? _taxaDebitoPDV : _taxaCreditoPDV;
-      const brl  = _cotacaoPDV > 0 ? ((total / _cotacaoPDV) * (1 + taxa / 100)).toFixed(2) : '---';
+      const taxa =
+        _cartaoBRTipoPDV === "debito" ? _taxaDebitoPDV : _taxaCreditoPDV;
+      const brl =
+        _cotacaoPDV > 0
+          ? ((total / _cotacaoPDV) * (1 + taxa / 100)).toFixed(2)
+          : "---";
       infoBox.innerHTML = `
         <div style="font-size:0.78rem;font-weight:700;margin-bottom:6px">💳🇧🇷 Cartão Brasileiro</div>
         <div style="display:flex;gap:6px;margin-bottom:8px">
           <button type="button" onclick="_setPDVBRTipo('debito')"
             style="flex:1;padding:6px 4px;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.75rem;
-                   border:2px solid ${_cartaoBRTipoPDV==='debito'?'#1a7a2e':'#ccc'};
-                   background:${_cartaoBRTipoPDV==='debito'?'#eafaf1':'#f8f9fa'};
-                   color:${_cartaoBRTipoPDV==='debito'?'#1a7a2e':'#555'}">
+                   border:2px solid ${_cartaoBRTipoPDV === "debito" ? "#1a7a2e" : "#ccc"};
+                   background:${_cartaoBRTipoPDV === "debito" ? "#eafaf1" : "#f8f9fa"};
+                   color:${_cartaoBRTipoPDV === "debito" ? "#1a7a2e" : "#555"}">
             Débito<br><small>${_taxaDebitoPDV.toFixed(2)}%</small></button>
           <button type="button" onclick="_setPDVBRTipo('credito')"
             style="flex:1;padding:6px 4px;border-radius:6px;font-weight:700;cursor:pointer;font-size:0.75rem;
-                   border:2px solid ${_cartaoBRTipoPDV==='credito'?'#1a7a2e':'#ccc'};
-                   background:${_cartaoBRTipoPDV==='credito'?'#eafaf1':'#f8f9fa'};
-                   color:${_cartaoBRTipoPDV==='credito'?'#1a7a2e':'#555'}">
+                   border:2px solid ${_cartaoBRTipoPDV === "credito" ? "#1a7a2e" : "#ccc"};
+                   background:${_cartaoBRTipoPDV === "credito" ? "#eafaf1" : "#f8f9fa"};
+                   color:${_cartaoBRTipoPDV === "credito" ? "#1a7a2e" : "#555"}">
             Crédito<br><small>${_taxaCreditoPDV.toFixed(2)}%</small></button>
         </div>
         <div style="text-align:center;font-size:1rem;font-weight:900;color:#1a7a2e">R$ ${brl}</div>`;
     };
-    window._setPDVBRTipo = (tipo) => { _cartaoBRTipoPDV = tipo; _renderCarBR(); };
+    window._setPDVBRTipo = (tipo) => {
+      _cartaoBRTipoPDV = tipo;
+      _renderCarBR();
+    };
     window._renderCarBRPDV = _renderCarBR;
     _renderCarBR();
   } else if (pag === "Pix" && total > 0) {
@@ -7861,12 +8590,12 @@ function adicionarPartePagamentoPDV() {
   const id = _multiContadorPDV;
   const ordinal = ["1ª", "2ª", "3ª", "4ª", "5ª"][id - 1] || `${id}ª`;
   const opts = [
-    { v: "Efetivo",      l: "💵 Efectivo" },
-    { v: "Cartao",       l: "💳 Tarjeta" },
-    { v: "CartaoBR",     l: "💳🇧🇷 Cartão BR" },
-    { v: "Pix",          l: "🟢 Pix" },
-    { v: "Transferencia",l: "🏦 Alias" },
-    { v: "QrPy",         l: "📱 QR Paraguay" },
+    { v: "Efetivo", l: "💵 Efectivo" },
+    { v: "Cartao", l: "💳 Tarjeta" },
+    { v: "CartaoBR", l: "💳🇧🇷 Cartão BR" },
+    { v: "Pix", l: "🟢 Pix" },
+    { v: "Transferencia", l: "🏦 Alias" },
+    { v: "QrPy", l: "📱 QR Paraguay" },
   ]
     .map((m) => `<option value="${m.v}">${m.l}</option>`)
     .join("");
@@ -7962,7 +8691,7 @@ function _coletarMultiPagamentoPDV() {
 
 async function salvarPedidoBalcao() {
   if (carrinhoPDV.length === 0 && !window._mesaAbertaId)
-    return alert(t('alert.carrinho_vazio'));
+    return alert(t("alert.carrinho_vazio"));
   if (carrinhoPDV.length === 0 && window._mesaAbertaId)
     return alert("Adicione ao menos 1 novo item antes de lançar.");
 
@@ -7973,9 +8702,12 @@ async function salvarPedidoBalcao() {
     document.getElementById("balcao-cliente").value.trim() || "Cliente";
   const tel = document.getElementById("balcao-telefone").value.trim() || "";
   let pag = document.getElementById("balcao-pag").value;
-  const pagFinalPDV = pag === 'CartaoBR'
-    ? (_cartaoBRTipoPDV === 'debito' ? 'Cartão BR - Débito' : 'Cartão BR - Crédito')
-    : pag;
+  const pagFinalPDV =
+    pag === "CartaoBR"
+      ? _cartaoBRTipoPDV === "debito"
+        ? "Cartão BR - Débito"
+        : "Cartão BR - Crédito"
+      : pag;
 
   const nomeFinal = mesa
     ? `MESA ${mesa} - ${cli}`
@@ -8050,7 +8782,8 @@ async function salvarPedidoBalcao() {
     const itensMerged = [...itensExistentes, ...novosItens];
     // Itens kg: preco já é o total pesado (preco_kg × peso), não multiplicar por qtd
     const novoTotal = itensMerged.reduce(
-      (acc, i) => acc + (i._isKg ? (i.preco || 0) : (i.preco || 0) * (i.qtd || 1)),
+      (acc, i) =>
+        acc + (i._isKg ? i.preco || 0 : (i.preco || 0) * (i.qtd || 1)),
       0,
     );
 
@@ -8158,11 +8891,11 @@ async function salvarPedidoBalcao() {
   if (_pdvCashbackUsando && tel) {
     const descCash = pdvGetCashbackDesconto(totalNovo);
     if (descCash > 0) await crmUsarCashback(tel, descCash);
-    _pdvCashbackUsando    = false;
+    _pdvCashbackUsando = false;
     _pdvCashbackDisponivel = 0;
-    document.getElementById('pdv-cashback-box').style.display = 'none';
+    document.getElementById("pdv-cashback-box").style.display = "none";
   }
- 
+
   // ── Cashback: gerar crédito pela nova compra ──────────────────
   if (tel) {
     await crmGerarCashback(tel, totalNovo, novoPedido?.id || null);
@@ -8636,7 +9369,7 @@ async function excluirUsuario(id, email) {
 // ═══════════════════════════════════════════════════════════════
 
 async function amCriarUsuario() {
-  if (perfilUsuario !== "adminMaster") return alert(t('alert.acesso_negado'));
+  if (perfilUsuario !== "adminMaster") return alert(t("alert.acesso_negado"));
   const email = document.getElementById("am-email")?.value?.trim();
   const nome = document.getElementById("am-nome")?.value?.trim();
   const senha = document.getElementById("am-senha")?.value;
@@ -9118,38 +9851,73 @@ async function confirmarEntregaFuncionario(pedidoId) {
   }
 }
 
-
 async function fecharTodasMesas() {
-  const { data, error } = await supa.from("pedidos")
+  const { data, error } = await supa
+    .from("pedidos")
     .select("id, cliente_nome, tipo_entrega, status")
-    .in("status", ["pendente","em_preparo","pronto_entrega","saiu_entrega"])
-    .in("tipo_entrega", ["balcao","retirada","local"]);
-  if (error || !data || data.length === 0) { alert("Nenhum pedido de Mesa/Retirada/Local em aberto."); return; }
-  const lista = data.map(p => `#${p.id} — ${p.cliente_nome||"Mesa"} (${p.tipo_entrega})`).join("\n");
-  if (!confirm(`Baixar ${data.length} pedido(s) Mesa/Retirada/Local?\n\n${lista}`)) return;
+    .in("status", ["pendente", "em_preparo", "pronto_entrega", "saiu_entrega"])
+    .in("tipo_entrega", ["balcao", "retirada", "local"]);
+  if (error || !data || data.length === 0) {
+    alert("Nenhum pedido de Mesa/Retirada/Local em aberto.");
+    return;
+  }
+  const lista = data
+    .map((p) => `#${p.id} — ${p.cliente_nome || "Mesa"} (${p.tipo_entrega})`)
+    .join("\n");
+  if (
+    !confirm(`Baixar ${data.length} pedido(s) Mesa/Retirada/Local?\n\n${lista}`)
+  )
+    return;
   const now = new Date().toISOString();
-  const { error: err } = await supa.from("pedidos")
-    .update({ status:"entregue", tempo_entregue:now })
-    .in("id", data.map(p => p.id));
-  if (err) { alert("Erro: "+err.message); return; }
+  const { error: err } = await supa
+    .from("pedidos")
+    .update({ status: "entregue", tempo_entregue: now })
+    .in(
+      "id",
+      data.map((p) => p.id),
+    );
+  if (err) {
+    alert("Erro: " + err.message);
+    return;
+  }
   alert(`✅ ${data.length} pedido(s) baixado(s)!`);
-  carregarPedidos(); carregarMonitorMesas();
+  carregarPedidos();
+  carregarMonitorMesas();
   if (typeof calcularFinanceiro === "function") calcularFinanceiro();
 }
 
 async function baixarTodosNaoDelivery() {
-  const { data, error } = await supa.from("pedidos")
+  const { data, error } = await supa
+    .from("pedidos")
     .select("id, cliente_nome, status")
-    .in("status", ["saiu_entrega","pronto_entrega"])
+    .in("status", ["saiu_entrega", "pronto_entrega"])
     .eq("tipo_entrega", "delivery");
-  if (error || !data || data.length === 0) { alert("Nenhum delivery para confirmar entrega."); return; }
-  const lista = data.map(p => `#${p.id} — ${p.cliente_nome||"Cliente"}`).join("\n");
-  if (!confirm(`Confirmar entrega de ${data.length} delivery(s)?\n\n${lista}`)) return;
+  if (error || !data || data.length === 0) {
+    alert("Nenhum delivery para confirmar entrega.");
+    return;
+  }
+  const lista = data
+    .map((p) => `#${p.id} — ${p.cliente_nome || "Cliente"}`)
+    .join("\n");
+  if (!confirm(`Confirmar entrega de ${data.length} delivery(s)?\n\n${lista}`))
+    return;
   const now = new Date().toISOString();
-  const { error: err } = await supa.from("pedidos")
-    .update({ status:"entregue", tempo_entregue:now, entrega_confirmada_em:now, confirmacao_tipo:"massa" })
-    .in("id", data.map(p => p.id));
-  if (err) { alert("Erro: "+err.message); return; }
+  const { error: err } = await supa
+    .from("pedidos")
+    .update({
+      status: "entregue",
+      tempo_entregue: now,
+      entrega_confirmada_em: now,
+      confirmacao_tipo: "massa",
+    })
+    .in(
+      "id",
+      data.map((p) => p.id),
+    );
+  if (err) {
+    alert("Erro: " + err.message);
+    return;
+  }
   alert(`✅ ${data.length} delivery(s) confirmado(s)!`);
   carregarPedidos();
   if (typeof calcularFinanceiro === "function") calcularFinanceiro();
@@ -9562,7 +10330,12 @@ let _inventarioItems = [];
 let _tipoAjuste = "add";
 
 async function carregarInventario() {
-  if (perfilUsuario !== "dono" && perfilUsuario !== "gerente" && perfilUsuario !== "adminMaster") return;
+  if (
+    perfilUsuario !== "dono" &&
+    perfilUsuario !== "gerente" &&
+    perfilUsuario !== "adminMaster"
+  )
+    return;
   const container = document.getElementById("inventario-lista");
   if (!container) return;
   container.innerHTML =
@@ -9943,8 +10716,11 @@ async function calcularFretePDV() {
   msg.innerHTML = '<span style="color:#888">Localizando...</span>';
 
   // ── Tenta extrair coordenadas do link colado no campo endereço ────────
-  const endVal = (document.getElementById("balcao-endereco")?.value || "").trim();
-  let lat = null, lng = null;
+  const endVal = (
+    document.getElementById("balcao-endereco")?.value || ""
+  ).trim();
+  let lat = null,
+    lng = null;
 
   if (endVal) {
     // Formatos comuns do Google Maps:
@@ -9961,14 +10737,19 @@ async function calcularFretePDV() {
     ];
     for (const rx of patterns) {
       const m = endVal.match(rx);
-      if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); break; }
+      if (m) {
+        lat = parseFloat(m[1]);
+        lng = parseFloat(m[2]);
+        break;
+      }
     }
   }
 
   // ── Se não extraiu do link, usa GPS do dispositivo ────────────────────
   if (lat === null || lng === null) {
     if (!navigator.geolocation) {
-      msg.innerHTML = '<span style="color:#e74c3c">Cole um link do Google Maps ou use um celular com GPS</span>';
+      msg.innerHTML =
+        '<span style="color:#e74c3c">Cole um link do Google Maps ou use um celular com GPS</span>';
       btn.disabled = false;
       btn.innerText = "📍 Rota";
       return;
@@ -10016,7 +10797,9 @@ async function calcularFretePDV() {
 
   // LIMITES_KM deve ser idêntico ao index.ts (Edge Function) para evitar
   // divergência entre o frete calculado no front e o validado no servidor.
-  const LIMITES_KM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  const LIMITES_KM = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  ];
   let freteIndex = -1;
   for (let i = 0; i < LIMITES_KM.length; i++) {
     if (dist <= LIMITES_KM[i]) {
@@ -10064,57 +10847,124 @@ async function calcularFretePDV() {
 
 const _OB_STEPS = [
   {
-    id: 'identidade',
-    titulo: '🏪 Identidade da Loja',
-    descricao: 'Como seu restaurante vai aparecer para os clientes.',
+    id: "identidade",
+    titulo: "🏪 Identidade da Loja",
+    descricao: "Como seu restaurante vai aparecer para os clientes.",
     campos: [
-      { id: 'ob-nome',      label: 'Nome do restaurante *', tipo: 'text',  placeholder: 'Ex: Açaí do João',   db: 'nome_restaurante' },
-      { id: 'ob-descricao', label: 'Descrição curta',        tipo: 'text',  placeholder: 'Ex: O melhor açaí da cidade', db: 'descricao_loja' },
-      { id: 'ob-whatsapp',  label: 'WhatsApp (com DDI)',      tipo: 'text',  placeholder: 'Ex: 595981234567',   db: 'whatsapp_loja' },
-      { id: 'ob-logo',      label: 'URL do Logo',             tipo: 'url',   placeholder: 'https://...',        db: 'logo_url' },
-    ]
+      {
+        id: "ob-nome",
+        label: "Nome do restaurante *",
+        tipo: "text",
+        placeholder: "Ex: Açaí do João",
+        db: "nome_restaurante",
+      },
+      {
+        id: "ob-descricao",
+        label: "Descrição curta",
+        tipo: "text",
+        placeholder: "Ex: O melhor açaí da cidade",
+        db: "descricao_loja",
+      },
+      {
+        id: "ob-whatsapp",
+        label: "WhatsApp (com DDI)",
+        tipo: "text",
+        placeholder: "Ex: 595981234567",
+        db: "whatsapp_loja",
+      },
+      {
+        id: "ob-logo",
+        label: "URL do Logo",
+        tipo: "url",
+        placeholder: "https://...",
+        db: "logo_url",
+      },
+    ],
   },
   {
-    id: 'visual',
-    titulo: '🎨 Identidade Visual',
-    descricao: 'Cor principal que aparece no app do cliente.',
+    id: "visual",
+    titulo: "🎨 Identidade Visual",
+    descricao: "Cor principal que aparece no app do cliente.",
     campos: [
-      { id: 'ob-cor', label: 'Cor primária', tipo: 'color', placeholder: '#1a7a2e', db: 'cor_primaria',
+      {
+        id: "ob-cor",
+        label: "Cor primária",
+        tipo: "color",
+        placeholder: "#1a7a2e",
+        db: "cor_primaria",
         extra: `<input type="text" id="ob-cor-hex" maxlength="7" placeholder="#1a7a2e"
                   style="padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:0.9rem;width:120px;margin-left:8px"
                   oninput="var v=this.value;if(v.startsWith('#')&&v.length===7){document.getElementById('ob-cor').value=v;document.documentElement.style.setProperty('--primary',v);}">
-                <span style="font-size:0.8rem;color:#888;margin-left:8px">← ou digita o hex</span>` },
-    ]
+                <span style="font-size:0.8rem;color:#888;margin-left:8px">← ou digita o hex</span>`,
+      },
+    ],
   },
   {
-    id: 'localizacao',
-    titulo: '📍 Localização da Loja',
-    descricao: 'Coordenadas usadas para calcular o frete de entrega.',
+    id: "localizacao",
+    titulo: "📍 Localização da Loja",
+    descricao: "Coordenadas usadas para calcular o frete de entrega.",
     campos: [
-      { id: 'ob-lat', label: 'Latitude *',  tipo: 'text', placeholder: 'Ex: -25.2866',  db: 'coord_lat' },
-      { id: 'ob-lng', label: 'Longitude *', tipo: 'text', placeholder: 'Ex: -57.6470',  db: 'coord_lng' },
+      {
+        id: "ob-lat",
+        label: "Latitude *",
+        tipo: "text",
+        placeholder: "Ex: -25.2866",
+        db: "coord_lat",
+      },
+      {
+        id: "ob-lng",
+        label: "Longitude *",
+        tipo: "text",
+        placeholder: "Ex: -57.6470",
+        db: "coord_lng",
+      },
     ],
     dica: `<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:12px;margin-top:12px;font-size:0.83rem">
       💡 <strong>Como pegar as coordenadas:</strong><br>
       Abra <a href="https://maps.google.com" target="_blank" style="color:#2980b9">Google Maps</a>,
       clique com o botão direito no seu endereço e copie os números que aparecem (Ex: -25.286, -57.647).
-    </div>`
+    </div>`,
   },
   {
-    id: 'pagamento',
-    titulo: '💳 Formas de Pagamento',
-    descricao: 'Configure PIX e Alias/Transferência para receber pagamentos.',
+    id: "pagamento",
+    titulo: "💳 Formas de Pagamento",
+    descricao: "Configure PIX e Alias/Transferência para receber pagamentos.",
     campos: [
-      { id: 'ob-pix',        label: 'Chave PIX',         tipo: 'text', placeholder: 'CPF, CNPJ, e-mail ou telefone', db: 'chave_pix' },
-      { id: 'ob-nome-pix',   label: 'Nome no PIX',       tipo: 'text', placeholder: 'Nome que aparece no QR Code',   db: 'nome_pix' },
-      { id: 'ob-alias',      label: 'Alias / Cuenta',    tipo: 'text', placeholder: 'banco@alias.com.py',           db: 'dados_alias' },
-      { id: 'ob-cotacao',    label: 'Cotação do Real (Gs)', tipo: 'number', placeholder: '1100',                    db: 'cotacao_real' },
-    ]
+      {
+        id: "ob-pix",
+        label: "Chave PIX",
+        tipo: "text",
+        placeholder: "CPF, CNPJ, e-mail ou telefone",
+        db: "chave_pix",
+      },
+      {
+        id: "ob-nome-pix",
+        label: "Nome no PIX",
+        tipo: "text",
+        placeholder: "Nome que aparece no QR Code",
+        db: "nome_pix",
+      },
+      {
+        id: "ob-alias",
+        label: "Alias / Cuenta",
+        tipo: "text",
+        placeholder: "banco@alias.com.py",
+        db: "dados_alias",
+      },
+      {
+        id: "ob-cotacao",
+        label: "Cotação do Real (Gs)",
+        tipo: "number",
+        placeholder: "1100",
+        db: "cotacao_real",
+      },
+    ],
   },
   {
-    id: 'horario',
-    titulo: '🕐 Horário de Funcionamento',
-    descricao: 'Configure o horário padrão. Pode afinar por dia depois em Configurações.',
+    id: "horario",
+    titulo: "🕐 Horário de Funcionamento",
+    descricao:
+      "Configure o horário padrão. Pode afinar por dia depois em Configurações.",
     campos: [],
     custom: `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px">
@@ -10130,7 +10980,7 @@ const _OB_STEPS = [
         </div>
       </div>
       <p style="font-size:0.78rem;color:#999;margin-top:8px">Este horário será aplicado a todos os dias da semana.</p>
-    `
+    `,
   },
 ];
 
@@ -10140,42 +10990,51 @@ let _obData = {};
 async function iniciarOnboarding() {
   // Só mostra se o banco não tiver nome configurado ainda
   try {
-    const { data } = await supa.from('configuracoes').select('nome_restaurante').maybeSingle();
+    const { data } = await supa
+      .from("configuracoes")
+      .select("nome_restaurante")
+      .maybeSingle();
     if (data?.nome_restaurante) return; // já configurado
-  } catch(_) { return; }
+  } catch (_) {
+    return;
+  }
 
   _obStep = 0;
   _obData = {};
   _obRender();
-  document.getElementById('modal-onboarding').style.display = 'flex';
+  document.getElementById("modal-onboarding").style.display = "flex";
 }
 
 function _obRender() {
-  const step    = _OB_STEPS[_obStep];
-  const total   = _OB_STEPS.length;
-  const isLast  = _obStep === total - 1;
+  const step = _OB_STEPS[_obStep];
+  const total = _OB_STEPS.length;
+  const isLast = _obStep === total - 1;
   const isFirst = _obStep === 0;
 
   // Dots
-  const dots = document.getElementById('ob-dots');
+  const dots = document.getElementById("ob-dots");
   if (dots) {
-    dots.innerHTML = _OB_STEPS.map((s, i) => `
-      <div style="height:6px;flex:1;border-radius:3px;background:${i <= _obStep ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)'}"></div>
-    `).join('');
+    dots.innerHTML = _OB_STEPS
+      .map(
+        (s, i) => `
+      <div style="height:6px;flex:1;border-radius:3px;background:${i <= _obStep ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)"}"></div>
+    `,
+      )
+      .join("");
   }
 
   // Step label
-  const lbl = document.getElementById('ob-step-label');
+  const lbl = document.getElementById("ob-step-label");
   if (lbl) lbl.textContent = `Passo ${_obStep + 1} de ${total}`;
 
   // Prev/Next buttons
-  const prev = document.getElementById('ob-btn-prev');
-  const next = document.getElementById('ob-btn-next');
-  if (prev) prev.style.visibility = isFirst ? 'hidden' : 'visible';
-  if (next) next.textContent = isLast ? '✅ Salvar & Concluir' : 'Próximo →';
+  const prev = document.getElementById("ob-btn-prev");
+  const next = document.getElementById("ob-btn-next");
+  if (prev) prev.style.visibility = isFirst ? "hidden" : "visible";
+  if (next) next.textContent = isLast ? "✅ Salvar & Concluir" : "Próximo →";
 
   // Body
-  const body = document.getElementById('ob-body');
+  const body = document.getElementById("ob-body");
   if (!body) return;
 
   let html = `
@@ -10184,17 +11043,17 @@ function _obRender() {
   `;
 
   // Campos padrão
-  (step.campos || []).forEach(c => {
-    const savedVal = _obData[c.db] || '';
-    if (c.tipo === 'color') {
+  (step.campos || []).forEach((c) => {
+    const savedVal = _obData[c.db] || "";
+    if (c.tipo === "color") {
       html += `
         <div style="margin-bottom:14px">
           <label style="font-size:0.82rem;font-weight:600;color:#555;display:block;margin-bottom:6px">${c.label}</label>
           <div style="display:flex;align-items:center;gap:8px">
-            <input type="color" id="${c.id}" value="${savedVal || '#1a7a2e'}"
+            <input type="color" id="${c.id}" value="${savedVal || "#1a7a2e"}"
               style="width:52px;height:38px;border:none;border-radius:8px;cursor:pointer;padding:2px"
               oninput="document.getElementById('ob-cor-hex').value=this.value;document.documentElement.style.setProperty('--primary',this.value)">
-            ${c.extra || ''}
+            ${c.extra || ""}
           </div>
         </div>`;
     } else {
@@ -10218,31 +11077,33 @@ function _obRender() {
   body.innerHTML = html;
 
   // Restaura valor cor hex se voltou ao passo
-  if (step.id === 'visual') {
-    const corVal = _obData['cor_primaria'] || '#1a7a2e';
-    const hexEl  = document.getElementById('ob-cor-hex');
+  if (step.id === "visual") {
+    const corVal = _obData["cor_primaria"] || "#1a7a2e";
+    const hexEl = document.getElementById("ob-cor-hex");
     if (hexEl) hexEl.value = corVal;
-    document.documentElement.style.setProperty('--primary', corVal);
+    document.documentElement.style.setProperty("--primary", corVal);
   }
 }
 
 function _obColetar() {
   const step = _OB_STEPS[_obStep];
 
-  (step.campos || []).forEach(c => {
+  (step.campos || []).forEach((c) => {
     const el = document.getElementById(c.id);
     if (el) _obData[c.db] = el.value.trim();
   });
 
   // Horário: monta grade semanal simples
-  if (step.id === 'horario') {
-    const abre  = document.getElementById('ob-hora-abre')?.value  || '10:00';
-    const fecha = document.getElementById('ob-hora-fecha')?.value || '23:00';
-    const dias  = ['seg','ter','qua','qui','sex','sab','dom'];
+  if (step.id === "horario") {
+    const abre = document.getElementById("ob-hora-abre")?.value || "10:00";
+    const fecha = document.getElementById("ob-hora-fecha")?.value || "23:00";
+    const dias = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"];
     const grade = {};
-    dias.forEach(d => { grade[d] = { fechado: false, turnos: [{ abre, fecha }] }; });
-    _obData['horarios_semanais'] = grade;
-    _obData['loja_aberta'] = true;
+    dias.forEach((d) => {
+      grade[d] = { fechado: false, turnos: [{ abre, fecha }] };
+    });
+    _obData["horarios_semanais"] = grade;
+    _obData["loja_aberta"] = true;
   }
 }
 
@@ -10258,88 +11119,112 @@ function _obNext() {
 
 function _obPrev() {
   _obColetar();
-  if (_obStep > 0) { _obStep--; _obRender(); }
+  if (_obStep > 0) {
+    _obStep--;
+    _obRender();
+  }
 }
 
 function _obSkip() {
-  if (!confirm('Pular a configuração inicial? Você pode configurar depois em Configurações.')) return;
-  document.getElementById('modal-onboarding').style.display = 'none';
+  if (
+    !confirm(
+      "Pular a configuração inicial? Você pode configurar depois em Configurações.",
+    )
+  )
+    return;
+  document.getElementById("modal-onboarding").style.display = "none";
 }
 
 async function _obSalvar() {
-  const btn = document.getElementById('ob-btn-next');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Salvando...'; }
+  const btn = document.getElementById("ob-btn-next");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Salvando...";
+  }
 
   try {
     // Prepara dados — filtra vazios
     const payload = {};
     Object.entries(_obData).forEach(([k, v]) => {
-      if (v !== '' && v !== null && v !== undefined) payload[k] = v;
+      if (v !== "" && v !== null && v !== undefined) payload[k] = v;
     });
 
     // Numérico
-    if (payload.cotacao_real) payload.cotacao_real = parseFloat(payload.cotacao_real) || 1100;
-    if (payload.coord_lat)    payload.coord_lat    = parseFloat(payload.coord_lat)    || 0;
-    if (payload.coord_lng)    payload.coord_lng    = parseFloat(payload.coord_lng)    || 0;
+    if (payload.cotacao_real)
+      payload.cotacao_real = parseFloat(payload.cotacao_real) || 1100;
+    if (payload.coord_lat)
+      payload.coord_lat = parseFloat(payload.coord_lat) || 0;
+    if (payload.coord_lng)
+      payload.coord_lng = parseFloat(payload.coord_lng) || 0;
 
     // Sincroniza logo_url e icone_url
     if (payload.logo_url) payload.icone_url = payload.logo_url;
 
-    const { error } = await supa.from('configuracoes').update(payload).gt('id', 0);
+    const { error } = await supa
+      .from("configuracoes")
+      .update(payload)
+      .gt("id", 0);
 
     if (error) throw new Error(error.message);
 
     // Aplica cor imediatamente
-    if (payload.cor_primaria) document.documentElement.style.setProperty('--primary', payload.cor_primaria);
+    if (payload.cor_primaria)
+      document.documentElement.style.setProperty(
+        "--primary",
+        payload.cor_primaria,
+      );
 
-    document.getElementById('modal-onboarding').style.display = 'none';
+    document.getElementById("modal-onboarding").style.display = "none";
 
     // Toast de sucesso
-    _pdvToast?.('✅ Configuração salva! O app já reflete os dados.') ||
-      alert('✅ Configuração inicial salva com sucesso!');
+    _pdvToast?.("✅ Configuração salva! O app já reflete os dados.") ||
+      alert("✅ Configuração inicial salva com sucesso!");
 
     // Recarrega a aba de configurações se estiver aberta
-    if (document.getElementById('configuracoes')?.classList.contains('active')) {
+    if (
+      document.getElementById("configuracoes")?.classList.contains("active")
+    ) {
       carregarConfiguracoes();
     }
 
     // Atualiza brand
     if (payload.nome_restaurante) {
-      const b = document.getElementById('brand-text');
-      if (b) b.textContent = payload.nome_restaurante.toUpperCase() + ' ADMIN';
+      const b = document.getElementById("brand-text");
+      if (b) b.textContent = payload.nome_restaurante.toUpperCase() + " ADMIN";
       NOME_RESTAURANTE = payload.nome_restaurante;
     }
-
-  } catch(e) {
-    alert('Erro ao salvar: ' + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = '✅ Salvar & Concluir'; }
+  } catch (e) {
+    alert("Erro ao salvar: " + e.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "✅ Salvar & Concluir";
+    }
   }
 }
 
 // Chamado no DOMContentLoaded após auth — só mostra se banco não configurado
 // (injeta no fluxo de inicialização existente)
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener("DOMContentLoaded", () => {
   // Aguarda auth (1.5s) para não conflitar com o auth-overlay
   setTimeout(async () => {
-    if (perfilUsuario && ['dono', 'adminMaster'].includes(perfilUsuario)) {
+    if (perfilUsuario && ["dono", "adminMaster"].includes(perfilUsuario)) {
       await iniciarOnboarding();
     }
   }, 1500);
 });
 
 function ftMostrarPanel(panel) {
-  ['insumos', 'fichas'].forEach(p => {
+  ["insumos", "fichas"].forEach((p) => {
     const el = document.getElementById(`ft-panel-${p}`);
     const btn = document.getElementById(`ft-nav-${p}`);
-    if (el)  el.style.display  = p === panel ? 'block' : 'none';
+    if (el) el.style.display = p === panel ? "block" : "none";
     if (btn) {
-      btn.classList.toggle('btn-primary',   p === panel);
-      btn.classList.toggle('btn-secondary', p !== panel);
+      // ft-tab-ativo = fundo preenchido; sem ela = outline com texto/borda coloridos
+      btn.classList.toggle("ft-tab-ativo", p === panel);
     }
   });
 }
- 
- 
+
 // ─────────────────────────────────────────────────────────────
 //  PATCH 7 — Editar/Excluir Despesas (porta da aplicação-modelo)
 //  Se estas funções NÃO existirem no seu admin.js atual, adicione-as:
@@ -10347,52 +11232,268 @@ function ftMostrarPanel(panel) {
 function abrirEditarDespesa(dadosEncoded) {
   try {
     const d = JSON.parse(decodeURIComponent(dadosEncoded));
-    document.getElementById('edit-despesa-id').value       = d.id;
-    document.getElementById('edit-despesa-valor').value    = d.valor;
-    document.getElementById('edit-despesa-desc').value     = d.descricao;
-    const tipoSel = document.getElementById('edit-despesa-tipo');
-    if (tipoSel) tipoSel.value = d.tipo_despesa || 'despesas_gerais';
-    const outroBox   = document.getElementById('edit-box-outro');
-    const outroInput = document.getElementById('edit-despesa-outro');
-    if (d.tipo_despesa === 'outro') {
-      if (outroBox)   outroBox.style.display = 'block';
-      if (outroInput) outroInput.value = d.descricao_outro || '';
+    document.getElementById("edit-despesa-id").value = d.id;
+    document.getElementById("edit-despesa-valor").value = d.valor;
+    document.getElementById("edit-despesa-desc").value = d.descricao;
+    const tipoSel = document.getElementById("edit-despesa-tipo");
+    if (tipoSel) tipoSel.value = d.tipo_despesa || "despesas_gerais";
+    const outroBox = document.getElementById("edit-box-outro");
+    const outroInput = document.getElementById("edit-despesa-outro");
+    if (d.tipo_despesa === "outro") {
+      if (outroBox) outroBox.style.display = "block";
+      if (outroInput) outroInput.value = d.descricao_outro || "";
     } else {
-      if (outroBox)   outroBox.style.display = 'none';
-      if (outroInput) outroInput.value = '';
+      if (outroBox) outroBox.style.display = "none";
+      if (outroInput) outroInput.value = "";
     }
-    document.getElementById('modal-editar-despesa').style.display = 'flex';
-  } catch(e) {
-    alert('Erro ao abrir edição: ' + e.message);
+    document.getElementById("modal-editar-despesa").style.display = "flex";
+  } catch (e) {
+    alert("Erro ao abrir edição: " + e.message);
   }
 }
- 
+
 async function salvarEdicaoDespesa() {
-  const id    = document.getElementById('edit-despesa-id').value;
-  const valor = parseFloat(document.getElementById('edit-despesa-valor').value);
-  const desc  = document.getElementById('edit-despesa-desc').value.trim();
-  const tipo  = document.getElementById('edit-despesa-tipo').value;
- 
-  if (!id || !valor || valor <= 0) { alert('Preencha o valor corretamente.'); return; }
- 
-  let descOutro = null;
-  if (tipo === 'outro') {
-    descOutro = document.getElementById('edit-despesa-outro')?.value?.trim() || '';
-    if (!descOutro) { alert('Descreva o tipo da despesa.'); return; }
+  const id = document.getElementById("edit-despesa-id").value;
+  const valor = parseFloat(document.getElementById("edit-despesa-valor").value);
+  const desc = document.getElementById("edit-despesa-desc").value.trim();
+  const tipo = document.getElementById("edit-despesa-tipo").value;
+
+  if (!id || !valor || valor <= 0) {
+    alert("Preencha o valor corretamente.");
+    return;
   }
- 
-  const { error } = await supa.from('movimentacoes_caixa')
-    .update({ valor, descricao: desc, tipo_despesa: tipo, descricao_outro: descOutro })
-    .eq('id', id);
- 
-  if (error) { alert('Erro ao salvar: ' + error.message); return; }
-  fecharModal('modal-editar-despesa');
+
+  let descOutro = null;
+  if (tipo === "outro") {
+    descOutro =
+      document.getElementById("edit-despesa-outro")?.value?.trim() || "";
+    if (!descOutro) {
+      alert("Descreva o tipo da despesa.");
+      return;
+    }
+  }
+
+  const { error } = await supa
+    .from("movimentacoes_caixa")
+    .update({
+      valor,
+      descricao: desc,
+      tipo_despesa: tipo,
+      descricao_outro: descOutro,
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert("Erro ao salvar: " + error.message);
+    return;
+  }
+  fecharModal("modal-editar-despesa");
   calcularFinanceiro();
 }
- 
+
 async function excluirDespesa(id) {
-  if (!confirm('Excluir esta despesa? Esta ação não pode ser desfeita.')) return;
-  const { error } = await supa.from('movimentacoes_caixa').delete().eq('id', id);
-  if (error) { alert('Erro ao excluir: ' + error.message); return; }
+  if (!confirm("Excluir esta despesa? Esta ação não pode ser desfeita."))
+    return;
+  const { error } = await supa
+    .from("movimentacoes_caixa")
+    .delete()
+    .eq("id", id);
+  if (error) {
+    alert("Erro ao excluir: " + error.message);
+    return;
+  }
   calcularFinanceiro();
+}
+// ══════════════════════════════════════════════════════════════
+//  VERIFICAÇÃO DE CONTRATO
+//  adminMaster: bypass total.
+//  dono: exibe overlay bloqueante no admin.html até assinar.
+//  outros cargos: bypass (não são parte do contrato).
+// ══════════════════════════════════════════════════════════════
+async function verificarContratoAdmin(session) {
+  try {
+    const { data: perfil } = await supa
+      .from("perfis_acesso")
+      .select("cargo")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    const cargo = perfil?.cargo || "dono";
+
+    // adminMaster e outros cargos não precisam assinar
+    if (cargo === "adminMaster") return;
+    if (cargo !== "dono") return;
+
+    // Verifica se o dono já aceitou
+    const { data } = await supa
+      .from("contratos_aceites")
+      .select("id")
+      .eq("usuario_id", session.user.id)
+      .eq("aceito", true)
+      .maybeSingle();
+
+    if (!data) {
+      // Ainda não assinou — exibe overlay bloqueante no próprio admin
+      _admMostrarContratoOverlay(session);
+    }
+  } catch (e) {
+    // Fail-open: se erro ao verificar, não bloqueia o admin
+    console.warn("verificarContratoAdmin error:", e.message);
+  }
+}
+
+function _admMostrarContratoOverlay(session) {
+  const overlay = document.getElementById("contrato-admin-overlay");
+  if (!overlay) {
+    // Fallback se o HTML não foi atualizado
+    alert("Você precisa aceitar o contrato de serviços para continuar.");
+    supa.auth.signOut().then(() => {
+      window.location.href = "login.html";
+    });
+    return;
+  }
+
+  const hoje = new Date();
+  const meses = [
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
+  ];
+  const el = (id) => document.getElementById(id);
+  if (el("adm-ct-dia")) el("adm-ct-dia").textContent = hoje.getDate();
+  if (el("adm-ct-mes")) el("adm-ct-mes").textContent = meses[hoje.getMonth()];
+  if (el("adm-ct-ano")) el("adm-ct-ano").textContent = hoje.getFullYear();
+
+  window._admContratoSession = session;
+  overlay.style.display = "flex";
+
+  setTimeout(() => {
+    const scrollArea = el("adm-contrato-scroll");
+    if (scrollArea) scrollArea.scrollTop = 0;
+  }, 100);
+}
+
+// ──────────────────────────────────────────────────────────────
+//  FUNÇÕES DO OVERLAY DE CONTRATO (admin.html)
+// ──────────────────────────────────────────────────────────────
+let _admContratoScrollCompleto = false;
+
+function admOnScrollContrato() {
+  const area = document.getElementById("adm-contrato-scroll");
+  const bar = document.getElementById("adm-contrato-bar");
+  const hint = document.getElementById("adm-scroll-hint");
+  if (!area) return;
+
+  const pct = Math.min(
+    100,
+    Math.round(
+      (area.scrollTop / (area.scrollHeight - area.clientHeight)) * 100,
+    ),
+  );
+  if (bar) bar.style.width = pct + "%";
+
+  if (pct >= 90 && !_admContratoScrollCompleto) {
+    _admContratoScrollCompleto = true;
+    const chk = document.getElementById("adm-chk-aceite");
+    if (chk) chk.disabled = false;
+    if (hint) hint.style.display = "none";
+  }
+}
+
+function admAtualizarNome(val) {
+  const el = document.getElementById("adm-ct-nombre");
+  if (el) el.textContent = val || "[Nome do Cliente]";
+}
+
+function admAtualizarDoc(val) {
+  const el = document.getElementById("adm-ct-doc");
+  if (el) el.textContent = val || "[Documento]";
+}
+
+function admToggleBtnAceitar() {
+  const chk = document.getElementById("adm-chk-aceite");
+  const btn = document.getElementById("adm-btn-aceitar");
+  const nome = document.getElementById("adm-c-nome")?.value?.trim();
+  const doc = document.getElementById("adm-c-doc")?.value?.trim();
+  const ok = chk?.checked && nome && doc;
+  if (btn) {
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? "1" : "0.45";
+    btn.style.cursor = ok ? "pointer" : "not-allowed";
+  }
+}
+
+async function admAceitarContrato() {
+  const session = window._admContratoSession;
+  if (!session) return;
+
+  const nome = document.getElementById("adm-c-nome")?.value?.trim();
+  const doc = document.getElementById("adm-c-doc")?.value?.trim();
+
+  if (!nome || !doc) {
+    alert("Preencha seu nome completo e RUC/C.I. para assinar.");
+    return;
+  }
+
+  const btn = document.getElementById("adm-btn-aceitar");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳ Registrando assinatura...";
+  }
+
+  try {
+    let ip = "";
+    try {
+      const r = await fetch("https://api.ipify.org?format=json");
+      ip = (await r.json()).ip || "";
+    } catch (_) {}
+
+    const { error } = await supa.from("contratos_aceites").insert([
+      {
+        usuario_id: session.user.id,
+        aceito: true,
+        nome_assinante: nome,
+        doc_assinante: doc,
+        ip_assinante: ip,
+        user_agent: navigator.userAgent,
+        aceito_em: new Date().toISOString(),
+      },
+    ]);
+
+    if (error) {
+      // Pode já existir — tenta update
+      if (error.code === "23505" || error.message?.includes("duplicate")) {
+        await supa
+          .from("contratos_aceites")
+          .update({
+            aceito: true,
+            nome_assinante: nome,
+            doc_assinante: doc,
+            aceito_em: new Date().toISOString(),
+          })
+          .eq("usuario_id", session.user.id);
+      } else {
+        throw error;
+      }
+    }
+
+    const overlay = document.getElementById("contrato-admin-overlay");
+    if (overlay) overlay.style.display = "none";
+    console.log("✅ Contrato aceito com sucesso.");
+  } catch (e) {
+    alert("Erro ao registrar assinatura: " + e.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "✍️ ASSINAR E CONTINUAR";
+    }
+  }
 }
