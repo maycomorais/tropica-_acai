@@ -7876,7 +7876,211 @@ function _pdvModalConfirmar(cacheKey) {
     });
   }
 }
-let _toledoPort = null; // Web Serial: porta da balança Toledo
+let _toledoPort = null;          // Web Serial: porta da balança Toledo
+let _toledoReader = null;        // Reader ativo (necessário para cancel() no fechamento)
+let _toledoLeituraAtiva = false; // Flag: evita readers simultâneos na mesma porta
+
+// ── GAVETA AUTOMÁTICA — DC-335 via Ethernet ──────────────────────────────────
+const _GAVETA_BRIDGE_URL = "http://127.0.0.1:9091/abrir";
+
+function _gavetaDeveAbrir(formaPagamento) {
+  if (!formaPagamento) return false;
+  const fp = formaPagamento.toLowerCase();
+  return (
+    fp.includes("efetivo")    ||
+    fp.includes("dinheiro")   ||
+    fp.includes("cart")       ||
+    fp.includes("debito")     ||
+    fp.includes("credito")    ||
+    fp.includes("crédito")    ||
+    fp.includes("débito")     ||
+    fp.includes("multipagamento")
+  );
+}
+
+async function _abrirGavetaDC335(contexto = "") {
+  try {
+    const res = await fetch(_GAVETA_BRIDGE_URL, { method: "POST" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    console.log(`[Gaveta] ✅ Aberta${contexto ? " — " + contexto : ""}`);
+  } catch (err) {
+    console.warn(`[Gaveta] ⚠️ Bridge offline ou gaveta inacessível${contexto ? " (" + contexto + ")" : ""}: ${err.message}`);
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+//  LEITURA CONTÍNUA — Toledo Prix 3 Fit (Prt1/Prt2)
+//  Protocolo: stream contínuo a 4800 baud, sem disparo manual.
+//  Formato de saída da balança: 5 dígitos ASCII = peso em gramas (ex: "01490" = 1490g).
+//  A função é separada de _kgConectarBalanca para poder ser chamada tanto na
+//  reconexão automática (modal já aberto + porta já conectada) quanto no fluxo
+//  normal de conexão nova.
+// ──────────────────────────────────────────────────────────────────────────────
+async function _kgIniciarLeituraBalanca() {
+  if (!_toledoPort) {
+    console.warn("[Balança] _kgIniciarLeituraBalanca: _toledoPort é null");
+    return;
+  }
+  if (_toledoLeituraAtiva) {
+    console.log("[Balança] Leitura já ativa — ignorando chamada duplicada");
+    return;
+  }
+
+  _toledoLeituraAtiva = true;
+  console.log("[Balança] Iniciando leitura contínua...");
+
+  const txtBal = document.getElementById("_kg-balanca-txt");
+  const btnBal = document.getElementById("_kg-btn-balanca");
+
+  // Adquire reader; se a readable stream já estiver locada (reader anterior não liberado),
+  // aguarda 200ms e tenta uma vez mais antes de desistir
+  try {
+    _toledoReader = _toledoPort.readable.getReader();
+  } catch (e) {
+    console.warn("[Balança] Readable locked — aguardando 200ms e tentando novamente:", e.message);
+    await new Promise(r => setTimeout(r, 200));
+    try {
+      _toledoReader = _toledoPort.readable.getReader();
+    } catch (e2) {
+      console.error("[Balança] Falha ao obter reader (porta em uso?):", e2.message);
+      _toledoLeituraAtiva = false;
+      if (txtBal) txtBal.textContent = "⚠️ Porta ocupada — reconecte a balança";
+      return;
+    }
+  }
+
+  // latin1 evita exceções com bytes > 127 que a Toledo pode enviar como delimitadores de frame
+  const decoder = new TextDecoder("latin1");
+
+  let buffer        = "";
+  let ultimoGramas  = -1;
+  let contEstavel   = 0;
+  // Quantos chunks consecutivos com o mesmo valor são necessários para confirmar a leitura.
+  // Valor 2 é suficiente para stream contínuo ~5 Hz; aumente se houver ruído.
+  const ESTAVEL_MIN = 2;
+
+  // ── Parser multi-formato Toledo Prix 3 Fit ──────────────────────────────────
+  // Formato 1 (Prt1 contínuo): "01490\r\n" → 1490g
+  // Formato 2 (com unidade):   "  1.490 kg\r\n" ou "1,490kg\r\n"
+  // Formato 3 (prefixo ST):    "ST,GS,+  1.490kg\r\n"
+  // Formato 4 (raw stream):    bytes consecutivos sem \r\n — ex: "014900149001490"
+  // ────────────────────────────────────────────────────────────────────────────
+  function _parsearGramas(texto) {
+    // Formato 1 — "kg" explícito: "1.490 kg", "1,490kg", "ST,GS,+ 1.490kg"
+    const mKg = texto.match(/([0-9]+[.,][0-9]{1,3})\s*kg/i);
+    if (mKg) {
+      const v = parseFloat(mKg[1].replace(",", "."));
+      if (!isNaN(v) && v >= 0) return Math.round(v * 1000);
+    }
+
+    // Formato 2 — Toledo Prix 3 Fit Prt1 (stream contínuo sem unidade):
+    // Frame: STX(0x02) + "NN.NNN" + CR(0x0D)
+    // Exemplos reais: "00.124" = 124g | "01.490" = 1490g | "00.000" = 0g
+    const mToledo = texto.match(/(\d{1,2}[.,]\d{3})/);
+    if (mToledo) {
+      const v = parseFloat(mToledo[1].replace(",", "."));
+      if (!isNaN(v) && v >= 0) return Math.round(v * 1000);
+    }
+
+    // Formato 3 — inteiro 5-6 dígitos = gramas direto: "01490" = 1490g
+    const mInt = texto.match(/(\d{5,6})/);
+    if (mInt) {
+      const v = parseInt(mInt[1], 10);
+      if (!isNaN(v) && v >= 0) return v;
+    }
+    return null;
+  }
+
+  try {
+    while (true) {
+      const { value, done } = await _toledoReader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      buffer += chunk;
+
+      // Log bruto nos primeiros 10 chunks para diagnóstico (desativa após)
+      if (contEstavel === 0 && buffer.length <= 200) {
+        const hex = Array.from(value).map(b => b.toString(16).padStart(2,"0")).join(" ");
+        console.log(`[Balança] RAW HEX: ${hex}  |  TEXT: ${JSON.stringify(chunk)}`);
+      }
+
+      // Descarta dados antigos — janela deslizante de 128 chars
+      if (buffer.length > 128) buffer = buffer.slice(-128);
+
+      // Tenta extrair linhas completas primeiro (formato com \r\n)
+      const linhas = buffer.split(/[\r\n]+/);
+      // O último elemento pode ser fragmento incompleto — preserva
+      buffer = linhas.pop() ?? "";
+
+      let grama = null;
+
+      // Processa linhas completas se houver
+      for (const linha of linhas) {
+        const candidato = _parsearGramas(linha.trim());
+        if (candidato !== null) { grama = candidato; break; }
+      }
+
+      // Fallback: tenta extrair do buffer acumulado (stream sem \r\n)
+      if (grama === null) {
+        const candidato = _parsearGramas(buffer);
+        if (candidato !== null) grama = candidato;
+      }
+
+      if (grama === null) continue;
+
+      // Estabilidade: mesmo valor por ESTAVEL_MIN ciclos → confirma
+      if (grama === ultimoGramas) {
+        contEstavel++;
+      } else {
+        ultimoGramas = grama;
+        contEstavel  = 1;
+      }
+
+      // Atualiza label em tempo real (antes de confirmar estabilidade)
+      if (txtBal) {
+        const kgFmt = (grama / 1000).toFixed(3).replace(".", ",");
+        txtBal.textContent = grama > 0
+          ? `🟢 Lendo: ${kgFmt} kg (${grama}g)${contEstavel < ESTAVEL_MIN ? " ⏳" : " ✔"}`
+          : "🟢 Balança zerada — aguardando objeto...";
+      }
+
+      if (contEstavel < ESTAVEL_MIN) continue;
+
+      // ── Peso estável → injeta no input ──────────────────────────────────────
+      const inp = document.getElementById("_kg-input-g");
+      if (inp && parseInt(inp.value || "0") !== grama) {
+        console.log(`[Balança] Peso confirmado: ${grama}g`);
+        inp.value = grama > 0 ? grama : "";
+        window._kgAtualizarPreview?.();
+        inp.style.borderColor = "#16a34a";
+        inp.style.background  = "#f0fdf4";
+        setTimeout(() => {
+          if (inp) { inp.style.borderColor = "#0891b2"; inp.style.background = ""; }
+        }, 800);
+      }
+    }
+  } catch (e) {
+    if (e.name !== "AbortError") {
+      console.error("[Balança] Erro durante leitura:", e.name, e.message);
+      if (txtBal) txtBal.textContent = "🔴 Balança desconectada — clique para reconectar";
+      if (btnBal) {
+        btnBal.style.background    = "#fff";
+        btnBal.style.borderStyle   = "dashed";
+        btnBal.style.borderColor   = "#0891b2";
+        btnBal.style.color         = "#0891b2";
+      }
+      _toledoPort = null;
+    } else {
+      console.log("[Balança] Leitura encerrada (AbortError — desconexão intencional)");
+    }
+  } finally {
+    try { _toledoReader.releaseLock(); } catch (_) {}
+    _toledoReader       = null;
+    _toledoLeituraAtiva = false;
+    console.log("[Balança] Reader liberado.");
+  }
+}
 
 function _mostrarModalPesoPDV(produto, precoKg) {
   document.getElementById("pdv-kg-modal")?.remove();
@@ -8045,108 +8249,49 @@ function _mostrarModalPesoPDV(produto, precoKg) {
       return;
     }
 
-    // Se porta já conectada, desconectar
+    // Se porta já conectada → desconectar (cancela reader antes de fechar a porta)
     if (_toledoPort) {
-      try {
-        await _toledoPort.close();
-      } catch (_) {}
-      _toledoPort = null;
+      try { if (_toledoReader) await _toledoReader.cancel(); } catch (_) {}
+      try { await _toledoPort.close(); } catch (_) {}
+      _toledoPort           = null;
+      _toledoReader         = null;
+      _toledoLeituraAtiva   = false;
       if (txt) txt.textContent = "Conectar Balança (Toledo Prix 3)";
-      if (btn) btn.style.background = "#fff";
+      if (btn) {
+        btn.style.background  = "#fff";
+        btn.style.borderStyle = "dashed";
+        btn.style.borderColor = "#0891b2";
+        btn.style.color       = "#0891b2";
+      }
       return;
     }
 
     try {
       if (txt) txt.textContent = "⏳ Aguardando seleção da porta...";
       const port = await navigator.serial.requestPort();
+
+      // ── Parâmetros seriais da Toledo Prix 3 Fit ──
+      // Confirme em Menu → C16: baud=4800, 8N1
       await port.open({
-        baudRate: 9600,
+        baudRate: 4800,
         dataBits: 8,
         stopBits: 1,
-        parity: "none",
+        parity:   "none",
       });
+
       _toledoPort = port;
-      if (txt)
-        txt.textContent = "🟢 Balança conectada — Pressione PRINT na balança";
+
+      if (txt) txt.textContent = "🟢 Balança conectada — aguardando peso...";
       if (btn) {
-        btn.style.background = "#ecfdf5";
+        btn.style.background  = "#ecfdf5";
+        btn.style.borderStyle = "solid";
         btn.style.borderColor = "#16a34a";
-        btn.style.color = "#16a34a";
+        btn.style.color       = "#16a34a";
       }
 
-      // Leitura contínua
-      const reader = port.readable.getReader();
-      let buffer = "";
+      // Delega toda a leitura contínua para _kgIniciarLeituraBalanca
+      _kgIniciarLeituraBalanca();
 
-      const lerDados = async () => {
-        try {
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            buffer += new TextDecoder().decode(value);
-
-            // Protocolo Toledo Prix 3 Fit: envia linha ao pressionar PRINT
-            // Formatos possíveis:
-            //   "  0.300 kg\r\n"  →  300g
-            //   " 1.230 kg\r\n"   →  1230g
-            //   "P  0.300\r\n"    →  variação com prefixo P
-            //   "ST,GS,+  0.300kg\r\n"  → formato contínuo
-            if (buffer.includes("\n") || buffer.includes("\r")) {
-              const linhas = buffer.split(/[\r\n]+/);
-              buffer = linhas.pop() || ""; // mantém fragmento incompleto
-
-              for (const linha of linhas) {
-                const limpa = linha.trim();
-                if (!limpa) continue;
-
-                // Extrai número de kg: procura padrão X.XXX ou X,XXX seguido de "kg" (opcional)
-                const match =
-                  limpa.match(/([\d]+[.,][\d]{1,3})\s*kg?/i) ||
-                  limpa.match(/[STPG,\s]*([\d]+[.,][\d]{1,3})/);
-
-                if (match) {
-                  const kgStr = match[1].replace(",", ".");
-                  const kgVal = parseFloat(kgStr);
-                  if (!isNaN(kgVal) && kgVal > 0) {
-                    const gramas = Math.round(kgVal * 1000);
-                    // Preenche input e atualiza preview
-                    const inp = document.getElementById("_kg-input-g");
-                    if (inp) {
-                      inp.value = gramas;
-                      window._kgAtualizarPreview();
-                      // Flash visual de confirmação
-                      inp.style.borderColor = "#16a34a";
-                      inp.style.background = "#f0fdf4";
-                      setTimeout(() => {
-                        if (inp) {
-                          inp.style.borderColor = "#0891b2";
-                          inp.style.background = "";
-                        }
-                      }, 1200);
-                    }
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          if (_toledoPort) {
-            if (txt) txt.textContent = "🔴 Balança desconectada";
-            if (btn) {
-              btn.style.background = "#fff";
-              btn.style.borderColor = "#0891b2";
-              btn.style.color = "#0891b2";
-            }
-            _toledoPort = null;
-          }
-        } finally {
-          try {
-            reader.releaseLock();
-          } catch (_) {}
-        }
-      };
-
-      lerDados();
     } catch (e) {
       if (txt) txt.textContent = "Conectar Balança (Toledo Prix 3)";
       if (e.name !== "NotFoundError") {
@@ -8888,6 +9033,13 @@ async function salvarPedidoBalcao() {
   // Descontar estoque imediatamente (PDV não passa por mudarStatus)
   if (novoPedido?.id) await _descontarEstoqueVenda(novoPedido.id, novosItens);
 
+  // ── Gaveta automática ─────────────────────────────────────────────────────
+  // Abre para Dinheiro, Cartão e Multipagamento (pode conter dinheiro/cartão).
+  // Falha silenciosamente — venda NÃO é bloqueada se a gaveta não responder.
+  if (_gavetaDeveAbrir(pag)) {
+    _abrirGavetaDC335(`venda #${novoPedido?.id ?? "PDV"} — ${pag}`);
+  }
+
   if (_pdvCashbackUsando && tel) {
     const descCash = pdvGetCashbackDesconto(totalNovo);
     if (descCash > 0) await crmUsarCashback(tel, descCash);
@@ -9225,11 +9377,30 @@ async function finalizarMesa(id) {
       .from("pedidos")
       .update({
         status: "entregue",
-        tempo_entregue: new Date().toISOString(), // ← registra hora de fechamento
+        tempo_entregue: new Date().toISOString(),
       })
       .eq("id", id);
     carregarMonitorMesas();
     if (typeof calcularFinanceiro === "function") calcularFinanceiro();
+
+    // ── Gaveta automática ao fechar mesa ─────────────────────────────────────
+    // Busca a forma de pagamento do pedido para decidir se abre a gaveta.
+    // Usa o cache local (window._mesaAbertaPedido) se disponível,
+    // ou busca do banco apenas o campo necessário.
+    try {
+      let fpMesa = window._mesaAbertaPedido?.forma_pagamento ?? null;
+      if (!fpMesa) {
+        const { data: pd } = await supa
+          .from("pedidos")
+          .select("forma_pagamento")
+          .eq("id", id)
+          .single();
+        fpMesa = pd?.forma_pagamento ?? "";
+      }
+      if (_gavetaDeveAbrir(fpMesa)) {
+        _abrirGavetaDC335(`fechamento mesa #${id} — ${fpMesa}`);
+      }
+    } catch (_) {}
   }
 }
 
