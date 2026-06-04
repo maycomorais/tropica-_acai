@@ -3912,7 +3912,7 @@ hr.modal-divisor {
 .sidebar.collapsed .pdv-badge-mesas { display: inline !important; }
 
 body.sidebar-collapsed .main-content {
-  margin-left: 60px !important;
+  /* margin-left removed: body is display:flex, sidebar width handles spacing automatically */
 }
 
 /* ══════════════════════════════════════════════════════
@@ -4082,4 +4082,629 @@ body.sidebar-collapsed .main-content {
   #crm-lista-clientes {
     font-size: 0.78rem;
   }
+}
+
+/* ============================================================
+   COMBO FECHADO — Estilos
+   ============================================================ */
+/* ── Linha de sabor no builder admin ── */
+.cf-sabor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.cf-sabor-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border 0.2s;
+}
+.cf-sabor-row input[type="text"]:focus {
+  border-color: #d97706;
+}
+.cf-sabor-row .cf-remove-sabor {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+.cf-sabor-row .cf-remove-sabor:hover {
+  background: #fee2e2;
+}
+/* ── Stepper (usado no FRONT do cliente — pedido) ── */
+.cf-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.cf-stepper button {
+  width: 34px;
+  height: 34px;
+  background: #f8fafc;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #374151;
+  transition: background 0.15s;
+  line-height: 1;
+}
+.cf-stepper button:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+.cf-stepper button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+.cf-stepper .cf-qty {
+  min-width: 36px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0 4px;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+  line-height: 34px;
+}
+/* ── Item de sabor no frontend do cliente ── */
+.cf-item-sabor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.cf-item-sabor:last-child {
+  border-bottom: none;
+}
+.cf-item-sabor .cf-nome-sabor {
+  flex: 1;
+  font-size: 0.95rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+/* ── Contador global ── */
+#combo-contador {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-align: center;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  margin: 12px 0;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+#combo-contador.completo {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+/* ── Botão Adicionar ao Carrinho do Combo Fechado ── */
+#btn-combo-adicionar {
+  width: 100%;
+  padding: 13px;
+  background: #d97706;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+#btn-combo-adicionar:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+#btn-combo-adicionar:not(:disabled):hover {
+  opacity: 0.88;
+}
+
+/* =============================================
+   PDV REDESIGN — Layout corrigido
+   ============================================= */
+
+/* Container principal do PDV */
+.pdv-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #f8fafc;
+    overflow: hidden;
+}
+
+/* Menu horizontal superior */
+.pdv-top-menu {
+    display: flex;
+    gap: 8px;
+    background: #fff;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.pdv-top-menu .menu-item {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pdv-top-menu .menu-item i {
+    margin-right: 8px;
+}
+
+.pdv-top-menu .menu-item.active {
+    background: #4f46e5;
+    color: #fff;
+}
+
+.pdv-top-menu .menu-item:hover:not(.active) {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+/* Grid principal: 2 colunas (produtos | carrinho) */
+.pdv-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Coluna de produtos */
+.pdv-products-col {
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #e2e8f0;
+}
+
+/* Barra de busca */
+.pdv-search-bar {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.pdv-search-bar input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.pdv-search-bar input:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Abas de categorias (scroll horizontal) */
+.pdv-categories {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    scrollbar-width: thin;
+    flex-shrink: 0;
+}
+
+.pdv-categories::-webkit-scrollbar {
+    height: 4px;
+}
+
+.pdv-category-chip {
+    padding: 6px 16px;
+    border-radius: 20px;
+    background: #f1f5f9;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.pdv-category-chip.active {
+    background: #4f46e5;
+    color: #fff;
+}
+
+.pdv-category-chip:hover:not(.active) {
+    background: #e2e8f0;
+}
+
+/* Grid de produtos (scroll vertical) */
+.pdv-products-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+    align-content: start;
+}
+
+/* Card do produto */
+.pdv-product-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pdv-product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #cbd5e1;
+}
+
+.pdv-product-card-img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #f8fafc;
+}
+
+.pdv-product-card-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1e293b;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pdv-product-card-price {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #4f46e5;
+}
+
+/* Coluna do carrinho */
+.pdv-cart-col {
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.pdv-cart-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.pdv-cart-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+/* Formulário do cliente */
+.pdv-cart-form {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.pdv-cart-form .form-group {
+    margin-bottom: 12px;
+}
+
+.pdv-cart-form label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.pdv-cart-form input,
+.pdv-cart-form select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+/* Delivery row (inicialmente oculta) */
+#pdv-delivery-row {
+    margin-top: 12px;
+}
+
+/* Lista de itens - altura flexível */
+.pdv-cart-items {
+    flex: 1;
+    min-height: 120px;
+    max-height: none;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+/* Cada item do pedido */
+.pdv-cart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s;
+}
+
+.pdv-cart-item:hover {
+    background: #f8fafc;
+}
+
+.pdv-cart-item-info {
+    flex: 2;
+    min-width: 0;
+}
+
+.pdv-cart-item-name {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #1e293b;
+}
+
+.pdv-cart-item-detail {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+.pdv-cart-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pdv-cart-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 4px 6px;
+}
+
+.pdv-cart-item-qty button {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: #e2e8f0;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #475569;
+}
+
+.pdv-cart-item-qty span {
+    min-width: 24px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.pdv-cart-item-price {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #1e293b;
+    min-width: 70px;
+    text-align: right;
+}
+
+.pdv-cart-item-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.pdv-cart-item-buttons button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+
+.pdv-cart-item-buttons .btn-edit {
+    color: #3b82f6;
+}
+
+.pdv-cart-item-buttons .btn-edit:hover {
+    background: #eff6ff;
+}
+
+.pdv-cart-item-buttons .btn-remove {
+    color: #ef4444;
+}
+
+.pdv-cart-item-buttons .btn-remove:hover {
+    background: #fef2f2;
+}
+
+/* Totais */
+.pdv-cart-totals {
+    padding: 16px 20px;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.pdv-cart-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    padding: 6px 0;
+}
+
+.pdv-cart-total-row.discount {
+    color: #ef4444;
+}
+
+.pdv-cart-grandtotal {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 10px 0 4px;
+    border-top: 2px solid #e2e8f0;
+    margin-top: 8px;
+}
+
+/* Pagamento */
+.pdv-cart-payment {
+    padding: 16px 20px;
+    flex-shrink: 0;
+}
+
+.pdv-cart-payment label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 6px;
+}
+
+.pdv-cart-payment select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    background: #fff;
+}
+
+/* Box do Efetivo (valor recebido + troco) */
+#pdv-efetivo-box {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 12px;
+    margin-top: 12px;
+    display: none;
+    border: 1px solid #e2e8f0;
+}
+
+#pdv-efetivo-box .cash-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+#pdv-efetivo-box .cash-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+#pdv-efetivo-box .change-row {
+    background: #f0fdf4;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #16a34a;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+}
+
+/* Botão finalizar */
+.pdv-cart-submit {
+    padding: 16px 20px;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.btn-complete-order {
+    width: 100%;
+    padding: 14px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-complete-order:hover {
+    background: #4338ca;
+}
+
+/* Responsivo mobile */
+@media (max-width: 768px) {
+    .pdv-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pdv-cart-col {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        max-height: 70vh;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+    }
+
+    .pdv-cart-col.open {
+        transform: translateY(0);
+    }
 }

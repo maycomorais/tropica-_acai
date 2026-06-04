@@ -25,6 +25,33 @@
       .sub-btn-primary:disabled{opacity:.55;cursor:not-allowed}
       .sub-btn-secondary{padding:10px 18px;background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;border-radius:9px;font-weight:600;font-size:.88rem;cursor:pointer;white-space:nowrap}
       .sub-btn-secondary:hover{background:#e2e8f0}
+
+      /* ═══ PDV Item Cards ═══ */
+      .pdv-cards-lista{display:flex;flex-direction:column;gap:6px;padding:6px 8px;overflow-y:auto;overflow-x:hidden}
+      .pdv-card-item{background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;padding:8px 10px;transition:border-color .15s}
+      .pdv-card-item:hover{border-color:#c5cae9}
+      .pdv-card-existente{background:#f9fafb}
+      .pdv-card-entregue{opacity:.6}
+      .pdv-card-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+      .pdv-card-nome{font-size:.85rem;font-weight:700;color:#1a1a1a;line-height:1.3;flex:1}
+      .pdv-card-sub{display:block;font-size:.72rem;font-weight:400;color:#6b7280;margin-top:2px}
+      .pdv-card-obs{display:block;font-size:.7rem;color:#6b7280;font-style:italic;margin-top:1px}
+      .pdv-card-preco-total{font-size:.88rem;font-weight:800;color:#1a7a2e;white-space:nowrap}
+      .pdv-card-unit{font-size:.72rem;color:#9ca3af;margin-top:1px}
+      .pdv-card-acoes{display:flex;align-items:center;gap:5px;margin-top:7px;flex-wrap:wrap}
+      .pdv-card-qtd-ctrl{display:flex;align-items:center;gap:4px;background:#f3f4f6;border-radius:20px;padding:2px 6px}
+      .pdv-card-qtd-btn{width:24px;height:24px;border:none;background:transparent;font-size:1.1rem;font-weight:700;cursor:pointer;color:#374151;display:flex;align-items:center;justify-content:center;border-radius:50%;line-height:1;transition:background .15s}
+      .pdv-card-qtd-btn:hover{background:#e5e7eb}
+      .pdv-card-qtd-val{font-size:.88rem;font-weight:700;color:#111;min-width:20px;text-align:center}
+      .pdv-card-btn{padding:4px 10px;border-radius:6px;border:1.5px solid;font-size:.75rem;font-weight:600;cursor:pointer;transition:opacity .15s;display:flex;align-items:center;gap:4px;white-space:nowrap}
+      .pdv-card-btn:hover{opacity:.8}
+      .pdv-card-btn-edit{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+      .pdv-card-btn-del{background:#fef2f2;color:#dc2626;border-color:#fecaca}
+      .pdv-card-btn-ok{background:#f0fdf4;color:#15803d;border-color:#86efac}
+      .pdv-badge-entregue{font-size:.7rem;font-weight:700;color:#15803d;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:2px 7px}
+      .pdv-sec-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;padding:4px 2px 2px;margin-bottom:2px;border-bottom:1px solid #f3f4f6}
+      .pdv-sec-novo{color:#1a7a2e}
+      .pdv-lista-vazio{text-align:center;color:#9ca3af;font-size:.83rem;padding:24px 0}
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <base target="_blank">
@@ -478,18 +505,17 @@
             <!-- ══ COLUNA DIREITA: Pedido ══ -->
             <div class="pdv-col-dir pdv-tab-panel" id="pdv-panel-carrinho">
 
-              <div class="pdv-dir-titulo">🛒 <span data-i18n="pdv.novo_pedido">Novo Pedido</span></div>
+              <div class="pdv-dir-titulo"><span data-i18n="pdv.novo_pedido">Novo Pedido</span></div>
 
               <!-- Tipo de pedido — abas -->
               <div class="pdv-tipo-tabs">
                 <button class="pdv-tipo-tab active" data-tipo="balcao"
-                  onclick="pdvSelecionarTipo('balcao',this)">🏪 <span data-i18n="pdv.tipo_balcao">Balcão</span></button>
+                  onclick="pdvSelecionarTipo('balcao',this)"><span data-i18n="pdv.tipo_balcao">Balcão</span></button>
                 <button class="pdv-tipo-tab" data-tipo="delivery"
-                  onclick="pdvSelecionarTipo('delivery',this)">🛵 <span data-i18n="pdv.tipo_delivery">Delivery</span></button>
+                  onclick="pdvSelecionarTipo('delivery',this)"><span data-i18n="pdv.tipo_delivery">Delivery</span></button>
                 <button class="pdv-tipo-tab" data-tipo="retirada"
-                  onclick="pdvSelecionarTipo('retirada',this)">🚶 <span data-i18n="pdv.tipo_retirada">Retirada</span></button>
-                <button class="pdv-tipo-tab" data-tipo="local"
-                  onclick="pdvSelecionarTipo('local',this)">🍽️ <span data-i18n="pdv.tipo_local">Local</span></button>
+                  onclick="pdvSelecionarTipo('retirada',this)"><span data-i18n="pdv.tipo_retirada">Retirada</span></button>
+
               </div>
               <input type="hidden" id="balcao-tipo-entrega" value="balcao">
 
@@ -531,22 +557,56 @@
 
               <!-- Delivery row -->
               <div id="pdv-delivery-row" style="display:none;padding:0 8px 6px">
+
+                <!-- Endereço de texto -->
                 <label class="pdv-dir-label">📍 <span data-i18n="pdv.endereco">Endereço</span></label>
                 <input type="text" id="balcao-endereco" class="pdv-dir-input"
-                  data-i18n-ph="pdv.endereco_ph" placeholder="Cole o endereço ou link do Google Maps" />
+                  data-i18n-ph="pdv.endereco_ph" placeholder="Rua, número, bairro..." />
+
+                <!-- Link do Google Maps -->
+                <label class="pdv-dir-label" style="margin-top:5px">
+                  🗺️ <span data-i18n="pdv.link_gmaps">Link Google Maps</span>
+                </label>
+                <div style="display:flex;gap:5px;align-items:center">
+                  <input type="url" id="balcao-gmaps-link" class="pdv-dir-input"
+                    placeholder="https://maps.app.goo.gl/... ou cole o link copiado"
+                    style="flex:1;font-size:0.78rem"
+                    oninput="pdvOnGmapsLinkInput(this.value)" />
+                  <a id="btn-abrir-gmaps" href="#" target="_blank" rel="noopener"
+                    title="Abrir no Google Maps"
+                    style="display:none;padding:6px 8px;background:#4285f4;color:#fff;border-radius:5px;
+                           font-size:0.8rem;text-decoration:none;white-space:nowrap;line-height:1.4">
+                    🔗
+                  </a>
+                </div>
+
                 <input type="hidden" id="balcao-geo-lat" value="">
                 <input type="hidden" id="balcao-geo-lng" value="">
-                <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
-                  <input type="number" id="balcao-frete" class="pdv-dir-input"
-                    placeholder="Frete (Gs)" min="0" step="1000"
-                    style="border-color:#27ae60;flex:1" oninput="atualizarCarrinhoPDV()" />
-                  <button onclick="calcularFretePDV()"
-                    style="padding:6px 10px;background:#1a7a2e;color:#fff;border:none;
-                           border-radius:5px;font-size:0.76rem;cursor:pointer;font-weight:700;white-space:nowrap">
-                    📍 Rota
-                  </button>
+
+                <!-- Frete + botão calcular -->
+                <div style="display:flex;gap:6px;align-items:center;margin-top:6px">
+                  <div style="flex:1">
+                    <label class="pdv-dir-label">🛵 <span data-i18n="pdv.frete_label">Valor Delivery (Gs)</span></label>
+                    <input type="number" id="balcao-frete" class="pdv-dir-input"
+                      placeholder="Gs 0" min="0" step="1000"
+                      style="border-color:#27ae60;width:100%;box-sizing:border-box"
+                      oninput="atualizarCarrinhoPDV()" />
+                  </div>
+                  <div style="flex-shrink:0;padding-top:18px">
+                    <button id="btn-gps-pdv" onclick="calcularFretePDV()"
+                      style="padding:8px 11px;background:linear-gradient(135deg,#1a7a2e,#145a22);
+                             color:#fff;border:none;border-radius:7px;font-size:0.78rem;
+                             cursor:pointer;font-weight:700;white-space:nowrap;
+                             display:flex;align-items:center;gap:4px;height:36px">
+                      📍 <span data-i18n="pdv.calcular_frete">Calcular</span>
+                    </button>
+                  </div>
                 </div>
-                <div id="frete-msg-pdv" style="font-size:0.76rem;margin-top:3px;min-height:14px"></div>
+
+                <!-- Mensagem de resultado do cálculo -->
+                <div id="frete-msg-pdv"
+                  style="font-size:0.76rem;margin-top:4px;min-height:16px;
+                         padding:3px 6px;border-radius:5px;transition:background .2s"></div>
               </div>
 
               <!-- Desconto -->
@@ -564,17 +624,9 @@
                 </div>
               </div>
 
-              <!-- Tabela de itens -->
+              <!-- Lista de itens (cards) -->
               <div class="pdv-dir-lista-wrap">
-                <table class="pdv-dir-table">
-                  <thead><tr>
-                    <th data-i18n="prod.title">Produto</th>
-                    <th class="tc">Qtde</th>
-                    <th class="tr">Unit.</th>
-                    <th class="tr">Total</th>
-                  </tr></thead>
-                  <tbody id="pdv-lista" class="pdv-dir-tbody"></tbody>
-                </table>
+                <div id="pdv-lista" class="pdv-cards-lista"></div>
               </div>
 
               <!-- Totais -->
@@ -606,6 +658,30 @@
                   <option value="Multipagamento">🔀 Dividir</option>
                 </select>
                 <div id="balcao-pag-info" style="display:none;background:#e8f5e9;border:1px solid #4caf50;border-radius:5px;padding:5px 8px;font-size:0.82rem;color:#1b5e20;margin-top:3px"></div>
+              </div>
+
+              <!-- Box Efetivo: valor recebido + troco -->
+              <div id="pdv-efetivo-box" style="display:none;padding:4px 8px 0">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <label style="font-size:0.78rem;font-weight:700;color:#555;white-space:nowrap;min-width:80px">💵 Recebido</label>
+                  <input
+                    id="pdv-valor-recebido"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    placeholder="Gs 0"
+                    oninput="pdvCalcTroco()"
+                    style="flex:1;padding:6px 8px;border:1.5px solid #d1d5db;border-radius:6px;font-size:0.9rem;font-weight:700;text-align:right;color:#1a1a1a;background:#fffde7"
+                  />
+                </div>
+                <div
+                  id="pdv-troco-row"
+                  style="display:none;padding:6px 10px;border-radius:6px;border:1.5px solid #86efac;background:#f0fdf4;
+                         display:flex;justify-content:space-between;align-items:center"
+                >
+                  <span style="font-size:0.8rem;font-weight:700;color:#374151">💵 Troco / Vuelta</span>
+                  <span id="pdv-troco-val" style="font-size:0.95rem;font-weight:900;color:#15803d">Gs 0</span>
+                </div>
               </div>
 
               <!-- Multipagamento -->
@@ -664,8 +740,8 @@
   <h2 class="section-title">💰 Controle Financeiro</h2>
   <div id="badge-caixa-operador" style="font-size:0.82rem;font-weight:600;padding:6px 12px;background:var(--color-background-secondary);border-radius:8px;margin-bottom:12px;color:var(--color-text-secondary)"></div>
 
-  <!-- ===== FILTROS ===== -->
-  <div class="filtro-bar">
+  <!-- ===== FILTROS (gestores: dono/gerente/adminMaster) ===== -->
+  <div id="fin-filtros-gestor" class="filtro-bar">
     <div class="filtro-group">
       <label><i class="far fa-calendar-alt"></i> Início</label>
       <input type="date" id="fin-inicio" />
@@ -794,8 +870,8 @@
     </div>
   </div>
 
-  <!-- ===== TABELA DE DESPESAS ===== -->
-  <div class="card" style="margin-top: 20px; padding: 0;">
+  <!-- ===== TABELA DE DESPESAS (gestores) ===== -->
+  <div id="secao-despesas-caixa" class="card" style="margin-top: 20px; padding: 0;">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #f0f0f0">
       <h3 style="margin:0;color:#444;font-size:0.95rem">🧾 Despesas do Período</h3>
       <button onclick="abrirModalCaixa('despesa')" class="btn btn-danger" style="font-size:0.83rem;padding:7px 14px">
@@ -818,8 +894,8 @@
     </div>
   </div>
 
-  <!-- ===== TABELA MOTOBOYS ===== -->
-  <div class="card" style="margin-top: 20px">
+  <!-- ===== TABELA MOTOBOYS (gestores) ===== -->
+  <div id="secao-motoboys-financeiro" class="card" style="margin-top: 20px">
     <h3>🏍️ <span data-i18n="moto.relatorio">Relatório Motoboys</span></h3>
     <table class="table">
       <thead>
@@ -884,6 +960,39 @@
           <div class="produtos-header-actions">
             <input type="text" id="busca-produto" class="form-control" data-i18n-ph="prod.buscar_placeholder" placeholder="🔍 Buscar produto..." oninput="filtrarProdutos(this.value)">
             <button class="btn btn-primary" onclick="toggleNovosProdutosTipos()"><i class="fas fa-plus"></i> <span data-i18n="prod.novo_produto">Novo Produto</span></button>
+
+            <!-- Export / Import -->
+            <div style="display:flex;gap:6px">
+              <div style="position:relative;display:inline-block">
+                <button id="btn-exportar-produtos"
+                  class="btn"
+                  style="background:#27ae60;color:#fff;border-color:#219a52;height:38px;padding:0 14px;display:flex;align-items:center;gap:6px;font-size:0.85rem"
+                  onclick="document.getElementById('dropdown-export-prod').style.display=document.getElementById('dropdown-export-prod').style.display==='block'?'none':'block'">
+                  <i class="fas fa-file-export"></i> Exportar <i class="fas fa-caret-down" style="font-size:0.7rem"></i>
+                </button>
+                <div id="dropdown-export-prod"
+                  style="display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:200;min-width:170px;overflow:hidden">
+                  <button onclick="exportarProdutos('json');document.getElementById('dropdown-export-prod').style.display='none'"
+                    style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.85rem;color:#2c3e50;transition:background .15s"
+                    onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='none'">
+                    <i class="fas fa-file-code" style="color:#e67e22"></i> JSON (backup completo)
+                  </button>
+                  <div style="height:1px;background:#f0f0f0;margin:0 10px"></div>
+                  <button onclick="exportarProdutos('csv');document.getElementById('dropdown-export-prod').style.display='none'"
+                    style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px;border:none;background:none;cursor:pointer;font-size:0.85rem;color:#2c3e50;transition:background .15s"
+                    onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='none'">
+                    <i class="fas fa-file-csv" style="color:#27ae60"></i> CSV (planilha)
+                  </button>
+                </div>
+              </div>
+
+              <button id="btn-importar-produtos"
+                class="btn"
+                style="background:#2980b9;color:#fff;border-color:#2471a3;height:38px;padding:0 14px;display:flex;align-items:center;gap:6px;font-size:0.85rem"
+                onclick="importarProdutos()">
+                <i class="fas fa-file-import"></i> Importar
+              </button>
+            </div>
           </div>
       </div>
 
@@ -903,6 +1012,11 @@
           <button class="tipo-btn" onclick="criarNovoProduto('combo')"><i class="fas fa-star"></i><span data-i18n="prod.tipo_combo">Combo</span><small data-i18n="prod.tipo_combo_desc">Kit / promoção</small></button>
           <button class="tipo-btn" onclick="criarNovoProduto('variacoes')" style="border-color:#8b5cf6"><i class="fas fa-palette" style="color:#8b5cf6"></i><span data-i18n="prod.tipo_variacoes">Variações</span><small data-i18n="prod.tipo_variacoes_desc">Sabores c/ preço</small></button>
           <button class="tipo-btn" onclick="criarNovoProduto('kg')" style="border-color:#0891b2"><i class="fas fa-weight-scale" style="color:#0891b2"></i><span data-i18n="prod.tipo_kg">Venda Kg</span><small data-i18n="prod.tipo_kg_desc">Pesado na balança</small></button>
+          <button class="tipo-btn" onclick="criarNovoProduto('combo_fechado')" style="border-color:#d97706">
+            <i class="fas fa-box-open" style="color:#d97706"></i>
+            <span>Combo Fechado</span>
+            <small>Caixa c/ qtd. fixa</small>
+          </button>
         </div>
       </div>
 
@@ -1713,7 +1827,55 @@
             </table>
           </div>
         </div>
-      </div>
+
+      </div><!-- /crm -->
+
+      <!-- ══ ABA MENSALISTAS ══ -->
+      <div id="mensalistas" class="tab-content">
+        <div style="padding:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+            <div>
+              <h2 style="font-size:1.25rem;font-weight:800;color:#111" data-i18n="mens.title">📋 Planos Mensalistas</h2>
+              <p style="font-size:0.83rem;color:#6b7280;margin-top:2px" data-i18n="mens.sub">Gerencie clientes com planos de consumo mensal</p>
+            </div>
+            <button onclick="mensAbrirModalPlano()" style="padding:10px 20px;background:#1a7a2e;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer">
+              <span data-i18n="mens.novo_plano">＋ Novo Plano</span>
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px">
+            <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
+              <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.total_planos">Total Planos</div>
+              <div id="mens-kpi-total" style="font-size:1.5rem;font-weight:800;color:#111">0</div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
+              <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.ativos">Ativos</div>
+              <div id="mens-kpi-ativos" style="font-size:1.5rem;font-weight:800;color:#1a7a2e">0</div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
+              <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.receita_planos">Receita Planos</div>
+              <div id="mens-kpi-receita" style="font-size:1.1rem;font-weight:800;color:#2980b9">—</div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
+              <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.itens_restantes">Itens Restantes</div>
+              <div id="mens-kpi-itens" style="font-size:1.5rem;font-weight:800;color:#9b59b6">0</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+            <input id="mens-busca" type="search" placeholder="🔍 Buscar por cliente, produto..." oninput="mensFiltrar()"
+              style="flex:1;min-width:200px;padding:9px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.88rem;outline:none">
+            <select id="mens-filtro-status" onchange="mensFiltrar()"
+              style="padding:9px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.88rem;outline:none;background:#fff">
+              <option value="todos" data-i18n="mens.todos_planos">Todos os planos</option>
+              <option value="ativo" data-i18n="mens.apenas_ativos">Apenas ativos</option>
+              <option value="inativo" data-i18n="mens.apenas_inativos">Apenas inativos</option>
+            </select>
+          </div>
+          <div id="mens-loading" style="display:none;justify-content:center;padding:30px">
+            <div style="width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:#1a7a2e;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+          </div>
+          <div id="mens-lista-planos"></div>
+        </div>
+      </div><!-- /mensalistas -->
 
       <!-- ═══════════════════════════════════════════════════════ -->
       <!-- TAB: ASSINATURA — somente adminMaster                   -->
@@ -1835,12 +1997,19 @@
             <button type="button" class="builder-type-btn" data-tipo="kg" onclick="selecionarTipoBuilder('kg')" style="border-color:#0891b2">
               <i class="fas fa-weight-scale" style="color:#0891b2"></i><strong data-i18n="prod.tipo_kg">⚖️ Kg</strong>
             </button>
+            <button type="button" class="builder-type-btn" data-tipo="combo_fechado"
+                    onclick="selecionarTipoBuilder('combo_fechado')" style="border-color:#d97706">
+              <i class="fas fa-box-open" style="color:#d97706"></i>
+              <strong>Combo Fechado</strong>
+            </button>
           </div>
         </div>
         <div id="builder-tipo-hint" style="display:none"></div>
         <div id="builder-lanche-hint" style="display:none;background:#e0f2fe;border-left:4px solid #0284c7;border-radius:6px;padding:10px 14px;font-size:0.82rem;color:#0c4a6e;margin-top:8px;">
           🍔 Use a seção <strong>"Adicionais (Extras)"</strong> para ingredientes opcionais.
         </div>
+        <!-- Seletor de tipo filtrado pelas features do adminMaster -->
+        <div id="prod-tipo-selector" style="margin-bottom:12px"></div>
         <input type="hidden" id="prod-tipo-builder" value="padrao">
 
         <!-- ── BUILDER: VARIAÇÕES DE SABOR ── -->
@@ -2086,6 +2255,58 @@
             </div>
           </div>
         </div>
+
+        <!-- ── BUILDER: COMBO FECHADO ── -->
+        <div id="builder-combo-fechado" class="builder-section" style="display:none">
+
+          <!-- Cabeçalho e instrução -->
+          <h4 style="color:#d97706;margin-bottom:6px">📦 Combo Fechado</h4>
+          <div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px;
+                      padding:10px 14px;font-size:0.82rem;color:#78350f;margin-bottom:14px;line-height:1.5">
+            O cliente distribui os itens entre os sabores disponíveis até atingir o limite total.
+            Ex: <em>"Caixa com 9 Esfihas"</em> → Frango 3 + Queijo 1 + Carne 1 + Chocolate 4 = 9.
+          </div>
+
+          <!-- Limite total de itens -->
+          <div class="form-group" style="margin-bottom:14px">
+            <label class="form-label" style="font-weight:700">
+              🔢 Limite total de itens (quantidade fixa da caixa)
+            </label>
+            <input
+              type="number"
+              id="cf-limite"
+              class="form-control"
+              min="1"
+              step="1"
+              placeholder="Ex: 9"
+              style="max-width:140px;font-size:1.1rem;font-weight:700;border:2px solid #d97706"
+            />
+          </div>
+
+          <!-- Gerenciador de sabores -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <label class="form-label" style="font-weight:700;margin:0">🧂 Sabores disponíveis</label>
+            <button type="button" class="btn btn-sm"
+                    style="background:#d97706;color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.82rem;cursor:pointer"
+                    onclick="cfAdicionarSabor()">
+              + Adicionar Sabor
+            </button>
+          </div>
+
+          <div id="cf-sabores-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">
+            <!-- Linhas injetadas por cfAdicionarSabor() -->
+          </div>
+
+          <!-- Preview da configuração JSON (colapsável, útil para debug) -->
+          <details style="margin-top:10px">
+            <summary style="font-size:0.78rem;color:#94a3b8;cursor:pointer">Ver JSON gerado (debug)</summary>
+            <pre id="cf-json-preview"
+                 style="background:#1e293b;color:#7dd3fc;border-radius:6px;padding:10px;
+                        font-size:0.74rem;margin-top:6px;overflow-x:auto;white-space:pre-wrap"></pre>
+          </details>
+
+        </div>
+        <!-- /builder-combo-fechado -->
 
         <!-- ── BUILDER: VENDA POR KG ── -->
         <div id="builder-kg" class="builder-section" style="display:none">
@@ -2343,55 +2564,6 @@
     <script src="filiais.js"></script>
     <script src="mensalistas.js"></script>
 
-<!-- ═══════════════════ ABA MENSALISTAS ═══════════════════ -->
-<div id="mensalistas" class="tab-content">
-  <div style="padding:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
-      <div>
-        <h2 style="font-size:1.25rem;font-weight:800;color:#111" data-i18n="mens.title">📋 Planos Mensalistas</h2>
-        <p style="font-size:0.83rem;color:#6b7280;margin-top:2px" data-i18n="mens.sub">Gerencie clientes com planos de consumo mensal</p>
-      </div>
-      <button onclick="mensAbrirModalPlano()"
-        style="padding:10px 20px;background:#1a7a2e;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:0.9rem;cursor:pointer">
-        <span data-i18n="mens.novo_plano">＋ Novo Plano</span>
-      </button>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:20px">
-      <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
-        <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.total_planos">Total Planos</div>
-        <div id="mens-kpi-total" style="font-size:1.5rem;font-weight:800;color:#111">0</div>
-      </div>
-      <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
-        <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.ativos">Ativos</div>
-        <div id="mens-kpi-ativos" style="font-size:1.5rem;font-weight:800;color:#1a7a2e">0</div>
-      </div>
-      <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
-        <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.receita_planos">Receita Planos</div>
-        <div id="mens-kpi-receita" style="font-size:1.1rem;font-weight:800;color:#2980b9">—</div>
-      </div>
-      <div style="background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #e5e7eb">
-        <div style="font-size:0.72rem;color:#6b7280;text-transform:uppercase;font-weight:600;margin-bottom:4px" data-i18n="mens.itens_restantes">Itens Restantes</div>
-        <div id="mens-kpi-itens" style="font-size:1.5rem;font-weight:800;color:#9b59b6">0</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-      <input id="mens-busca" type="search" placeholder="🔍 Buscar por cliente, produto..." data-i18n-ph="mens.buscar_placeholder"
-        oninput="mensFiltrar()"
-        style="flex:1;min-width:200px;padding:9px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.88rem;outline:none;font-family:Arial,sans-serif">
-      <select id="mens-filtro-status" onchange="mensFiltrar()"
-        style="padding:9px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.88rem;outline:none;background:#fff;font-family:Arial,sans-serif">
-        <option value="todos" data-i18n="mens.todos_planos">Todos os planos</option>
-        <option value="ativo" data-i18n="mens.apenas_ativos">Apenas ativos</option>
-        <option value="inativo" data-i18n="mens.apenas_inativos">Apenas inativos</option>
-      </select>
-    </div>
-    <div id="mens-loading" style="display:none;justify-content:center;padding:30px">
-      <div style="width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:#1a7a2e;border-radius:50%;animation:spin 0.8s linear infinite"></div>
-    </div>
-    <div id="mens-lista-planos"></div>
-  </div>
-</div>
-
 <!-- Modal: Novo/Editar Plano -->
 <div id="modal-mens-plano"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:16px">
@@ -2420,8 +2592,8 @@
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div>
-          <label style="font-size:0.78rem;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;text-transform:uppercase" data-i18n="mens.qtd_total">Qtd Total de Itens *</label>
-          <input type="number" id="mens-plano-qtd" placeholder="Ex: 22" min="1"
+          <label id="mens-plano-qtd-label" style="font-size:0.78rem;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;text-transform:uppercase">Qtd Total de Itens *</label>
+          <input type="number" id="mens-plano-qtd" placeholder="Ex: 22" min="1" step="1"
             style="width:100%;padding:10px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.9rem;outline:none">
         </div>
         <div>
@@ -2439,6 +2611,19 @@
           <label style="font-size:0.78rem;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;text-transform:uppercase" data-i18n="mens.data_fim">Data Fim / Vencimento</label>
           <input type="date" id="mens-plano-fim" style="width:100%;padding:10px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.9rem;outline:none">
         </div>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;text-transform:uppercase">Tipo de Controle</label>
+        <select id="mens-plano-tipo" onchange="mensToggleTipoPlano()"
+          style="width:100%;padding:10px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.9rem;outline:none;background:#fff">
+          <option value="un">📦 Unidades (ex: refeições, marmitas)</option>
+          <option value="kg">⚖️ Peso em Kg (ex: carne, peixe)</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:#4b5563;display:block;margin-bottom:5px;text-transform:uppercase">Observação / Nota</label>
+        <input type="text" id="mens-plano-nota" placeholder="Ex: Sem sal, entrega às terças..."
+          style="width:100%;padding:10px 13px;border:1.5px solid #e5e7eb;border-radius:9px;font-size:0.9rem;outline:none">
       </div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.9rem">
         <input type="checkbox" id="mens-plano-ativo" checked style="width:16px;height:16px;accent-color:#1a7a2e">
@@ -3127,5 +3312,15 @@
   @keyframes scaleIn { from { opacity:0; transform:scale(0.9); } to { opacity:1; transform:scale(1); } }
   @keyframes pulse   { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
 </style>
+  <script>
+    // Fecha dropdown export-prod ao clicar fora
+    document.addEventListener("click", function(e) {
+      const dd = document.getElementById("dropdown-export-prod");
+      const btn = document.getElementById("btn-exportar-produtos");
+      if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+        dd.style.display = "none";
+      }
+    });
+  </script>
 </body>
 </html>

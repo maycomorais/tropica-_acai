@@ -252,24 +252,54 @@
           document.getElementById('frete').textContent = 'Gs ' + frete.toLocaleString('es-PY');
         }
 
-        // Pagamento
+        // ── SEÇÃO CORRIGIDA: Pagamento Seguro e Validação de Tipos ─────────
         var pg  = p.pagamento || {};
         var met = pg.metodo || pg.forma_pagamento || 'No informado';
         var obsp = pg.obs   || pg.obs_pagamento   || '';
+
+        var metodosValidos = ['efectivo', 'tarjeta', 'dinero', 'cartão', 'débito', 'crédito', 'efetivo'];
+        var deveAbrirGaveta = false;
 
         if (met === 'Multipagamento') {
           document.getElementById('forma-pag').textContent = '🔀 Pago dividido:';
           try {
             var partes = JSON.parse(obsp);
-            document.getElementById('obs-pag').innerHTML = partes.map(function(x, i) {
-              var l = (i + 1) + '. ' + x.metodo + ': Gs ' + parseFloat(x.valor).toLocaleString('es-PY');
-              if (x.troco) l += ' (Vuelto p/ ' + x.troco + ')';
-              return l;
-            }).join('<br>');
-          } catch(e) { document.getElementById('obs-pag').textContent = obsp; }
+            
+            if (Array.isArray(partes)) {
+              deveAbrirGaveta = partes.some(function(x) {
+                return x && x.metodo && metodosValidos.some(function(m) {
+                  return String(x.metodo).toLowerCase().includes(m);
+                });
+              });
+
+              document.getElementById('obs-pag').innerHTML = partes.map(function(x, i) {
+                var l = (i + 1) + '. ' + x.metodo + ': Gs ' + parseFloat(x.valor).toLocaleString('es-PY');
+                if (x.troco) l += ' (Vuelto p/ ' + x.troco + ')';
+                return l;
+              }).join('<br>');
+            } else {
+              document.getElementById('obs-pag').textContent = obsp;
+              deveAbrirGaveta = metodosValidos.some(function(m) {
+                return String(obsp).toLowerCase().includes(m);
+              });
+            }
+          } catch(e) { 
+            document.getElementById('obs-pag').textContent = obsp;
+            deveAbrirGaveta = metodosValidos.some(function(m) {
+              return String(obsp).toLowerCase().includes(m);
+            });
+          }
         } else {
           document.getElementById('forma-pag').textContent = met;
           document.getElementById('obs-pag').textContent   = obsp;
+
+          deveAbrirGaveta = metodosValidos.some(function(m) {
+            return String(met).toLowerCase().includes(m);
+          });
+        }
+        if (deveAbrirGaveta) {
+          fetch('http://127.0.0.1:9091/abrir', { method: 'POST', mode: 'cors' })
+          .catch(function(err) { console.error('Erro ao chamar gaveta:', err); });
         }
 
         // Factura
