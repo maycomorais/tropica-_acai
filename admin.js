@@ -9780,7 +9780,7 @@ async function salvarPedidoBalcao() {
 
   // ── Gaveta automática ─────────────────────────────────────────────────────
   // Abre apenas no PDV, para Efetivo, Cartão (déb/créd) e Multipagamento
-  // que contenha ao menos um desses meios. PIX e similares não abrem gaveta.
+  // que contenha ao menos um desses meios. pix e similares não abrem gaveta.
   // Falha silenciosamente — venda NÃO é bloqueada se a gaveta não responder.
   if (_gavetaDeveAbrir(pag, obsPagPDV)) {
     _abrirGavetaDC335(`venda #${novoPedido?.id ?? "PDV"} — ${pag}`);
