@@ -461,10 +461,6 @@
             <button id="pdv-view-btn-venda" class="pdv-view-btn active" onclick="pdvMudarView('venda')">
               <i class="fas fa-cash-register"></i> <span data-i18n="pdv.venda">Venda</span>
             </button>
-            <button id="pdv-view-btn-mesas" class="pdv-view-btn" onclick="pdvMudarView('mesas')">
-              <i class="fas fa-clipboard-list"></i> <span data-i18n="pdv.mesas">Mesas</span>
-              <span class="pdv-badge-mesas" id="pdv-badge-mesas" style="display:none">0</span>
-            </button>
           </div>
         </div>
 
@@ -475,9 +471,6 @@
           </button>
           <button class="pdv-tab-btn" onclick="pdvMudarAba('carrinho',this)">
             <i class="fas fa-shopping-cart"></i> <span data-i18n="pdv.pedido">Pedido</span>
-          </button>
-          <button class="pdv-tab-btn" onclick="pdvMudarAba('monitor',this)">
-            <i class="fas fa-clipboard-list"></i> <span data-i18n="pdv.mesas">Mesas</span>
           </button>
         </div>
 
@@ -496,13 +489,6 @@
                 <i class="fas fa-search pdv-busca-icon"></i>
                 <input type="text" id="pdv-busca" class="pdv-busca-input"
                   data-i18n-ph="pdv.buscar_produto" placeholder="Buscar produto..." oninput="filtrarPDV(this.value)" />
-              </div>
-
-              <!-- Mesas ativas -->
-              <div class="pdv-mesas-bar" id="pdv-mesas-bar">
-                <i class="fas fa-chair" style="color:#888;font-size:0.75rem"></i>
-                <span class="pdv-mesas-label" data-i18n="pdv.mesas_label">Mesas:</span>
-                <span id="pdv-mesas-vazio" style="color:#aaa;font-size:0.75rem" data-i18n="pdv.nenhuma_mesa">Nenhuma mesa ativa</span>
               </div>
 
               <!-- Grid de produtos -->
@@ -721,15 +707,6 @@
           </div>
         </div>
 
-        <!-- VIEW: MESAS (monitor) -->
-        <div id="pdv-panel-mesas" class="pdv-view-panel" style="display:none">
-          <div class="pdv-monitor pdv-tab-active" style="height:calc(100vh - 200px); overflow-y:auto">
-            <h4 class="pdv-monitor-titulo"><i class="fas fa-utensils"></i> <span data-i18n="pdv.pedidos_andamento">Pedidos em Andamento</span></h4>
-            <div id="lista-mesas-andamento">
-              <p style="text-align: center; font-size: 0.8rem; color: #aaa; margin-top: 20px">Nenhum pedido ativo.</p>
-            </div>
-          </div>
-        </div>
 
         <!-- MOBILE: barra inferior fixa com total + botão -->
         <div class="pdv-mobile-footer" id="pdv-mobile-footer" style="display:none">

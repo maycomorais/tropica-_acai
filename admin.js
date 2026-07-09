@@ -209,7 +209,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // true = modo silencioso (sem recarregar som se já estiver tocando)
     if (abaAtual === "pedidos") carregarPedidos(true);
     if (abaAtual === "cozinha") carregarCozinha();
-    if (abaAtual === "pdv") carregarMonitorMesas();
+    if (abaAtual === "pdv");
     // if (abaAtual === 'financeiro') calcularFinanceiro();
     if (abaAtual === "dashboard") carregarDashboard();
   }, 10000);
@@ -282,15 +282,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       const optDono = document.getElementById("opt-cargo-dono");
       if (optDono) optDono.style.display = "";
     }
-    // Financeiro: visível conforme features_ativas.tabs.financeiro
-    // Para funcionario/gerente pode ser bloqueado via features, mas modal-caixa
-    // continua acessível pelo mini-painel no PDV
-    const menuFin = document.getElementById("menu-financeiro");
-    if (menuFin) {
-      const finBloqueado = FEATURES_ATIVAS?.tabs?.financeiro === false &&
-        !["dono", "adminMaster"].includes(perfilUsuario);
-      menuFin.style.display = finBloqueado ? "none" : "flex";
-    }
+    // A visibilidade do financeiro (e todas as abas) é controlada
+    // inteiramente por _aplicarVisibilidadeAbas() via permissoes_cargo
+    // ou features_ativas.tabs. O mini-painel de caixa no PDV
+    // permite que funcionários abram o caixa sem acessar a aba financeiro.
     if (
       perfilUsuario === "dono" ||
       perfilUsuario === "gerente" ||
@@ -532,13 +527,11 @@ function showTab(tabId, event) {
   }
   if (realTabId === "inventario") {
     if (!perfilUsuario) return; // auth not loaded yet — wait
-    if (
-      perfilUsuario === "dono" ||
-      perfilUsuario === "gerente" ||
-      perfilUsuario === "adminMaster"
-    )
+    // Permissão via permissoes_cargo ou fallback cargo
+    const _podeInv = _feat("tabs", "inventario");
+    if (_podeInv) {
       carregarInventario();
-    else {
+    } else {
       alert("Acesso restrito.");
       showTab("pedidos", null);
     }
@@ -634,9 +627,31 @@ function _aplicarFormasPagamentoPDV(features) {
 
 function _feat(categoria, chave) {
   if (!FEATURES_ATIVAS) return true; // sem config = tudo ativo
+  // Permissões granulares por cargo (permissoes_cargo) têm prioridade
+  // sobre o controle global (tabs/funcionalidades)
+  if (categoria === "tabs" && perfilUsuario) {
+    const pCargo = FEATURES_ATIVAS?.permissoes_cargo?.[perfilUsuario];
+    if (pCargo && Array.isArray(pCargo.tabs)) {
+      return pCargo.tabs.includes(chave);
+    }
+  }
   const cat = FEATURES_ATIVAS[categoria];
   if (!cat) return true;
   return cat[chave] !== false;
+}
+
+/**
+ * Retorna true se o usuário logado pode cancelar pedidos diretamente
+ * (sem solicitar aprovação). Lê de features_ativas.permissoes_cargo
+ * se disponível, cai back para a lógica antiga (dono/adminMaster).
+ */
+function _podeCancelarDireto() {
+  const pCargo = FEATURES_ATIVAS?.permissoes_cargo?.[perfilUsuario];
+  if (pCargo && "pode_cancelar_direto" in pCargo) {
+    return pCargo.pode_cancelar_direto === true;
+  }
+  // fallback: lógica original
+  return ["dono", "adminMaster"].includes(perfilUsuario);
 }
 
 function _aplicarVisibilidadeAbas() {
@@ -658,9 +673,12 @@ function _aplicarVisibilidadeAbas() {
   };
   // adminMaster nunca sofre restrições — ele define as regras
   if (perfilUsuario === "adminMaster") return;
+
   Object.entries(mapa).forEach(([menuId, chave]) => {
     const el = document.getElementById(menuId);
-    if (el && !_feat("tabs", chave)) el.style.display = "none";
+    if (!el) return;
+    const visivel = _feat("tabs", chave);
+    el.style.display = visivel ? "flex" : "none";
   });
   _aplicarFuncionalidades();
 }
@@ -729,11 +747,30 @@ async function salvarFeatures() {
   document.querySelectorAll("[data-feat-pag]").forEach((el) => {
     pagamentos[el.dataset.featPag] = el.checked;
   });
+
+  // ── Permissões granulares por cargo ─────────────────────────────
+  const permissoes_cargo = {};
+  const CARGOS_PERM = ["dono", "gerente", "funcionario", "garcom"];
+  const ABAS_PERM = [
+    "pedidos","cozinha","pdv","financeiro","inventario","produtos",
+    "equipe","configuracoes","dashboard","estatisticas","ficha-tecnica",
+    "crm","mensalistas","turnos",
+  ];
+  CARGOS_PERM.forEach(cargo => {
+    const tabsPermitidas = ABAS_PERM.filter(aba => {
+      const el = document.querySelector(`[data-perm-tab="${aba}"][data-perm-cargo="${cargo}"]`);
+      return el ? el.checked : true; // default: permitido
+    });
+    const podeCancel = document.querySelector(`[data-perm-cancelar][data-perm-cargo="${cargo}"]`)?.checked ?? false;
+    permissoes_cargo[cargo] = { tabs: tabsPermitidas, pode_cancelar_direto: podeCancel };
+  });
+
   const features = {
     tabs,
     tipos_produto: tipos,
     funcionalidades: funcs,
     pagamentos,
+    permissoes_cargo,
   };
   const { error } = await supa
     .from("configuracoes")
@@ -843,12 +880,79 @@ async function renderPainelFeatures() {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:7px">${grid}</div>
     </div>`;
 
+  // ── Permissões por cargo ────────────────────────────────────────────
+  const CARGOS_UI = [
+    { key: "dono",        label: "🔑 Dono",        cor: "#f59e0b" },
+    { key: "gerente",     label: "👔 Gerente",      cor: "#2980b9" },
+    { key: "funcionario", label: "👷 Funcionário",  cor: "#7f8c8d" },
+    { key: "garcom",      label: "🍽️ Garçom",      cor: "#27ae60" },
+  ];
+  const ABAS_UI = [
+    ["pedidos","📋 Pedidos"],["cozinha","👨‍🍳 Cozinha"],["pdv","🖥️ PDV"],
+    ["financeiro","💰 Financeiro"],["inventario","📦 Inventário"],["produtos","🍽️ Produtos"],
+    ["equipe","👥 Equipe"],["configuracoes","⚙️ Config"],["dashboard","📊 Dashboard"],
+    ["estatisticas","📈 Estatísticas"],["ficha-tecnica","📝 Ficha Técnica"],
+    ["crm","🤝 CRM"],["mensalistas","🗓️ Mensalistas"],["turnos","📺 Turnos"],
+  ];
+  const pCargos = f.permissoes_cargo || {};
+
+  const _chkPerm = (cargo, aba, label) => {
+    const perm = pCargos[cargo];
+    const isChecked = perm?.tabs ? perm.tabs.includes(aba) : true;
+    const cor = CARGOS_UI.find(c => c.key === cargo)?.cor || "#888";
+    return `<label style="display:flex;align-items:center;gap:5px;padding:5px 7px;
+        border-radius:7px;cursor:pointer;font-size:0.78rem;
+        background:${isChecked ? cor + "18" : "#f5f5f5"};
+        border:1.5px solid ${isChecked ? cor : "#ddd"};transition:all .15s">
+      <input type="checkbox" data-perm-tab="${aba}" data-perm-cargo="${cargo}"
+        ${isChecked ? "checked" : ""}
+        onchange="this.closest('label').style.background=this.checked?'${cor}18':'#f5f5f5';
+                  this.closest('label').style.borderColor=this.checked?'${cor}':'#ddd'"
+        style="width:14px;height:14px;accent-color:${cor};flex-shrink:0">
+      ${label}
+    </label>`;
+  };
+
+  const permSection = CARGOS_UI.map(({ key, label, cor }) => {
+    const perm = pCargos[key] || {};
+    const podeCancel = perm.pode_cancelar_direto === true;
+    const abasChk = ABAS_UI.map(([k, l]) => _chkPerm(key, k, l)).join("");
+    return `<div style="border:2px solid ${cor}44;border-radius:12px;padding:14px 16px;background:#fff">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <span style="font-weight:700;font-size:0.92rem;color:${cor}">${label}</span>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;
+            font-size:0.8rem;font-weight:600;color:#c0392b;
+            background:${podeCancel ? "#fdecea" : "#f5f5f5"};
+            border:1.5px solid ${podeCancel ? "#e74c3c" : "#ddd"};
+            border-radius:8px;padding:5px 10px;transition:all .15s">
+          <input type="checkbox" data-perm-cancelar data-perm-cargo="${key}"
+            ${podeCancel ? "checked" : ""}
+            onchange="this.closest('label').style.background=this.checked?'#fdecea':'#f5f5f5';
+                      this.closest('label').style.borderColor=this.checked?'#e74c3c':'#ddd'"
+            style="width:14px;height:14px;accent-color:#e74c3c;flex-shrink:0">
+          ❌ Pode cancelar diretamente
+        </label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${abasChk}</div>
+    </div>`;
+  }).join("");
+
   const html = `
     <div style="display:grid;gap:14px">
-      ${_sec("📂 Abas visíveis", "Controla o menu lateral para todos os cargos abaixo de adminMaster", chkTabs)}
+      ${_sec("📂 Abas visíveis (global)", "Controla o menu para todos os cargos via regra global. As permissões por cargo abaixo têm prioridade.", chkTabs)}
       ${_sec("💳 Formas de Pagamento", "App do cliente <strong>e</strong> PDV balcão + filtro financeiro", chkPags)}
       ${_sec("🏷️ Tipos de Produto permitidos", "Quais tipos podem ser criados no cardápio", chkTipos)}
       ${_sec("⚙️ Funcionalidades", "Oculta recursos específicos da interface", chkFuncs)}
+      <div style="border:2px solid #e74c3c55;border-radius:14px;padding:16px 18px;background:#fffafa">
+        <h4 style="margin:0 0 4px;color:#c0392b;font-size:0.95rem;font-weight:800">
+          🔐 Permissões Granulares por Cargo
+        </h4>
+        <p style="font-size:0.78rem;color:#999;margin:0 0 14px">
+          Define quais abas cada cargo pode ver <strong>e</strong> se pode cancelar pedidos diretamente
+          (sem solicitar aprovação). Tem prioridade sobre a seção "Abas visíveis" acima.
+        </p>
+        <div style="display:grid;gap:12px">${permSection}</div>
+      </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="salvarFeatures()" style="flex:1;min-width:160px">
           <i class="fas fa-save"></i> Salvar Configurações
@@ -998,7 +1102,7 @@ async function carregarPedidos(silencioso = false) {
   // ───────────────────────────────────────────────────────────────────────────
 
   // Badge de cancelamento pendente para o dono / adminMaster
-  const _podeCancel = ["dono", "adminMaster"].includes(perfilUsuario);
+  const _podeCancel = _podeCancelarDireto();
   const badgeCancelPendente = _podeCancel
     ? `<span style="background:#e74c3c;color:white;font-size:0.7rem;padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;">CANC. PENDENTE</span>`
     : "";
@@ -1076,7 +1180,7 @@ async function carregarPedidos(silencioso = false) {
             p.tipo_entrega === "balcao" ? "fa-store" : "fa-hand-holding";
           const tipo = p.tipo_entrega === "balcao" ? "BALCÃO" : "RETIRADA";
           checkbox = `<div style="text-align:center; color:#e67e22; font-size:1.2rem"><i class="fas ${icone}" title="${tipo}"></i></div>`;
-          acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})" title="Avisar cliente via WhatsApp"><i class="fab fa-whatsapp"></i></button> <button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})">Baixar</button>`;
+          acoes = `${btnPrint} ${btnCancelar} <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})" title="Avisar cliente via WhatsApp"><i class="fab fa-whatsapp"></i></button> <button class="btn btn-success btn-sm" >Baixar</button>`;
         }
       }
 
@@ -1155,7 +1259,7 @@ async function carregarPedidos(silencioso = false) {
             : !temSolicitacaoCancelamento
               ? `<button class="btn btn-warning btn-sm" onclick="solicitarCancelamento(${p.id})"><i class="fas fa-ban"></i> Cancelar</button>`
               : "";
-          cardAcoes = `<button class="btn btn-success btn-sm" onclick="finalizarMesa(${p.id})"><i class="fas fa-check"></i> Entregar</button>
+          cardAcoes = `<button class="btn btn-success btn-sm"><i class="fas fa-check"></i> Entregar</button>
                         <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="avisarClientePronto(${p.id})"><i class="fab fa-whatsapp"></i></button>
                         <button class="btn btn-info btn-sm" onclick="imprimirPedido(${p.id})"><i class="fas fa-print"></i></button>
                         ${_btnCancelBalcao}`;
@@ -1354,7 +1458,7 @@ async function mudarStatus(id, novoStatus) {
   const abaAtual = localStorage.getItem("app_lastTab");
   if (abaAtual === "cozinha") carregarCozinha();
   else if (abaAtual === "pedidos") carregarPedidos();
-  else if (abaAtual === "pdv") carregarMonitorMesas();
+  else if (abaAtual === "pdv");
 }
 
 // Dispara a Edge Function notificar-cliente de forma fire-and-forget
@@ -7100,37 +7204,17 @@ function _calcularIntervalo(periodo, idI, idF) {
 // ══════════════════════════════════════════════════════════
 function pdvMudarAba(aba, btn) {
   localStorage.setItem("app_pdv_aba", aba);
-  document
-    .querySelectorAll(".pdv-tab-btn")
-    .forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".pdv-tab-btn").forEach((b) => b.classList.remove("active"));
   if (btn) btn.classList.add("active");
 
-  // Hide all panels, show the selected one
-  document
-    .querySelectorAll(".pdv-tab-panel")
-    .forEach((el) => el.classList.remove("pdv-tab-active"));
+  document.querySelectorAll(".pdv-tab-panel").forEach((el) => el.classList.remove("pdv-tab-active"));
 
   if (aba === "produtos") {
-    document
-      .getElementById("pdv-panel-produtos")
-      ?.classList.add("pdv-tab-active");
+    document.getElementById("pdv-panel-produtos")?.classList.add("pdv-tab-active");
   } else if (aba === "carrinho") {
-    document
-      .getElementById("pdv-panel-carrinho")
-      ?.classList.add("pdv-tab-active");
-  } else if (aba === "monitor") {
-    // On mobile: show the mesas panel instead
-    const panelMesas = document.getElementById("pdv-panel-mesas");
-    const panelVenda = document.getElementById("pdv-panel-venda");
-    if (panelMesas && window.innerWidth <= 768) {
-      panelVenda.style.display = "none";
-      panelMesas.style.display = "";
-    } else {
-      document
-        .getElementById("pdv-panel-monitor")
-        ?.classList.add("pdv-tab-active");
-    }
+    document.getElementById("pdv-panel-carrinho")?.classList.add("pdv-tab-active");
   }
+  // Não há mais aba "monitor/mesas"
 }
 
 function pdvMudarView(view) {
@@ -7138,21 +7222,23 @@ function pdvMudarView(view) {
   const panelMesas = document.getElementById("pdv-panel-mesas");
   const btnVenda = document.getElementById("pdv-view-btn-venda");
   const btnMesas = document.getElementById("pdv-view-btn-mesas");
+
+  // Apenas a view "venda" é suportada. Se tentar "mesas", ignora.
   if (view === "venda") {
     if (panelVenda) panelVenda.style.display = "block";
     if (panelMesas) panelMesas.style.display = "none";
     if (btnVenda) btnVenda.classList.add("active");
     if (btnMesas) btnMesas.classList.remove("active");
   } else {
-    if (panelVenda) panelVenda.style.display = "none";
-    if (panelMesas) panelMesas.style.display = "block";
-    if (btnVenda) btnVenda.classList.remove("active");
-    if (btnMesas) btnMesas.classList.add("active");
-    carregarMonitorMesas();
+    // Se tentar acessar "mesas", redireciona para venda
+    if (panelVenda) panelVenda.style.display = "block";
+    if (panelMesas) panelMesas.style.display = "none";
+    if (btnVenda) btnVenda.classList.add("active");
+    if (btnMesas) btnMesas.classList.remove("active");
   }
 }
 
-function pdvIniciarTabs() {
+ function pdvIniciarTabs() {
   const isMobile = window.innerWidth <= 768;
   const tabsEl = document.getElementById("pdv-tabs");
   const footer = document.getElementById("pdv-mobile-footer");
@@ -7162,10 +7248,8 @@ function pdvIniciarTabs() {
     if (tabsEl) tabsEl.style.display = "flex";
     if (footer) footer.style.display = "flex";
     if (headerBar) headerBar.style.display = "none";
-    // Mobile começa mostrando o cardápio
-    document
-      .querySelectorAll(".pdv-tab-btn")
-      .forEach((b) => b.classList.remove("active"));
+
+    document.querySelectorAll(".pdv-tab-btn").forEach((b) => b.classList.remove("active"));
 
     const savedPdvAba = localStorage.getItem("app_pdv_aba") || "produtos";
     let activeBtn = null;
@@ -7174,21 +7258,23 @@ function pdvIniciarTabs() {
         activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(1)");
       else if (savedPdvAba === "carrinho")
         activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(2)");
-      else if (savedPdvAba === "mesas")
-        activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(3)");
+      else
+        activeBtn = tabsEl.querySelector(".pdv-tab-btn:nth-child(1)");
     }
     pdvMudarAba(savedPdvAba, activeBtn);
   } else {
     if (tabsEl) tabsEl.style.display = "none";
     if (footer) footer.style.display = "none";
     if (headerBar) headerBar.style.display = "flex";
-    // Desktop: mostra produtos e carrinho sempre
+
     [".pdv-carrinho", ".pdv-produtos"].forEach((sel) => {
       const el = document.querySelector(sel);
       if (el) el.classList.add("pdv-tab-active");
     });
     const panelVenda = document.getElementById("pdv-panel-venda");
     if (panelVenda) panelVenda.style.display = "block";
+    const panelMesas = document.getElementById("pdv-panel-mesas");
+    if (panelMesas) panelMesas.style.display = "none";
   }
 }
 
@@ -7381,7 +7467,6 @@ let _cartaoBRTipoPDV = "debito";
 
 async function carregarPDV() {
   // PDV carrega TODOS os produtos ativos (inclui pausado=null e pausado=false)
-  // .neq("pausado", true) exclui NULLs no PostgREST — usar .or() para incluir
   const { data } = await supa
     .from("produtos")
     .select("*")
@@ -7406,6 +7491,7 @@ async function carregarPDV() {
   if (cfg?.cotacao_real) _cotacaoPDV = Number(cfg.cotacao_real);
   if (cfg?.taxa_debito != null) _taxaDebitoPDV = Number(cfg.taxa_debito);
   if (cfg?.taxa_credito != null) _taxaCreditoPDV = Number(cfg.taxa_credito);
+
   // Aplica visibilidade das formas de pagamento no PDV
   const { data: featCfg } = await supa
     .from("configuracoes")
@@ -7414,9 +7500,7 @@ async function carregarPDV() {
   _aplicarFormasPagamentoPDV(featCfg?.features_ativas);
 
   renderizarGridPDV();
-  atualizarBarraMesasAtivas();
-  pdvIniciarTabs();
-  // Carrega mini-painel de caixa no PDV (funciona mesmo com aba financeiro bloqueada)
+  pdvIniciarTabs(); // ← será reescrita abaixo
   await pdvCarregarPainelCaixa();
 }
 
@@ -9156,9 +9240,6 @@ function limparCarrinhoPDV() {
   if (carrinhoPDV.length > 0 && !confirm("Cancelar o pedido atual?")) return;
 
   carrinhoPDV = [];
-  window._mesaAbertaId   = null;
-  window._mesaAbertaTotal = 0;
-  window._mesaAbertaPedido = null;
 
   // Campos do cliente
   const _set = (id, val = "") => { const el = document.getElementById(id); if (el) el.value = val; };
@@ -9201,7 +9282,6 @@ function limparCarrinhoPDV() {
 
   // Atualiza UI do carrinho
   atualizarCarrinhoPDV();
-  atualizarBarraMesasAtivas?.();
 }
 
 // ── Altera quantidade de item no carrinho PDV ────────────────────
@@ -9277,7 +9357,7 @@ function atualizarCarrinhoPDV() {
 
       const acoes = entregue
         ? `<span class="pdv-badge-entregue">✓ Entregue</span>`
-        : `<button class="pdv-card-btn pdv-card-btn-ok" onclick="baixarItemMesa(${window._mesaAbertaId},${idx})">
+        : `<button class="pdv-card-btn pdv-card-btn-ok">
             <i class="fas fa-check"></i> Baixar</button>`;
 
       lista.appendChild(_criarCard(
@@ -9579,47 +9659,38 @@ function _coletarMultiPagamentoPDV() {
 }
 
 async function salvarPedidoBalcao() {
-  if (carrinhoPDV.length === 0 && !window._mesaAbertaId)
+  if (carrinhoPDV.length === 0) {
     return alert(t("alert.carrinho_vazio"));
-  if (carrinhoPDV.length === 0 && window._mesaAbertaId)
-    return alert("Adicione ao menos 1 novo item antes de lançar.");
+  }
 
-  const _soKg = carrinhoPDV.length > 0 && carrinhoPDV.every((i) => i._isKg);
+    const _soKg = carrinhoPDV.length > 0 && carrinhoPDV.every((i) => i._isKg);
 
-  const mesa = document.getElementById("balcao-mesa").value.trim();
-  const cli =
-    document.getElementById("balcao-cliente").value.trim() || "Cliente";
-  const tel = document.getElementById("balcao-telefone").value.trim() || "";
-  let pag = document.getElementById("balcao-pag").value;
-  const pagFinalPDV =
-    pag === "CartaoBR"
+    const mesa = document.getElementById("balcao-mesa").value.trim();
+    const cli = document.getElementById("balcao-cliente").value.trim() || "Cliente";
+    const tel = document.getElementById("balcao-telefone").value.trim() || "";
+    let pag = document.getElementById("balcao-pag").value;
+    const pagFinalPDV = pag === "CartaoBR"
       ? _cartaoBRTipoPDV === "debito"
         ? "Cartão BR - Débito"
         : "Cartão BR - Crédito"
       : pag;
 
-  const nomeFinal = mesa
+    const nomeFinal = mesa
     ? `MESA ${mesa} - ${cli}`
     : _soKg
       ? `BALCÃO KG - ${cli}`
       : `BALCÃO - ${cli}`;
 
-  // ── Desconto manual ──────────────────────────────────────────
-  const descTipo =
-    document.getElementById("pdv-desconto-tipo")?.value || "fixo";
-  const descValRaw =
-    parseFloat(document.getElementById("pdv-desconto-val")?.value || "0") || 0;
-  const subtotalBruto = carrinhoPDV.reduce(
-    (a, i) => a + (i.preco || 0) * (i.qtd || 1),
-    0,
-  );
-  let descontoAplicado = 0;
-  if (descValRaw > 0) {
-    descontoAplicado =
-      descTipo === "percentual"
+    // ── Desconto manual ──────────────────────────────────────────
+    const descTipo = document.getElementById("pdv-desconto-tipo")?.value || "fixo";
+    const descValRaw = parseFloat(document.getElementById("pdv-desconto-val")?.value || "0") || 0;
+    const subtotalBruto = carrinhoPDV.reduce((a, i) => a + (i.preco || 0) * (i.qtd || 1), 0);
+    let descontoAplicado = 0;
+    if (descValRaw > 0) {
+      descontoAplicado = descTipo === "percentual"
         ? Math.round((subtotalBruto * descValRaw) / 100)
         : Math.round(descValRaw);
-    descontoAplicado = Math.min(descontoAplicado, subtotalBruto); // não pode ser maior que o total
+      descontoAplicado = Math.min(descontoAplicado, subtotalBruto);
   }
 
   // ── Tratamento Multipagamento ────────────────────────────────
@@ -9631,20 +9702,19 @@ async function salvarPedidoBalcao() {
       return;
     }
     const totalPedido = parseInt(
-      document.getElementById("balcao-total")?.innerText.replace(/\D/g, "") ||
-        "0",
+      document.getElementById("balcao-total")?.innerText.replace(/\D/g, "") || "0"
     );
     const somaPartes = partesPDV.reduce((a, p) => a + p.valor, 0);
     if (Math.abs(somaPartes - totalPedido) > 1) {
       alert(
-        `⚠️ Total das formas (Gs ${somaPartes.toLocaleString("es-PY")}) não bate com o total do pedido (Gs ${totalPedido.toLocaleString("es-PY")}).`,
+        `⚠️ Total das formas (Gs ${somaPartes.toLocaleString("es-PY")}) não bate com o total do pedido (Gs ${totalPedido.toLocaleString("es-PY")}).`
       );
       return;
     }
     obsPagPDV = JSON.stringify(partesPDV);
   }
 
-  // ── Novos itens ganham status_item: 'pendente' ─────────────────
+  // ── Novos itens ganham status_item: 'pendente' ────────────────
   const novosItens = carrinhoPDV.map((i) => ({
     id: i.id || Date.now() + Math.random(),
     nome: i.nome,
@@ -9658,77 +9728,22 @@ async function salvarPedidoBalcao() {
     ...(i._isKg
       ? { peso_gramas: i.peso_gramas, preco_kg: i.preco_kg, _isKg: true }
       : {}),
-    status_item: "pendente", // ← campo de status por item
+    status_item: "pendente",
     lancado_em: new Date().toISOString(),
   }));
 
-  if (window._mesaAbertaId) {
-    // ── UPDATE: mantém itens existentes (com seus status_item atuais)
-    //           e acrescenta apenas os novos itens pendentes ──────────
-    const itensExistentes = Array.isArray(window._mesaAbertaPedido?.itens)
-      ? window._mesaAbertaPedido.itens
-      : [];
-
-    const itensMerged = [...itensExistentes, ...novosItens];
-    // Itens kg: preco já é o total pesado (preco_kg × peso), não multiplicar por qtd
-    const novoTotal = itensMerged.reduce(
-      (acc, i) =>
-        acc + (i._isKg ? i.preco || 0 : (i.preco || 0) * (i.qtd || 1)),
-      0,
-    );
-
-    const { error } = await supa
-      .from("pedidos")
-      .update({
-        itens: itensMerged,
-        total_geral: novoTotal,
-        subtotal: novoTotal,
-        forma_pagamento: pagFinalPDV,
-        obs_pagamento: obsPagPDV,
-        cliente_nome: nomeFinal,
-        cliente_telefone: tel,
-        status: "em_preparo",
-      })
-      .eq("id", window._mesaAbertaId);
-
-    if (error) {
-      alert("Erro ao atualizar mesa: " + error.message);
-      return;
-    }
-    // Descontar estoque dos novos itens adicionados
-    await _descontarEstoqueVendaItens(novosItens);
-
-    // Reset
-    window._mesaAbertaId = null;
-    window._mesaAbertaTotal = 0;
-    window._mesaAbertaPedido = null;
-    carrinhoPDV = [];
-    document.getElementById("balcao-cliente").value = "";
-    document.getElementById("balcao-mesa").value = "";
-    document.getElementById("balcao-telefone").value = "";
-    document.querySelector(".pdv-mesa-aviso")?.remove();
-    atualizarCarrinhoPDV();
-    atualizarBarraMesasAtivas();
-    carregarMonitorMesas();
-    alert(`✅ ${novosItens.length} item(s) enviado(s) para a cozinha!`);
-    return;
-  }
-
-  // ── INSERT: novo pedido de balcão ─────────────────────────────
-  const tipoEntregaPDV =
-    document.getElementById("balcao-tipo-entrega")?.value || "balcao";
-  const fretePDV =
-    tipoEntregaPDV === "delivery"
-      ? parseInt(document.getElementById("balcao-frete")?.value || "0") || 0
-      : 0;
-  const enderecoPDV =
-    tipoEntregaPDV === "delivery"
-      ? document.getElementById("balcao-endereco")?.value.trim() || "Delivery"
-      : mesa
-        ? `Mesa ${mesa}`
-        : _soKg
-          ? "Balcão - Venda Kg"
-          : "Balcão";
+  // ── INSERT: novo pedido de balcão (sempre novo, sem mesas) ──
+  const tipoEntregaPDV = document.getElementById("balcao-tipo-entrega")?.value || "balcao";
+  const fretePDV = tipoEntregaPDV === "delivery"
+    ? parseInt(document.getElementById("balcao-frete")?.value || "0") || 0
+    : 0;
+  const enderecoPDV = tipoEntregaPDV === "delivery"
+    ? document.getElementById("balcao-endereco")?.value.trim() || "Delivery"
+    : mesa
+      ? `Mesa ${mesa}`
+      : _soKg
+        ? "Balcão - Venda Kg"
+        : "Balcão";
 
   const _geoLat = document.getElementById("balcao-geo-lat")?.value || null;
   const _geoLng = document.getElementById("balcao-geo-lng")?.value || null;
@@ -9771,17 +9786,15 @@ async function salvarPedidoBalcao() {
     .insert([pedido])
     .select("id")
     .single();
+
   if (error) {
     alert("Erro: " + error.message);
     return;
   }
-  // Descontar estoque imediatamente (PDV não passa por mudarStatus)
+
   if (novoPedido?.id) await _descontarEstoqueVenda(novoPedido.id, novosItens);
 
-  // ── Gaveta automática ─────────────────────────────────────────────────────
-  // Abre apenas no PDV, para Efetivo, Cartão (déb/créd) e Multipagamento
-  // que contenha ao menos um desses meios. pix e similares não abrem gaveta.
-  // Falha silenciosamente — venda NÃO é bloqueada se a gaveta não responder.
+  // ── Gaveta automática ─────────────────────────────────────────
   if (_gavetaDeveAbrir(pag, obsPagPDV)) {
     _abrirGavetaDC335(`venda #${novoPedido?.id ?? "PDV"} — ${pag}`);
   }
@@ -9794,14 +9807,12 @@ async function salvarPedidoBalcao() {
     document.getElementById("pdv-cashback-box").style.display = "none";
   }
 
-  // ── Cashback: gerar crédito pela nova compra ──────────────────
   if (tel) {
     await crmGerarCashback(tel, totalNovo, novoPedido?.id || null);
   }
 
-  // ── Impressão automática ───────────────────────────────────────
+  // ── Impressão automática ──────────────────────────────────────
   if (novoPedido?.id) {
-    // Monta dados direto (sem segunda busca no banco)
     const dadosImpressao = {
       id: novoPedido.id,
       cliente: { nome: nomeFinal, tel: tel },
@@ -9826,61 +9837,44 @@ async function salvarPedidoBalcao() {
       pagamento: { metodo: pag, obs: obsPagPDV },
       data: new Date().toLocaleString("pt-BR"),
     };
-    const base64 = btoa(
-      unescape(encodeURIComponent(JSON.stringify(dadosImpressao))),
-    )
+    const base64 = btoa(unescape(encodeURIComponent(JSON.stringify(dadosImpressao))))
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    window.open(
-      `imprimir.html?d=${base64}`,
-      "PrintPDV",
-      "width=400,height=600",
-    );
+    window.open(`imprimir.html?d=${base64}`, "PrintPDV", "width=400,height=600");
   }
 
+  // Reset do carrinho e campos
   carrinhoPDV = [];
   document.getElementById("balcao-cliente").value = "";
   document.getElementById("balcao-mesa").value = "";
   document.getElementById("balcao-telefone").value = "";
-  // Reset tipo entrega e campos de delivery
-  const tipoSelPDV = document.getElementById("balcao-tipo-entrega");
-  if (tipoSelPDV) tipoSelPDV.value = "balcao";
-  const endPDV = document.getElementById("balcao-endereco");
-  if (endPDV) endPDV.value = "";
-  const geoPDVLat = document.getElementById("balcao-geo-lat");
-  if (geoPDVLat) geoPDVLat.value = "";
-  const geoPDVLng = document.getElementById("balcao-geo-lng");
-  if (geoPDVLng) geoPDVLng.value = "";
-  const fretePDVInput = document.getElementById("balcao-frete");
-  if (fretePDVInput) fretePDVInput.value = "";
-  const freteMsgPDV = document.getElementById("frete-msg-pdv");
-  if (freteMsgPDV) freteMsgPDV.innerHTML = "";
-  const deliveryRowPDV = document.getElementById("pdv-delivery-row");
-  if (deliveryRowPDV) deliveryRowPDV.style.display = "none";
-  const descValEl = document.getElementById("pdv-desconto-val");
-  if (descValEl) descValEl.value = "";
-  const descTipoEl = document.getElementById("pdv-desconto-tipo");
-  if (descTipoEl) descTipoEl.value = "fixo";
-  // Reset multipagamento PDV
+  document.getElementById("balcao-tipo-entrega").value = "balcao";
+  document.getElementById("balcao-endereco").value = "";
+  document.getElementById("balcao-geo-lat").value = "";
+  document.getElementById("balcao-geo-lng").value = "";
+  document.getElementById("balcao-frete").value = "";
+  document.getElementById("frete-msg-pdv").innerHTML = "";
+  document.getElementById("pdv-delivery-row").style.display = "none";
+  document.getElementById("pdv-desconto-val").value = "";
+  document.getElementById("pdv-desconto-tipo").value = "fixo";
+
   const multiPartesPDV = document.getElementById("multi-partes-pdv");
   if (multiPartesPDV) multiPartesPDV.innerHTML = "";
   _multiContadorPDV = 0;
   document.getElementById("balcao-pag").value = "Efetivo";
   document.getElementById("balcao-pag").style.display = "";
-  const boxMultiPDV = document.getElementById("box-multi-pdv");
-  if (boxMultiPDV) boxMultiPDV.style.display = "none";
-  // Reset box efetivo / troco
+  document.getElementById("box-multi-pdv").style.display = "none";
+
   const _recEl = document.getElementById("pdv-valor-recebido");
-  const _trEl  = document.getElementById("pdv-troco-row");
-  const _efEl  = document.getElementById("pdv-efetivo-box");
+  const _trEl = document.getElementById("pdv-troco-row");
+  const _efEl = document.getElementById("pdv-efetivo-box");
   if (_recEl) _recEl.value = "";
-  if (_trEl)  _trEl.style.display = "none";
-  if (_efEl)  _efEl.style.display = "none";
+  if (_trEl) _trEl.style.display = "none";
+  if (_efEl) _efEl.style.display = "none";
+
   atualizarCarrinhoPDV();
-  atualizarBarraMesasAtivas();
-  carregarMonitorMesas();
-  // Toast não-bloqueante (alert segurava o popup de impressão)
+
   const _msgFinal = _soKg
     ? "✅ Venda registrada!"
     : _todosBebidas(novosItens)
@@ -9906,237 +9900,6 @@ function _pdvToast(msg, duracao = 3000) {
   }
   document.body.appendChild(t);
   setTimeout(() => t.remove(), duracao);
-}
-
-// ── Barra de Mesas Ativas no PDV ─────────────────────────────
-async function atualizarBarraMesasAtivas() {
-  const bar = document.getElementById("pdv-mesas-bar");
-  const vazio = document.getElementById("pdv-mesas-vazio");
-  if (!bar) return;
-
-  const { data } = await supa
-    .from("pedidos")
-    .select("id, endereco_entrega, cliente_nome, total_geral, status, itens")
-    .eq("tipo_entrega", "balcao")
-    .neq("status", "entregue")
-    .neq("status", "cancelado")
-    .order("id", { ascending: true });
-
-  // Limpar chips anteriores (manter apenas label e span vazio)
-  bar.querySelectorAll(".mesa-chip").forEach((c) => c.remove());
-  if (vazio) vazio.style.display = data && data.length > 0 ? "none" : "inline";
-
-  if (!data || data.length === 0) return;
-
-  data.forEach((p) => {
-    const nrMesa = (p.endereco_entrega || "").replace("Mesa ", "") || p.id;
-    const chip = document.createElement("button");
-    chip.className =
-      "mesa-chip" +
-      (p.status === "pronto_entrega"
-        ? " mesa-pronto"
-        : p.status === "em_preparo"
-          ? " mesa-em-preparo"
-          : "");
-    chip.title = `${p.cliente_nome || "Mesa " + nrMesa} — Gs ${(p.total_geral || 0).toLocaleString("es-PY")} — Clique para adicionar itens`;
-    chip.innerHTML = `<span class="mesa-chip-num">${nrMesa}</span><span class="mesa-chip-status">${
-      p.status === "pronto_entrega"
-        ? "✓ Pronto"
-        : p.status === "em_preparo"
-          ? "🔥"
-          : "●"
-    }</span>`;
-    chip.onclick = () => abrirMesaExistente(p);
-    bar.appendChild(chip);
-  });
-}
-
-// Abre uma mesa existente no carrinho PDV para adicionar mais itens
-function abrirMesaExistente(pedido) {
-  const nrMesa = (pedido.endereco_entrega || "").replace("Mesa ", "") || "";
-  const nomeCli = (pedido.cliente_nome || "").replace(/^MESA \d+ - /i, "");
-
-  // Preenche os campos
-  const elMesa = document.getElementById("balcao-mesa");
-  const elCli = document.getElementById("balcao-cliente");
-  if (elMesa) elMesa.value = nrMesa;
-  if (elCli) elCli.value = nomeCli === "Cliente" ? "" : nomeCli;
-
-  // ──────────────────────────────────────────────────────────────────
-  // MUDANÇA: carrinhoPDV fica VAZIO — só recebe os NOVOS itens.
-  // Os itens existentes ficam em window._mesaAbertaPedido (snapshot do DB).
-  // Na hora do save, fazemos merge: existentes (intactos) + novos (pendente).
-  // ──────────────────────────────────────────────────────────────────
-  carrinhoPDV = [];
-  window._mesaAbertaId = pedido.id;
-  window._mesaAbertaTotal = pedido.total_geral || 0;
-  window._mesaAbertaPedido = pedido; // guarda snapshot completo
-
-  atualizarCarrinhoPDV();
-
-  // Scroll para o topo do PDV
-  const pdv = document.getElementById("pdv");
-  if (pdv) pdv.scrollIntoView({ behavior: "smooth", block: "start" });
-
-  // Aviso visual
-  const aviso = document.createElement("div");
-  aviso.className = "pdv-mesa-aviso";
-  aviso.innerHTML = `<i class="fas fa-edit"></i> Editando Mesa ${nrMesa} — adicione os NOVOS itens e clique em Lançar`;
-  const existing = pdv?.querySelector(".pdv-mesa-aviso");
-  if (existing) existing.remove();
-  const h4 = pdv?.querySelector(".pdv-carrinho-titulo");
-  if (h4) h4.after(aviso);
-  setTimeout(() => aviso?.remove(), 8000);
-}
-
-async function carregarMonitorMesas() {
-  // Atualiza barra de chips de mesas no PDV junto com o monitor
-  atualizarBarraMesasAtivas();
-  // Busca pedidos de Balcão que NÃO foram finalizados (entregues)
-  const { data } = await supa
-    .from("pedidos")
-    .select("*")
-    .eq("tipo_entrega", "balcao")
-    .neq("status", "entregue") // Traz 'pendente', 'em_preparo' e 'pronto_entrega'
-    .order("id", { ascending: false });
-
-  const div = document.getElementById("lista-mesas-andamento");
-  if (!div) return;
-
-  div.innerHTML = "";
-
-  if (!data || data.length === 0) {
-    div.innerHTML = '<p class="mesa-monitor-vazio">Nenhum pedido ativo.</p>';
-    return;
-  }
-
-  data.forEach((p) => {
-    let statusHtml = "";
-    let acaoHtml = "";
-    let cardClass = "mesa-monitor-card";
-
-    // Lógica Visual do Status — usa classes CSS
-    if (p.status === "em_preparo") {
-      cardClass += " mesa-preparo";
-      statusHtml =
-        '<span class="mesa-monitor-status-cozinha"><i class="fas fa-fire"></i> Na Cozinha</span>';
-      acaoHtml =
-        '<small class="mesa-monitor-status-cozinha">Aguardando cozinha...</small>';
-    } else if (p.status === "pronto_entrega") {
-      cardClass += " mesa-pronta";
-      statusHtml =
-        '<span class="mesa-monitor-status-pronto"><i class="fas fa-check-circle"></i> PRONTO!</span>';
-      acaoHtml = `<button class="btn btn-sm btn-success btn-block-pdv" onclick="finalizarMesa(${p.id})">Entregar / Baixar</button>`;
-    } else {
-      statusHtml = `<span class="mesa-monitor-valor">${p.status}</span>`;
-    }
-
-    const nrMesa =
-      (p.endereco_entrega || "").replace("Mesa ", "") || p.uid_temporal || p.id;
-
-    // Lista de itens com status visual por item
-    const itens = Array.isArray(p.itens) ? p.itens : [];
-    const pendentes = itens.filter(
-      (i) => !i.status_item || i.status_item === "pendente",
-    );
-    const entregues = itens.filter((i) => i.status_item === "entregue");
-
-    let itensListHtml = itens
-      .map((item, idx) => {
-        const isEntregue = item.status_item === "entregue";
-        const nome = item.nome || item.n || "Item";
-        const qtd = item.qtd || item.q || 1;
-        return `
-        <div class="monitor-item-row ${isEntregue ? "monitor-item-entregue" : ""}">
-          <span class="monitor-item-nome">${qtd}x ${nome}</span>
-          ${
-            isEntregue
-              ? '<span class="monitor-item-badge-entregue">✓ Entregue</span>'
-              : `<button class="btn btn-xs btn-outline-success monitor-btn-baixar"
-                title="Marcar como entregue"
-                onclick="baixarItemMesa(${p.id}, ${idx})">
-                <i class="fas fa-check"></i>
-               </button>`
-          }
-        </div>`;
-      })
-      .join("");
-
-    // Contador de pendentes no cabeçalho
-    const cntPendente =
-      pendentes.length > 0
-        ? `<span class="mesa-monitor-cnt-pendente">${pendentes.length} pendente${pendentes.length > 1 ? "s" : ""}</span>`
-        : "";
-
-    const card = document.createElement("div");
-    card.className = cardClass;
-    card.innerHTML = `
-      <div class="mesa-monitor-titulo">Mesa ${nrMesa} ${cntPendente}</div>
-      <div class="mesa-monitor-cliente">${p.cliente_nome || "-"}</div>
-      <div class="mesa-monitor-itens-lista">${itensListHtml}</div>
-      <div class="mesa-monitor-rodape">
-        ${statusHtml}
-        <span class="mesa-monitor-valor">Gs ${(p.total_geral || 0).toLocaleString("es-PY")}</span>
-      </div>
-      ${acaoHtml}
-    `;
-    div.appendChild(card);
-  });
-}
-
-// ── Baixa parcial: marca 1 item como 'entregue' no banco ──────────
-// idx = índice do item dentro do array p.itens no banco
-async function baixarItemMesa(pedidoId, itemIdx) {
-  // Busca snapshot mais recente do banco (evita conflito de estado stale)
-  const { data: p, error: errFetch } = await supa
-    .from("pedidos")
-    .select("itens, total_geral")
-    .eq("id", pedidoId)
-    .single();
-  if (errFetch || !p) {
-    alert("Erro ao buscar comanda.");
-    return;
-  }
-
-  const itens = Array.isArray(p.itens) ? [...p.itens] : [];
-  if (!itens[itemIdx]) return;
-
-  // Muda status do item específico
-  itens[itemIdx] = { ...itens[itemIdx], status_item: "entregue" };
-
-  const { error } = await supa
-    .from("pedidos")
-    .update({ itens })
-    .eq("id", pedidoId);
-
-  if (error) {
-    alert("Erro ao baixar item: " + error.message);
-    return;
-  }
-
-  // Atualiza o snapshot local e re-renderiza o carrinho PDV
-  if (window._mesaAbertaPedido && window._mesaAbertaId === pedidoId) {
-    window._mesaAbertaPedido = { ...window._mesaAbertaPedido, itens };
-    atualizarCarrinhoPDV();
-  }
-  // Atualiza o monitor de mesas sem precisar recarregar tudo
-  atualizarBarraMesasAtivas();
-}
-
-// Função para dar baixa na mesa (Muda status para 'entregue' e sai da lista)
-async function finalizarMesa(id) {
-  if (confirm("Confirmar entrega e pagamento desta mesa?")) {
-    await supa
-      .from("pedidos")
-      .update({
-        status: "entregue",
-        tempo_entregue: new Date().toISOString(),
-      })
-      .eq("id", id);
-    carregarMonitorMesas();
-    if (typeof calcularFinanceiro === "function") calcularFinanceiro();
-    // Gaveta: não abre no fechamento de mesa — apenas vendas PDV abrem a gaveta.
-  }
 }
 
 // Utilitários de Modal e Checkbox
