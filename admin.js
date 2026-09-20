@@ -261,55 +261,38 @@ document.addEventListener("DOMContentLoaded", async () => {
         cargoBadges[perfilUsuario] || perfilUsuario.toUpperCase();
 
     // Carrega features e aplica visibilidade das abas
+        // Carrega features globais (features_ativas, nome_restaurante, etc.)
     await _carregarFeaturesGlobais();
 
-    // Atualiza brand com nome do restaurante (carregado em _carregarFeaturesGlobais)
+    // Atualiza brand com nome do restaurante
     const elBrand = document.getElementById("brand-text");
     if (elBrand) elBrand.textContent = (NOME_RESTAURANTE || "ADMIN") + " ADMIN";
 
-    _aplicarVisibilidadeAbas();
-
+    // ══════════════════════════════════════════════════════════════
+    //  VISIBILIDADE DAS ABAS
+    //  adminMaster → vê tudo (bypass total)
+    //  outros cargos → regras de permissoes_cargo (features_ativas)
+    //  ⚠️  NÃO FORÇAR display:flex em menus individuais depois desta
+    //      chamada, senão sobrescreve as permissões do adminMaster.
+    //      Todas as abas controláveis estão em _aplicarVisibilidadeAbas().mapa
+    // ══════════════════════════════════════════════════════════════
     if (perfilUsuario === "adminMaster") {
-      // adminMaster vê tudo + aba exclusiva de administração
+      // adminMaster vê tudo + abas exclusivas dele
       document
         .querySelectorAll(".menu-item")
         .forEach((m) => (m.style.display = "flex"));
+
       const menuAM = document.getElementById("menu-adminmaster");
       if (menuAM) menuAM.style.display = "flex";
+
       const menuFil = document.getElementById("menu-filiais");
       if (menuFil) menuFil.style.display = "flex";
-      // Exibe opção Dono no select de equipe
+
       const optDono = document.getElementById("opt-cargo-dono");
       if (optDono) optDono.style.display = "";
-    }
-    // A visibilidade do financeiro (e todas as abas) é controlada
-    // inteiramente por _aplicarVisibilidadeAbas() via permissoes_cargo
-    // ou features_ativas.tabs. O mini-painel de caixa no PDV
-    // permite que funcionários abram o caixa sem acessar a aba financeiro.
-    if (
-      perfilUsuario === "dono" ||
-      perfilUsuario === "gerente" ||
-      perfilUsuario === "adminMaster"
-    ) {
-      const menuEst = document.getElementById("menu-inventario");
-      if (menuEst) menuEst.style.display = "flex";
-    }
-
-    // ── Mostrar menus novos para dono/gerente/adminMaster ──
-    if (
-      perfilUsuario === "dono" ||
-      perfilUsuario === "gerente" ||
-      perfilUsuario === "adminMaster"
-    ) {
-      [
-        "menu-estatisticas",
-        "menu-ficha-tecnica",
-        "menu-crm",
-        "menu-mensalistas",
-      ].forEach((id) => {
-        const m = document.getElementById(id);
-        if (m) m.style.display = "flex";
-      });
+    } else {
+      // Demais cargos: aplica as permissões granulares do adminMaster
+      _aplicarVisibilidadeAbas();
     }
 
     carregarDashboard();
