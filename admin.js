@@ -652,6 +652,8 @@ function _aplicarVisibilidadeAbas() {
     "menu-crm":           "crm",
     "menu-turnos":        "turnos",
     "menu-produtos":      "produtos",
+    "menu-categorias":    "categorias",   // ← novo
+    "menu-motoboys":      "motoboys",     // ← novo
     "menu-mensalistas":   "mensalistas",
   };
   // adminMaster nunca sofre restrições — ele define as regras
@@ -745,7 +747,7 @@ async function salvarFeatures() {
   const ABAS_PERM = [
     "pedidos","cozinha","pdv","financeiro","inventario","produtos",
     "equipe","configuracoes","dashboard","estatisticas","ficha-tecnica",
-    "crm","mensalistas","turnos",
+    "crm","mensalistas","turnos", "categorias","motoboys",
   ];
 
   CARGOS_PERM.forEach(cargo => {
@@ -886,7 +888,7 @@ async function renderPainelFeatures() {
     ["financeiro","💰 Financeiro"],["inventario","📦 Inventário"],["produtos","🍽️ Produtos"],
     ["equipe","👥 Equipe"],["configuracoes","⚙️ Config"],["dashboard","📊 Dashboard"],
     ["estatisticas","📈 Estatísticas"],["ficha-tecnica","📝 Ficha Técnica"],
-    ["crm","🤝 CRM"],["mensalistas","🗓️ Mensalistas"],["turnos","📺 Turnos"],
+    ["crm","🤝 CRM"],["mensalistas","🗓️ Mensalistas"], ["motoboys","🛵 Motoboys"], ["categorias","🏷️ Categorias"],["turnos","📺 Turnos"], 
   ];
   const pCargos = f.permissoes_cargo || {};
 
