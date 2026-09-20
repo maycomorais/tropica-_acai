@@ -712,24 +712,32 @@ function _aplicarFuncionalidades() {
 }
 
 // Salva features (adminMaster only)
+// Salva features (adminMaster only)
 async function salvarFeatures() {
   if (perfilUsuario !== "adminMaster") return alert(t("alert.acesso_negado"));
-  const tabs = {},
-    tipos = {},
-    funcs = {};
-  document.querySelectorAll("[data-feat-tab]").forEach((el) => {
-    tabs[el.dataset.featTab] = el.checked;
-  });
-  document.querySelectorAll("[data-feat-tipo]").forEach((el) => {
-    tipos[el.dataset.featTipo] = el.checked;
-  });
-  document.querySelectorAll("[data-feat-func]").forEach((el) => {
-    funcs[el.dataset.featFunc] = el.checked;
-  });
-  const pagamentos = {};
-  document.querySelectorAll("[data-feat-pag]").forEach((el) => {
-    pagamentos[el.dataset.featPag] = el.checked;
-  });
+
+  // ⚠️ Existem DOIS painéis de features no DOM:
+  //   #painel-features         → aba Configurações
+  //   #painel-features-master  → aba Admin Master
+  // Ambos renderizam os mesmos data-* checkboxes. Precisamos ler SEMPRE
+  // do painel que está na aba ATIVA, senão o querySelector pega o primeiro
+  // do DOM (obsoleto) e sobrescreve as edições do usuário.
+  const _painel =
+    document.querySelector('.tab-content.active #painel-features-master') ||
+    document.querySelector('.tab-content.active #painel-features')       ||
+    document.getElementById('painel-features-master')                    ||
+    document.getElementById('painel-features');
+
+  if (!_painel) return alert("Painel de features não encontrado.");
+
+  const _q  = (sel) => _painel.querySelector(sel);
+  const _qa = (sel) => _painel.querySelectorAll(sel);
+
+  const tabs = {}, tipos = {}, funcs = {}, pagamentos = {};
+  _qa("[data-feat-tab]").forEach((el)  => { tabs[el.dataset.featTab]       = el.checked; });
+  _qa("[data-feat-tipo]").forEach((el) => { tipos[el.dataset.featTipo]     = el.checked; });
+  _qa("[data-feat-func]").forEach((el) => { funcs[el.dataset.featFunc]     = el.checked; });
+  _qa("[data-feat-pag]").forEach((el)  => { pagamentos[el.dataset.featPag] = el.checked; });
 
   // ── Permissões granulares por cargo ─────────────────────────────
   const permissoes_cargo = {};
@@ -739,12 +747,13 @@ async function salvarFeatures() {
     "equipe","configuracoes","dashboard","estatisticas","ficha-tecnica",
     "crm","mensalistas","turnos",
   ];
+
   CARGOS_PERM.forEach(cargo => {
     const tabsPermitidas = ABAS_PERM.filter(aba => {
-      const el = document.querySelector(`[data-perm-tab="${aba}"][data-perm-cargo="${cargo}"]`);
-      return el ? el.checked : true; // default: permitido
+      const el = _q(`[data-perm-tab="${aba}"][data-perm-cargo="${cargo}"]`);
+      return el ? el.checked : true;
     });
-    const podeCancel = document.querySelector(`[data-perm-cancelar][data-perm-cargo="${cargo}"]`)?.checked ?? false;
+    const podeCancel = _q(`[data-perm-cancelar][data-perm-cargo="${cargo}"]`)?.checked ?? false;
     permissoes_cargo[cargo] = { tabs: tabsPermitidas, pode_cancelar_direto: podeCancel };
   });
 
@@ -755,11 +764,13 @@ async function salvarFeatures() {
     pagamentos,
     permissoes_cargo,
   };
+
   const { error } = await supa
     .from("configuracoes")
     .update({ features_ativas: features })
     .gt("id", 0);
   if (error) return alert("Erro: " + error.message);
+
   FEATURES_ATIVAS = features;
 
   // Re-aplica imediatamente (sem reload)
