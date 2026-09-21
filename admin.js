@@ -1757,7 +1757,7 @@ async function _abrirSessaoCaixa(valorAbertura, descricao) {
   return data;
 }
 
-async function calcularFinanceiro() {
+async function calcularFinanceiro(opts = {}) {
   const silencioso = opts.silencioso === true;
 
   const abaFin   = document.getElementById("financeiro");
@@ -1788,21 +1788,20 @@ async function calcularFinanceiro() {
   const sessaoInicio = _sessaoCaixaAtiva.aberto_em;
   const sessaoFim    = _sessaoCaixaAtiva.fechado_em || new Date().toISOString();
 
-  // Gestores podem sobrepor o intervalo com o filtro de datas da tela
   let utcI = sessaoInicio;
   let utcF = sessaoFim;
+
   if (ehGestor && elInicio.value && elFim.value) {
-    const _tz = 3 * 60 * 60 * 1000; // UTC-3 PY (horário de verão permanente desde 2024)
-    utcI = new Date(new Date(elInicio.value + "T00:00:00").getTime() + _tz).toISOString();
-    utcF = new Date(new Date(elFim.value   + "T23:59:59").getTime() + _tz).toISOString();
-  } else if (!elInicio.value || !elFim.value) {
-    // Preenche os campos de data com os valores da sessão para exibição
-    const dAbr = new Date(sessaoInicio);
-    elInicio.value = dAbr.toISOString().split("T")[0];
-    const dFch = new Date(sessaoFim);
-    elFim.value    = dFch.toISOString().split("T")[0];
+    utcI = new Date(elInicio.value + "T00:00:00-03:00").toISOString();
+    utcF = new Date(elFim.value    + "T23:59:59-03:00").toISOString();
   }
 
+  // Preenche os inputs com os valores efetivamente usados (feedback visual)
+  if (!elInicio.value)
+    elInicio.value = new Date(utcI).toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
+  if (!elFim.value)
+    elFim.value = new Date(utcF).toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
+  
   const tipoFiltro    = elTipo.value;
   const facturaFiltro = elFactura ? elFactura.value : "todos";
 
@@ -1815,14 +1814,22 @@ async function calcularFinanceiro() {
   if (_elSecMotoboys) _elSecMotoboys.style.display = ehGestor ? "" : "none";
 
   // ── 4. Busca pedidos dentro da janela da sessão ───────────────────
-  let query = supa
+   let query = supa
     .from("pedidos")
     .select("*, motoboys(nome)")
     .in("status", ["entregue", "em_preparo", "pronto_entrega", "saiu_entrega"])
     .gte("created_at", utcI)
     .lte("created_at", utcF);
 
-  if (tipoFiltro !== "todos") query = query.eq("forma_pagamento", tipoFiltro);
+  if (tipoFiltro !== "todos") {
+    const _likeMap = {
+      Cartao:        "%cart%",
+      Efetivo:       "%efetivo%",
+      Pix:           "%pix%",
+      Transferencia: "%transfer%",
+    };
+    query = query.ilike("forma_pagamento", _likeMap[tipoFiltro] || `%${tipoFiltro}%`);
+  }
 
   // Funcionário: filtra apenas pedidos do próprio caixa via garcom_id (= _perfilId)
   if (!ehGestor && _perfilId) query = query.eq("garcom_id", _perfilId);
@@ -2534,76 +2541,43 @@ async function salvarMovimentacaoCaixa() {
     calcularFinanceiro();
   }
 }
-
 async function fecharCaixaResumo() {
-  if (!_sessaoCaixaAtiva) {
-    alert("Nenhum caixa aberto para fechar.");
-    return;
-  }
+  if (!_sessaoCaixaAtiva) return alert("Nenhum caixa aberto para fechar.");
+  if (!confirm("Fechar o caixa desta sessão?")) return;
 
-  if (!confirm("Fechar o caixa desta sessão?\nIsso encerra a sessão e registra o fechamento.")) return;
+  // Só marca como fechado — a trigger faz o resto
+  const { data, error } = await supa
+    .from("sessoes_caixa")
+    .update({ fechado_em: new Date().toISOString() })
+    .eq("id", _sessaoCaixaAtiva.id)
+    .select()
+    .single();
 
-  await calcularFinanceiro({ silencioso: true }); // garante que _caixaState está atualizado
-  const s   = _caixaState;
-  const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
-  const lucro = s.faturamento + s.totalEntradas - s.custoEntregas - s.totalSaidas;
+  if (error) return alert("Erro: " + error.message);
 
-  try {
-    // 1. Marca a sessão como fechada
-    await supa
-      .from("sessoes_caixa")
-      .update({
-        fechado_em:       new Date().toISOString(),
-        valor_fechamento: lucro,
-        observacao:       `Fat: ${fmt(s.faturamento)} | Res: ${fmt(lucro)}`,
-      })
-      .eq("id", _sessaoCaixaAtiva.id);
+  const r = data.resumo || {};
+  const fmt = (n) => "Gs " + Number(n || 0).toLocaleString("es-PY");
 
-    // 2. Registra movimentação de fechamento vinculada à sessão
-    await supa.from("movimentacoes_caixa").insert([{
-      tipo:          "fechamento",
-      valor:         lucro,
-      descricao:     `Fechamento ${new Date().toLocaleDateString("pt-BR")} | Fat: ${fmt(s.faturamento)} | Res: ${fmt(lucro)}`,
-      usuario_email: document.getElementById("user-email")?.innerText || "admin",
-      sessao_id:     _sessaoCaixaAtiva.id,
-    }]);
-  } catch (e) {
-    console.warn("Aviso fechamento:", e.message);
-  }
-
-  alert(`📊 FECHAMENTO DA SESSÃO #${_sessaoCaixaAtiva.id}
+  alert(`📊 FECHAMENTO DA SESSÃO #${data.id}
 ═══════════════════════════
-Faturamento Total: ${fmt(s.faturamento)}
+Faturamento: ${fmt(r.faturamento)}
 
 💰 Por Método:
-  💵 Dinheiro:      ${fmt(s.totalEfetivo)}
-  📱 Pix:           ${fmt(s.totalPix)}
-  💳 Cartão:        ${fmt(s.totalCartao)}
-  🏦 Transferência: ${fmt(s.totalTransf)}
+  💵 Dinheiro:      ${fmt(r.total_efetivo)}
+  📱 Pix:           ${fmt(r.total_pix)}
+  💳 Cartão:        ${fmt(r.total_cartao)}
+  🏦 Transferência: ${fmt(r.total_transf)}
 
-📦 Pedidos: ${s.qtdPedidos}
-🏍️ Custo Entregas: ${fmt(s.custoEntregas)}
-💸 Saídas: ${fmt(s.totalSaidas)}
-➕ Entradas: ${fmt(s.totalEntradas)}
+📦 Pedidos: ${r.qtd_pedidos}
+🏍️ Custo Entregas: ${fmt(r.custo_entregas)}
+💸 Saídas: ${fmt(r.total_saidas)}
+➕ Entradas: ${fmt(r.total_entradas)}
 ═══════════════════════════
-💵 RESULTADO: ${fmt(lucro)}
-═══════════════════════════
-✅ Dinheiro na gaveta: ${fmt(s.totalEfetivo)}
+💵 RESULTADO: ${fmt(r.lucro)}
 Sessão encerrada!`);
 
-  // Limpa estado
   _sessaoCaixaAtiva = null;
-  // Atualiza mini-painel do PDV
   if (typeof pdvCarregarPainelCaixa === "function") pdvCarregarPainelCaixa();
-  ["card-faturamento","card-custo-moto","card-lucro","total-pix","total-transf",
-   "total-cartao","total-efetivo","card-ticket-medio"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.innerText = "Gs 0";
-  });
-  const qEl = document.getElementById("card-qtd-pedidos");
-  if (qEl) qEl.innerText = "0";
-  _caixaState = { faturamento:0, custoEntregas:0, totalSaidas:0, totalEntradas:0,
-                  totalPix:0, totalTransf:0, totalCartao:0, totalEfetivo:0, qtdPedidos:0 };
 }
 
 // =========================================
@@ -12209,4 +12183,150 @@ async function admAceitarContrato() {
       btn.textContent = "✍️ ASSINAR E CONTINUAR";
     }
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HISTÓRICO DE FECHAMENTOS DE CAIXA
+// ══════════════════════════════════════════════════════════════
+function abrirHistoricoCaixas() {
+  const modal = document.getElementById("modal-hist-caixas");
+  if (!modal) return;
+  modal.style.display = "flex";
+
+  // Datas default: últimos 30 dias
+  const hoje = new Date();
+  const d30 = new Date(); d30.setDate(d30.getDate() - 30);
+  const elI = document.getElementById("hist-caixa-ini");
+  const elF = document.getElementById("hist-caixa-fim");
+  if (elI && !elI.value) elI.value = d30.toISOString().split("T")[0];
+  if (elF && !elF.value) elF.value = hoje.toISOString().split("T")[0];
+
+  carregarHistoricoCaixas();
+}
+
+async function carregarHistoricoCaixas() {
+  const tbody = document.getElementById("hist-caixa-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
+
+  const ini = document.getElementById("hist-caixa-ini")?.value;
+  const fim = document.getElementById("hist-caixa-fim")?.value;
+
+  let q = supa
+    .from("sessoes_caixa")
+    .select("*")
+    .not("fechado_em", "is", null)   // só sessões FECHADAS
+    .order("fechado_em", { ascending: false })
+    .limit(200);
+
+  // Aplica filtro de data na janela do fechamento (UTC-3 PY)
+  if (ini) q = q.gte("fechado_em", new Date(ini + "T00:00:00-03:00").toISOString());
+  if (fim) q = q.lte("fechado_em", new Date(fim + "T23:59:59-03:00").toISOString());
+
+  const { data, error } = await q;
+  if (error) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#c0392b">Erro: ${error.message}</td></tr>`;
+    return;
+  }
+  if (!data?.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#aaa">Nenhum fechamento encontrado no período</td></tr>';
+    return;
+  }
+
+  const fmt = (n) => "Gs " + Number(n || 0).toLocaleString("es-PY");
+  const fmtDt = (t) => t ? new Date(t).toLocaleString("pt-BR", {
+    timeZone: "America/Asuncion",
+    day: "2-digit", month: "2-digit", year: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  }) : "—";
+
+  tbody.innerHTML = data.map((s) => {
+    const r = s.resumo || {};                       // ← resumo da trigger
+    const faturamento = r.faturamento ?? s.valor_fechamento ?? 0;
+    const resultado   = r.lucro ?? s.valor_fechamento ?? 0;
+    const pedidos     = r.qtd_pedidos ?? 0;
+    const temResumo   = !!(r && Object.keys(r).length);
+
+    return `<tr style="border-bottom:1px solid #f0f0f0">
+      <td><strong>#${s.id}</strong></td>
+      <td style="font-size:0.78rem">${s.usuario_nome || s.usuario_email || "—"}</td>
+      <td style="font-size:0.78rem;color:#555">${fmtDt(s.aberto_em)}</td>
+      <td style="font-size:0.78rem;color:#555">${fmtDt(s.fechado_em)}</td>
+      <td style="text-align:right;color:#1a7a2e;font-weight:700">${fmt(faturamento)}</td>
+      <td style="text-align:right;font-weight:700;color:${resultado >= 0 ? "#1a7a2e" : "#c0392b"}">${fmt(resultado)}</td>
+      <td style="text-align:center">${pedidos}</td>
+      <td style="text-align:center">
+        ${temResumo
+          ? `<button onclick='abrirResumoCaixa(${JSON.stringify(s).replace(/'/g, "&apos;")})'
+               style="background:#16a085;color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:0.78rem">
+               👁️ Detalhes
+             </button>`
+          : `<span style="color:#aaa;font-size:0.75rem" title="Trigger de fechamento não aplicada">
+               sem detalhes
+             </span>`}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function abrirResumoCaixa(s) {
+  const r = s.resumo || {};
+  const fmt = (n) => "Gs " + Number(n || 0).toLocaleString("es-PY");
+  const fmtDt = (t) => t ? new Date(t).toLocaleString("pt-BR", { timeZone: "America/Asuncion" }) : "—";
+
+  const html = `
+    <div id="modal-resumo-caixa" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px">
+      <div style="background:#fff;border-radius:16px;padding:24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="margin:0;font-size:1.1rem">📊 Sessão #${s.id}</h3>
+          <button onclick="document.getElementById('modal-resumo-caixa').remove()"
+            style="background:#e74c3c;color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1rem">×</button>
+        </div>
+
+        <div style="background:#f8f9fa;border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.85rem;line-height:1.6">
+          <div><b>Operador:</b> ${s.usuario_nome || s.usuario_email || "—"}</div>
+          <div><b>Abertura:</b> ${fmtDt(s.aberto_em)}</div>
+          <div><b>Fechamento:</b> ${fmtDt(s.fechado_em)}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.85rem">
+          <div style="background:#e8f5e9;border-radius:8px;padding:10px">
+            <div style="font-size:0.7rem;color:#666">💵 Efetivo</div>
+            <div style="font-weight:700">${fmt(r.total_efetivo)}</div>
+          </div>
+          <div style="background:#e3f2fd;border-radius:8px;padding:10px">
+            <div style="font-size:0.7rem;color:#666">💳 Cartão</div>
+            <div style="font-weight:700">${fmt(r.total_cartao)}</div>
+          </div>
+          <div style="background:#f1f8e9;border-radius:8px;padding:10px">
+            <div style="font-size:0.7rem;color:#666">📱 Pix</div>
+            <div style="font-weight:700">${fmt(r.total_pix)}</div>
+          </div>
+          <div style="background:#eceff1;border-radius:8px;padding:10px">
+            <div style="font-size:0.7rem;color:#666">🏦 Transferência</div>
+            <div style="font-weight:700">${fmt(r.total_transf)}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;background:#fff8e1;border-radius:10px;padding:12px 14px;font-size:0.88rem;line-height:1.8">
+          <div style="display:flex;justify-content:space-between"><span>Faturamento</span><b>${fmt(r.faturamento)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>+ Entradas</span><b style="color:#1a7a2e">${fmt(r.total_entradas)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>– Saídas</span><b style="color:#c0392b">${fmt(r.total_saidas)}</b></div>
+          <div style="display:flex;justify-content:space-between"><span>– Custo entregas</span><b style="color:#c0392b">${fmt(r.custo_entregas)}</b></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;font-size:1.05rem">
+            <span><b>RESULTADO</b></span>
+            <b style="color:${(r.lucro || 0) >= 0 ? "#1a7a2e" : "#c0392b"}">${fmt(r.lucro)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:#888;margin-top:8px">
+            <span>📦 ${r.qtd_pedidos || 0} pedidos</span>
+          </div>
+        </div>
+
+        ${s.observacao ? `<div style="margin-top:12px;font-size:0.82rem;color:#555;background:#f5f5f5;padding:10px;border-radius:8px"><b>Obs:</b> ${s.observacao}</div>` : ""}
+      </div>
+    </div>`;
+
+  // Remove modal anterior se houver
+  document.getElementById("modal-resumo-caixa")?.remove();
+  document.body.insertAdjacentHTML("beforeend", html);
 }

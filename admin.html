@@ -768,6 +768,9 @@
     <button class="btn btn-primary" onclick="abrirGraficos()" style="height:45px; background:#8e44ad; border-color:#8e44ad">
       <i class="fas fa-chart-bar"></i> Gráficos
     </button>
+    <button class="btn btn-primary" onclick="abrirHistoricoCaixas()" style="height:45px; background:#16a085; border-color:#16a085">
+      <i class="fas fa-history"></i> Histórico Caixas
+    </button>
   </div>
 
   <!-- ===== CONTROLE DE CAIXA ===== -->
@@ -2530,6 +2533,50 @@
           </tr>
         </thead>
         <tbody id="rel-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL HISTÓRICO DE CAIXAS ===== -->
+<div id="modal-hist-caixas" class="modal-overlay" style="display:none;align-items:flex-start;padding:16px;overflow-y:auto">
+  <div class="modal-content" style="max-width:900px;width:100%;margin:auto;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;position:sticky;top:0;background:#fff;padding-bottom:8px;border-bottom:1px solid #eee;z-index:10">
+      <h3 style="margin:0"><i class="fas fa-history" style="color:#16a085"></i> Histórico de Fechamentos de Caixa</h3>
+      <button onclick="fecharModal('modal-hist-caixas')" style="background:#e74c3c;color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1.1rem;cursor:pointer">×</button>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;background:#f8f9fa;padding:12px;border-radius:8px">
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">De</label>
+        <input type="date" id="hist-caixa-ini" class="form-control" style="min-width:140px">
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Até</label>
+        <input type="date" id="hist-caixa-fim" class="form-control" style="min-width:140px">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button class="btn btn-primary" onclick="carregarHistoricoCaixas()"><i class="fas fa-search"></i> Filtrar</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="table" style="font-size:0.83rem;width:100%">
+        <thead>
+          <tr style="background:#f0f3f7">
+            <th>Sessão</th>
+            <th>Operador</th>
+            <th>Abertura</th>
+            <th>Fechamento</th>
+            <th style="text-align:right">Faturamento</th>
+            <th style="text-align:right">Resultado</th>
+            <th style="text-align:center">Pedidos</th>
+            <th style="text-align:center">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="hist-caixa-tbody">
+          <tr><td colspan="8" style="text-align:center;padding:24px;color:#aaa">Abra o histórico para carregar</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
