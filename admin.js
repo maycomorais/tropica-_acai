@@ -356,49 +356,120 @@ document.addEventListener("DOMContentLoaded", async () => {
   );
 });
 
-// selecionarTipo do Gemini removido — o sistema usa selecionarTipoBuilder() abaixo
-
-// =========================================
-// CLOUDINARY — UPLOAD UTILITÁRIO
-// =========================================
-const CLOUDINARY_CLOUD_NAME = "dsxwnbj0o";
-const CLOUDINARY_UPLOAD_PRESET = "ml_default";
-const CLOUDINARY_ENDPOINT = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+// ═══════════════════════════════════════════════════════════════
+// UPLOAD DE IMAGEM — Supabase Storage
+//   • Converte qualquer imagem para WebP
+//   • Redimensiona para no máximo 500px no lado maior
+//   • Retorna a URL pública do Supabase
+// ═══════════════════════════════════════════════════════════════
+const SUPABASE_STORAGE_BUCKET = "imagens";
+const IMAGE_MAX_SIZE     = 500;      // px (lado maior)
+const IMAGE_WEBP_QUALITY = 0.85;     // 0..1
 
 /**
- * Faz upload de um arquivo de imagem diretamente para o Cloudinary
- * usando um Unsigned Upload Preset público.
+ * Redimensiona + converte uma imagem para WebP e devolve o Blob.
+ * @param {File|Blob} file
+ * @param {number} maxSize
+ * @param {number} quality
+ * @returns {Promise<Blob>}
+ */
+async function _redimensionarParaWebp(file, maxSize = IMAGE_MAX_SIZE, quality = IMAGE_WEBP_QUALITY) {
+  // Lê dimensões originais
+  let srcW, srcH, source;
+  try {
+    source = await createImageBitmap(file);
+    srcW = source.width;
+    srcH = source.height;
+  } catch (_) {
+    // Fallback p/ navegadores sem createImageBitmap
+    source = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload  = () => resolve(img);
+      img.onerror = reject;
+      img.src = URL.createObjectURL(file);
+    });
+    srcW = source.naturalWidth;
+    srcH = source.naturalHeight;
+  }
+
+  // Calcula destino mantendo proporção
+  let dstW = srcW, dstH = srcH;
+  if (srcW > srcH && srcW > maxSize) {
+    dstW = maxSize;
+    dstH = Math.round(srcH * (maxSize / srcW));
+  } else if (srcH >= srcW && srcH > maxSize) {
+    dstH = maxSize;
+    dstW = Math.round(srcW * (maxSize / srcH));
+  }
+
+  // Desenha no canvas
+  const canvas = document.createElement("canvas");
+  canvas.width  = dstW;
+  canvas.height = dstH;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(source, 0, 0, dstW, dstH);
+
+  // Converte para WebP
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob((b) => resolve(b), "image/webp", quality)
+  );
+  if (!blob) throw new Error("Falha ao converter imagem para WebP.");
+  return blob;
+}
+
+/**
+ * Faz upload de uma imagem para o Supabase Storage.
+ * - Converte para WebP
+ * - Redimensiona para 500px no lado maior
+ * - Retorna URL pública
  *
- * @param {File} file - O objeto File selecionado pelo usuário.
- * @returns {Promise<string>} - A secure_url final da imagem no Cloudinary.
- * @throws {Error} - Lança um erro se o upload falhar, impedindo o salvamento no Supabase.
+ * @param {File} file     - arquivo selecionado no <input type="file">
+ * @param {string} [folder] - subpasta opcional (ex.: "produtos", "banners")
+ * @returns {Promise<string>} URL pública
+ */
+async function uploadImageToSupabase(file, folder = "") {
+  if (!file) throw new Error("Nenhum arquivo selecionado.");
+
+  // 1. Redimensiona + converte
+  const webpBlob = await _redimensionarParaWebp(file);
+
+  // 2. Gera nome único e seguro
+  const stamp = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+  const baseName = (file.name || "img")
+    .replace(/\.[^.]+$/, "")                              // remove extensão
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")     // remove acentos
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 40) || "img";
+  const fileName = `${baseName}_${stamp}.webp`;
+  const path = folder ? `${folder}/${fileName}` : fileName;
+
+  // 3. Upload
+  const { error } = await supa.storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .upload(path, webpBlob, {
+      contentType: "image/webp",
+      cacheControl: "31536000",   // cache 1 ano no CDN
+      upsert: false,
+    });
+
+  if (error) throw new Error("Falha no upload: " + error.message);
+
+  // 4. URL pública
+  const { data: pub } = supa.storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .getPublicUrl(path);
+
+  return pub.publicUrl;
+}
+
+/**
+ * Compatibilidade: mantém o nome antigo apontando para o Supabase.
+ * Assim NENHUM outro ponto do admin.js precisa ser alterado.
  */
 async function uploadImageToCloudinary(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-  const response = await fetch(CLOUDINARY_ENDPOINT, {
-    method: "POST",
-    body: formData,
-  });
-
-  if (!response.ok) {
-    let errMsg = `HTTP ${response.status}`;
-    try {
-      const errData = await response.json();
-      errMsg = errData?.error?.message || errMsg;
-    } catch (_) {}
-    throw new Error(`Cloudinary upload falhou: ${errMsg}`);
-  }
-
-  const data = await response.json();
-
-  if (!data.secure_url) {
-    throw new Error("Cloudinary não retornou uma URL válida.");
-  }
-
-  return data.secure_url;
+  return uploadImageToSupabase(file);
 }
 
 // =========================================
