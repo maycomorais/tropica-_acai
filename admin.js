@@ -1763,7 +1763,7 @@ async function calcularFinanceiro(opts = {}) {
   const abaFin   = document.getElementById("financeiro");
   const tabAtiva = abaFin && abaFin.classList.contains("active");
 
-
+  // Se não está na aba financeiro e não foi chamada silenciosamente, ignora.
   if (!tabAtiva && !silencioso) return;
 
   const elInicio  = document.getElementById("fin-inicio");
@@ -1778,30 +1778,47 @@ async function calcularFinanceiro(opts = {}) {
   // ── 1. Carrega/verifica sessão ativa ─────────────────────────────
   await _carregarSessaoCaixa();
 
-  // ── 2. Se não houver sessão aberta, exibe alerta de abertura ─────
-  if (!_sessaoCaixaAtiva) {
+  // ── 2. Regra de sessão ────────────────────────────────────────────
+  // GESTOR sem sessão aberta → LIBERA o fluxo (vê datas / hoje).
+  // FUNCIONÁRIO sem sessão    → pede para abrir o caixa.
+  if (!_sessaoCaixaAtiva && !ehGestor) {
     if (!silencioso) _exibirAlertaAberturaCaixa();
     return;
   }
 
-  // ── 3. Define intervalo de tempo baseado na SESSÃO, não no calendário ─
-  const sessaoInicio = _sessaoCaixaAtiva.aberto_em;
-  const sessaoFim    = _sessaoCaixaAtiva.fechado_em || new Date().toISOString();
+  // ── 3. Define janela do relatório ─────────────────────────────────
+  // PRIORIDADE 1: filtro manual de datas (gestor escolheu)
+  // PRIORIDADE 2: sessão ativa (limitada a 24h)
+  // PRIORIDADE 3: hoje (00:00 → 23:59 PY)
+  const hojeStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
+  let utcI, utcF;
 
-  let utcI = sessaoInicio;
-  let utcF = sessaoFim;
+  const temFiltroManual = ehGestor && elInicio.value && elFim.value;
 
-  if (ehGestor && elInicio.value && elFim.value) {
+  if (temFiltroManual) {
     utcI = new Date(elInicio.value + "T00:00:00-03:00").toISOString();
     utcF = new Date(elFim.value    + "T23:59:59-03:00").toISOString();
+  } else if (_sessaoCaixaAtiva) {
+    // Trava a sessão em no máximo 24h para evitar janelas absurdas
+    const ab  = new Date(_sessaoCaixaAtiva.aberto_em).getTime();
+    const fch = _sessaoCaixaAtiva.fechado_em
+      ? new Date(_sessaoCaixaAtiva.fechado_em).getTime()
+      : Date.now();
+    const durMs = Math.min(Math.max(fch - ab, 60000), 24 * 3600 * 1000);
+    utcI = new Date(ab).toISOString();
+    utcF = new Date(ab + durMs).toISOString();
+  } else {
+    // Gestor sem sessão e sem filtro: mostra HOJE
+    utcI = new Date(hojeStr + "T00:00:00-03:00").toISOString();
+    utcF = new Date(hojeStr + "T23:59:59-03:00").toISOString();
   }
 
-  // Preenche os inputs com os valores efetivamente usados (feedback visual)
+  // Feedback visual: preenche os inputs com os valores usados
   if (!elInicio.value)
     elInicio.value = new Date(utcI).toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
   if (!elFim.value)
     elFim.value = new Date(utcF).toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
-  
+
   const tipoFiltro    = elTipo.value;
   const facturaFiltro = elFactura ? elFactura.value : "todos";
 
@@ -1813,8 +1830,8 @@ async function calcularFinanceiro(opts = {}) {
   const _elSecMotoboys = document.getElementById("secao-motoboys-financeiro");
   if (_elSecMotoboys) _elSecMotoboys.style.display = ehGestor ? "" : "none";
 
-  // ── 4. Busca pedidos dentro da janela da sessão ───────────────────
-   let query = supa
+  // ── 4. Busca pedidos dentro da janela ─────────────────────────────
+  let query = supa
     .from("pedidos")
     .select("*, motoboys(nome)")
     .in("status", ["entregue", "em_preparo", "pronto_entrega", "saiu_entrega"])
@@ -1831,7 +1848,7 @@ async function calcularFinanceiro(opts = {}) {
     query = query.ilike("forma_pagamento", _likeMap[tipoFiltro] || `%${tipoFiltro}%`);
   }
 
-  // Funcionário: filtra apenas pedidos do próprio caixa via garcom_id (= _perfilId)
+  // Funcionário: filtra só os pedidos dele
   if (!ehGestor && _perfilId) query = query.eq("garcom_id", _perfilId);
 
   const { data: pedidos } = await query;
@@ -1842,23 +1859,34 @@ async function calcularFinanceiro(opts = {}) {
   else if (facturaFiltro === "sem_factura")
     peds = peds.filter((p) => !p.dados_factura?.ruc && !p.dados_factura?.ci);
 
-  // ── 5. Movimentações de caixa da SESSÃO ──────────────────────────
-  let caixaQuery = supa
-    .from("movimentacoes_caixa")
-    .select("*")
-    .eq("sessao_id", _sessaoCaixaAtiva.id); // vínculo direto à sessão
-  if (!ehGestor) caixaQuery = caixaQuery.eq("usuario_email", emailAtual);
+  // ── 5. Movimentações de caixa ─────────────────────────────────────
+  // Só consulta se houver sessão; senão usa janela de datas
+  let caixa = [];
+  if (_sessaoCaixaAtiva) {
+    let caixaQuery = supa
+      .from("movimentacoes_caixa")
+      .select("*")
+      .eq("sessao_id", _sessaoCaixaAtiva.id);
+    if (!ehGestor) caixaQuery = caixaQuery.eq("usuario_email", emailAtual);
+    const { data: c } = await caixaQuery;
+    caixa = c || [];
+  } else if (ehGestor) {
+    // Gestor sem sessão: movimentações na janela de datas
+    const { data: c } = await supa
+      .from("movimentacoes_caixa")
+      .select("*")
+      .gte("created_at", utcI)
+      .lte("created_at", utcF);
+    caixa = c || [];
+  }
 
-  const { data: caixa } = await caixaQuery;
-
-  // Verifica bloqueio de caixa (sangria limite)
   _verificarBloqueioCaixa(emailAtual);
 
-  // ── 6. Cálculos (inalterado) ──────────────────────────────────────
+  // ── 6. Cálculos ───────────────────────────────────────────────────
   const safeNum = (v) => {
     if (!v) return 0;
     if (typeof v === "number") return v;
-    return parseFloat(v.toString().replace(/[^\d.,-]/g,"").replace(",",".")) || 0;
+    return parseFloat(v.toString().replace(/[^\d.,-]/g, "").replace(",", ".")) || 0;
   };
   const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
 
@@ -1871,7 +1899,7 @@ async function calcularFinanceiro(opts = {}) {
     faturamento += val;
     qtdPedidos++;
     const pag = (p.forma_pagamento || "").toLowerCase();
-    if (pag.includes("pix"))          totalPix    += val;
+    if (pag.includes("pix")) totalPix += val;
     else if (pag.includes("transfer")) totalTransf += val;
     else if (pag.includes("cartao") || pag.includes("cartão")) totalCartao += val;
     else if (pag.includes("efetivo") || pag.includes("dinheiro")) totalEfetivo += val;
@@ -1889,18 +1917,20 @@ async function calcularFinanceiro(opts = {}) {
   custoEntregas += (AJUDA_COMBUSTIVEL || 0) * qtdMotoboyUnicos;
 
   let totalSaidas = 0, totalEntradas = 0, totalSangria = 0;
-  (caixa || []).forEach((c) => {
+  caixa.forEach((c) => {
     const v = safeNum(c.valor);
-    if (c.tipo === "despesa")  totalSaidas  += v;
-    if (c.tipo === "sangria")  { totalSaidas += v; totalSangria += v; }
+    if (c.tipo === "despesa") totalSaidas += v;
+    if (c.tipo === "sangria") { totalSaidas += v; totalSangria += v; }
     if (c.tipo === "suprimento" || c.tipo === "abertura") totalEntradas += v;
   });
 
-  _caixaState = { faturamento, custoEntregas, totalSaidas, totalEntradas,
-                  totalPix, totalTransf, totalCartao, totalEfetivo, qtdPedidos, totalSangria };
+  _caixaState = {
+    faturamento, custoEntregas, totalSaidas, totalEntradas,
+    totalPix, totalTransf, totalCartao, totalEfetivo, qtdPedidos, totalSangria,
+  };
 
   const lucro = faturamento + totalEntradas - custoEntregas - totalSaidas;
-  const setV  = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+  const setV = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
 
   setV("card-faturamento",  fmt(faturamento));
   setV("card-custo-moto",   fmt(custoEntregas));
@@ -1912,37 +1942,54 @@ async function calcularFinanceiro(opts = {}) {
   setV("card-qtd-pedidos",  qtdPedidos);
   setV("card-ticket-medio", fmt(qtdPedidos > 0 ? faturamento / qtdPedidos : 0));
 
-  // Badge do operador / info da sessão
+  // Badge do operador
   const badgeCaixa = document.getElementById("badge-caixa-operador");
   if (badgeCaixa) {
-    const dAbr = new Date(_sessaoCaixaAtiva.aberto_em).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-    const dFch = _sessaoCaixaAtiva.fechado_em
-      ? new Date(_sessaoCaixaAtiva.fechado_em).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })
-      : "em aberto";
-    badgeCaixa.textContent = ehGestor
-      ? `📊 Visão geral — sessão ${_sessaoCaixaAtiva.id} (${_sessaoCaixaAtiva.usuario_email}) · ${dAbr} → ${dFch}`
-      : `💼 Seu caixa — aberto ${dAbr} → ${dFch}`;
+    if (_sessaoCaixaAtiva) {
+      const dAbr = new Date(_sessaoCaixaAtiva.aberto_em).toLocaleString("pt-BR", {
+        day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+      });
+      const dFch = _sessaoCaixaAtiva.fechado_em
+        ? new Date(_sessaoCaixaAtiva.fechado_em).toLocaleString("pt-BR", {
+            day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+          })
+        : "em aberto";
+      badgeCaixa.textContent = ehGestor
+        ? `📊 Visão geral — sessão ${_sessaoCaixaAtiva.id} (${_sessaoCaixaAtiva.usuario_email}) · ${dAbr} → ${dFch}`
+        : `💼 Seu caixa — aberto ${dAbr} → ${dFch}`;
+    } else {
+      const dI = new Date(utcI).toLocaleString("pt-BR", { timeZone: "America/Asuncion", day: "2-digit", month: "2-digit" });
+      const dF = new Date(utcF).toLocaleString("pt-BR", { timeZone: "America/Asuncion", day: "2-digit", month: "2-digit" });
+      badgeCaixa.textContent = `📅 Período filtrado — ${dI} → ${dF} (sem caixa ativo)`;
+    }
   }
 
-  // Tabelas de despesas e motoboys (código original preservado)
+  // Tabela de despesas
   const tbD = document.getElementById("lista-despesas-caixa");
   if (tbD) {
-    const despesas = (caixa || []).filter((c) => c.tipo === "despesa");
+    const despesas = caixa.filter((c) => c.tipo === "despesa");
     const _DLABELS = {
-      despesas_gerais:"📦 Despesas Gerais", contas_fixas:"🏠 Contas Fixas",
-      pagamento_fornecedor:"🤝 Fornecedor",  pagamento_funcionario:"👷 Funcionário",
-      pagamento_terceiros:"👥 Terceiros",    manutencao:"🔧 Manutenção",
-      retirada:"💵 Retirada", motoboy:"🛵 Motoboy", outro:"✏️ Outro",
+      despesas_gerais: "📦 Despesas Gerais", contas_fixas: "🏠 Contas Fixas",
+      pagamento_fornecedor: "🤝 Fornecedor", pagamento_funcionario: "👷 Funcionário",
+      pagamento_terceiros: "👥 Terceiros", manutencao: "🔧 Manutenção",
+      retirada: "💵 Retirada", motoboy: "🛵 Motoboy", outro: "✏️ Outro",
     };
     if (!despesas.length) {
-      tbD.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa nesta sessão</td></tr>';
+      tbD.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:16px">Nenhuma despesa no período</td></tr>';
     } else {
       tbD.innerHTML = despesas.map((d) => {
-        const dt = new Date(d.created_at).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+        const dt = new Date(d.created_at).toLocaleString("pt-BR", {
+          day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+        });
         const tipoLabel = _DLABELS[d.tipo_despesa] || d.tipo_despesa || "—";
         const descExtra = d.tipo_despesa === "outro" && d.descricao_outro ? ` (${d.descricao_outro})` : "";
         const obs = d.descricao || "";
-        const enc = encodeURIComponent(JSON.stringify({ id:d.id, valor:d.valor, tipo_despesa:d.tipo_despesa||"despesas_gerais", descricao:d.descricao||"", descricao_outro:d.descricao_outro||"" }));
+        const enc = encodeURIComponent(JSON.stringify({
+          id: d.id, valor: d.valor,
+          tipo_despesa: d.tipo_despesa || "despesas_gerais",
+          descricao: d.descricao || "",
+          descricao_outro: d.descricao_outro || "",
+        }));
         return `<tr>
           <td style="white-space:nowrap;color:#666;font-size:0.82rem">${dt}</td>
           <td><span style="background:#fdecea;color:#a93226;padding:2px 7px;border-radius:10px;font-size:0.78rem">${tipoLabel}${descExtra}</span></td>
@@ -1956,16 +2003,17 @@ async function calcularFinanceiro(opts = {}) {
     }
   }
 
+  // Tabela de motoboys
   const tbM = document.getElementById("lista-financeiro-motoboys");
   if (tbM) {
     tbM.innerHTML = "";
     if (!Object.keys(motoMap).length) {
-      tbM.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega nesta sessão</td></tr>';
+      tbM.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999">Nenhuma entrega no período</td></tr>';
     } else {
       for (const [nome, d] of Object.entries(motoMap)) {
         const semNome = nome === "Sem Motoboy";
         const comb = semNome ? 0 : AJUDA_COMBUSTIVEL || 0;
-        const tot  = d.frete_total + comb;
+        const tot = d.frete_total + comb;
         const combLabel = semNome
           ? '<span style="color:#aaa;font-size:0.78rem">sem combustível</span>'
           : `+ comb. ${fmt(comb)}`;
@@ -2217,40 +2265,71 @@ async function abrirRelatorio() {
   }
 }
 
-async function carregarRelatorio() {
-  const filtroNum = document.getElementById("rel-filtro-numero")?.value?.trim();
+// ── Estado de paginação do relatório ──────────────────────────────
+let _relOffset = 0;
+let _relTotal = 0;
+const _REL_PAGE = 200;   // 200 por página
+
+/**
+ * Carrega o relatório de pedidos com paginação + botão de impressão por linha.
+ * @param {boolean} reset - true = recomeça do zero (novo filtro)
+ *                          false = carrega próxima página (Carregar mais)
+ */
+async function carregarRelatorio(reset = true) {
+  const tbody = document.getElementById("rel-tbody");
+  const btnMais = document.getElementById("rel-btn-mais");
+  if (!tbody) return;
+
+  if (reset === true) {
+    _relOffset = 0;
+    _relTotal = 0;
+    tbody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:30px;color:#888"><i class="fas fa-spinner fa-spin"></i> Carregando...</td></tr>';
+  }
+
+  // ── Lê filtros ────────────────────────────────────────────────────
+  const filtroNum    = document.getElementById("rel-filtro-numero")?.value?.trim();
   const filtroInicio = document.getElementById("rel-filtro-inicio")?.value;
-  const filtroFim = document.getElementById("rel-filtro-fim")?.value;
-  const hoje = new Date().toISOString().split("T")[0];
+  const filtroFim    = document.getElementById("rel-filtro-fim")?.value;
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Asuncion" });
+
+  // ── Monta query ───────────────────────────────────────────────────
   let query = supa
     .from("pedidos")
-    .select("*")
+    .select("*", { count: "exact" })
     .order("id", { ascending: false })
-    .limit(100);
+    .range(_relOffset, _relOffset + _REL_PAGE - 1);
+
   if (filtroNum) {
-    query = query.eq("id", parseInt(filtroNum));
+    query = supa
+      .from("pedidos")
+      .select("*", { count: "exact" })
+      .eq("id", parseInt(filtroNum))
+      .order("id", { ascending: false });
   } else {
     const ini = filtroInicio || hoje;
     const fim = filtroFim || hoje;
-    // Paraguay UTC-4: shift local date range to UTC so after-midnight sales are captured
-    // e.g. local 00:00 PY = UTC 04:00; local 23:59 PY = UTC 03:59 next day
-    const _off = 4 * 60 * 60 * 1000;
-    const utcIni = new Date(
-      new Date(ini + "T00:00:00").getTime() + _off,
-    ).toISOString();
-    const utcFim = new Date(
-      new Date(fim + "T23:59:59").getTime() + _off,
-    ).toISOString();
+    // Offset -03:00 explícito (PY desde 2024)
+    const utcIni = new Date(ini + "T00:00:00-03:00").toISOString();
+    const utcFim = new Date(fim + "T23:59:59-03:00").toISOString();
     query = query.gte("created_at", utcIni).lte("created_at", utcFim);
   }
-  const { data: pedidos, error } = await query;
+
+  const { data: pedidos, error, count } = await query;
   if (error) {
     console.error(error);
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:#c0392b">Erro: ${error.message}</td></tr>`;
     return;
   }
-  const tbody = document.getElementById("rel-tbody");
-  if (!tbody) return;
-  tbody.innerHTML = "";
+
+  if (reset === true) _relTotal = count || 0;
+
+  if (reset === false && (!pedidos || pedidos.length === 0)) {
+    if (btnMais) btnMais.style.display = "none";
+    return;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────
   const fmtDiff = (t1, t2) => {
     if (!t1 || !t2) return "-";
     const diff = Math.round((new Date(t2) - new Date(t1)) / 60000);
@@ -2266,47 +2345,40 @@ async function carregarRelatorio() {
         })
       : "-";
   const scMap = {
-    pendente: { bg: "#fff3cd", color: "#856404", label: "⏳ Pendente" },
-    em_preparo: { bg: "#ffe5d0", color: "#a63c06", label: "🔥 Em Preparo" },
+    pendente:       { bg: "#fff3cd", color: "#856404", label: "⏳ Pendente" },
+    em_preparo:     { bg: "#ffe5d0", color: "#a63c06", label: "🔥 Em Preparo" },
     pronto_entrega: { bg: "#d1ecf1", color: "#0c5460", label: "📦 Pronto" },
-    saiu_entrega: { bg: "#d4edda", color: "#155724", label: "🛵 Saiu" },
-    entregue: { bg: "#d4edda", color: "#155724", label: "✅ Entregue" },
-    cancelado: { bg: "#f8d7da", color: "#721c24", label: "❌ Cancelado" },
+    saiu_entrega:   { bg: "#d4edda", color: "#155724", label: "🛵 Saiu" },
+    entregue:       { bg: "#d4edda", color: "#155724", label: "✅ Entregue" },
+    cancelado:      { bg: "#f8d7da", color: "#721c24", label: "❌ Cancelado" },
   };
 
+  // ── Renderiza cada pedido ────────────────────────────────────────
+  let html = "";
   (pedidos || []).forEach((p) => {
-    const sc = scMap[p.status] || {
-      bg: "#f0f0f0",
-      color: "#333",
-      label: p.status,
-    };
+    const sc = scMap[p.status] || { bg: "#f0f0f0", color: "#333", label: p.status };
     const isPDV = p.tipo_entrega === "balcao";
 
-    const itensList = (p.itens || [])
-      .map((i) => {
-        const qtd = i.qtd || i.q || 1;
-        const nome = i.nome || i.n || "?";
-        const variacao = i.variacao || i.t || "";
-        const montagem = i.montagem || i.m || [];
-        let lbl = `<strong>${qtd}x</strong> ${nome}`;
-        if (variacao && variacao !== nome)
-          lbl += ` <span style="color:#e67e22">▸ ${variacao}</span>`;
-        if (montagem.length > 0) {
-          const montagemHtml = montagem
-            .map((linha) => {
-              const idx = linha.indexOf(":");
-              if (idx > 0)
-                return `<strong>${linha.slice(0, idx)}:</strong> ${linha.slice(idx + 1).trim()}`;
-              return linha;
-            })
-            .join(" · ");
-          lbl += ` <span style="color:#555;font-size:0.78em">(${montagemHtml})</span>`;
-        }
-        return lbl;
-      })
-      .join("<br>");
+    const itensList = (p.itens || []).map((i) => {
+      const qtd = i.qtd || i.q || 1;
+      const nome = i.nome || i.n || "?";
+      const variacao = i.variacao || i.t || "";
+      const montagem = i.montagem || i.m || [];
+      let lbl = `<strong>${qtd}x</strong> ${nome}`;
+      if (variacao && variacao !== nome)
+        lbl += ` <span style="color:#e67e22">▸ ${variacao}</span>`;
+      if (montagem.length > 0) {
+        const m = montagem.map((l) => {
+          const idx = l.indexOf(":");
+          return idx > 0
+            ? `<strong>${l.slice(0, idx)}:</strong> ${l.slice(idx + 1).trim()}`
+            : l;
+        }).join(" · ");
+        lbl += ` <span style="color:#555;font-size:0.78em">(${m})</span>`;
+      }
+      return lbl;
+    }).join("<br>");
 
-    // Cancelamento info
     let cancelInfo = "";
     if (p.status === "cancelado") {
       const quem = p.cancelamento_solicitado_por || "admin";
@@ -2317,106 +2389,59 @@ async function carregarRelatorio() {
         🚫 Solicitado por: ${p.cancelamento_solicitado_por || "?"}</div>`;
     }
 
-    // Tipo badge
     const tipoBadges = {
-      balcao:
-        '<span style="background:#e8f4f8;color:#1a6e8a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🏪 PDV</span>',
-      delivery:
-        '<span style="background:#e8f7e8;color:#1a6e2e;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🛵 Delivery</span>',
-      retirada:
-        '<span style="background:#f7f0e8;color:#6e4a1a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🚶 Retirada</span>',
+      balcao:   '<span style="background:#e8f4f8;color:#1a6e8a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🏪 PDV</span>',
+      delivery: '<span style="background:#e8f7e8;color:#1a6e2e;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🛵 Delivery</span>',
+      retirada: '<span style="background:#f7f0e8;color:#6e4a1a;border-radius:10px;padding:2px 7px;font-size:0.68rem;font-weight:700">🚶 Retirada</span>',
     };
     const tipoBadge = tipoBadges[p.tipo_entrega] || "";
 
-    // Timeline — PDV tem etapas diferentes
     const tl = isPDV
       ? [
-          {
-            icon: "🏪",
-            label: "Abertura",
-            val: fmtHora(p.tempo_recebido || p.created_at),
-            diff: null,
-          },
-          {
-            icon: "🔥",
-            label: "Cozinha",
-            val: fmtHora(p.tempo_preparo_iniciado),
-            diff: null,
-          },
-          {
-            icon: "📦",
-            label: "Pronto",
-            val: fmtHora(p.tempo_pronto),
-            diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto),
-          },
-          {
-            icon: "✅",
-            label: "Fechado",
-            val: fmtHora(p.tempo_entregue),
-            diff: fmtDiff(p.tempo_recebido || p.created_at, p.tempo_entregue),
-          },
+          { icon: "🏪", label: "Abertura", val: fmtHora(p.tempo_recebido || p.created_at), diff: null },
+          { icon: "🔥", label: "Cozinha",  val: fmtHora(p.tempo_preparo_iniciado), diff: null },
+          { icon: "📦", label: "Pronto",   val: fmtHora(p.tempo_pronto), diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto) },
+          { icon: "✅", label: "Fechado",  val: fmtHora(p.tempo_entregue), diff: fmtDiff(p.tempo_recebido || p.created_at, p.tempo_entregue) },
         ]
       : [
-          {
-            icon: "📥",
-            label: "Recebido",
-            val: fmtHora(p.tempo_recebido),
-            diff: null,
-          },
-          {
-            icon: "✅",
-            label: "Aceite",
-            val: fmtHora(p.tempo_confirmado),
-            diff: fmtDiff(p.tempo_recebido, p.tempo_confirmado),
-          },
-          {
-            icon: "🔥",
-            label: "Cozinha",
-            val: fmtHora(p.tempo_preparo_iniciado),
-            diff: null,
-          },
-          {
-            icon: "📦",
-            label: "Pronto",
-            val: fmtHora(p.tempo_pronto),
-            diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto),
-          },
-          {
-            icon: "🛵",
-            label: "Saiu",
-            val: fmtHora(p.tempo_saiu_entrega),
-            diff: null,
-          },
-          {
-            icon: "🏠",
-            label: "Entregue",
-            val: fmtHora(p.tempo_entregue),
-            diff: fmtDiff(p.tempo_saiu_entrega, p.tempo_entregue),
-          },
+          { icon: "📥", label: "Recebido", val: fmtHora(p.tempo_recebido), diff: null },
+          { icon: "✅", label: "Aceite",   val: fmtHora(p.tempo_confirmado), diff: fmtDiff(p.tempo_recebido, p.tempo_confirmado) },
+          { icon: "🔥", label: "Cozinha",  val: fmtHora(p.tempo_preparo_iniciado), diff: null },
+          { icon: "📦", label: "Pronto",   val: fmtHora(p.tempo_pronto), diff: fmtDiff(p.tempo_preparo_iniciado, p.tempo_pronto) },
+          { icon: "🛵", label: "Saiu",     val: fmtHora(p.tempo_saiu_entrega), diff: null },
+          { icon: "🏠", label: "Entregue", val: fmtHora(p.tempo_entregue), diff: fmtDiff(p.tempo_saiu_entrega, p.tempo_entregue) },
         ];
 
-    const tlHtml = tl
-      .map((t) => {
-        const vazio = t.val === "-";
-        return `<div style="display:flex;align-items:baseline;gap:5px;padding:2px 0;border-bottom:1px solid #f5f5f5">
+    const tlHtml = tl.map((t) => {
+      const vazio = t.val === "-";
+      return `<div style="display:flex;align-items:baseline;gap:5px;padding:2px 0;border-bottom:1px solid #f5f5f5">
         <span style="min-width:18px;font-size:0.85em">${t.icon}</span>
         <span style="min-width:64px;font-size:0.72rem;color:#888">${t.label}:</span>
         <span style="font-size:0.78rem;font-weight:${vazio ? "400" : "600"};color:${vazio ? "#ccc" : "#222"}">${t.val}</span>
         ${t.diff && t.diff !== "-" ? `<span style="font-size:0.68rem;color:#999">(${t.diff})</span>` : ""}
       </div>`;
-      })
-      .join("");
+    }).join("");
 
     const totalTime = isPDV
       ? fmtDiff(p.tempo_recebido || p.created_at, p.tempo_entregue)
       : fmtDiff(p.tempo_recebido, p.tempo_entregue);
 
     const _tz = { timeZone: "America/Asuncion" };
-    tbody.innerHTML += `<tr style="border-bottom:1px solid #eee;vertical-align:top">
+    html += `<tr style="border-bottom:1px solid #eee;vertical-align:top">
       <td style="padding:10px 8px;white-space:nowrap">
         <div style="font-size:1rem;font-weight:700;color:#1a1a2e">#${p.id}</div>
         <div style="font-size:0.73rem;color:#aaa">${new Date(p.created_at).toLocaleDateString("pt-BR", _tz)}</div>
-        <div style="font-size:0.78rem;color:#666">${new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", ..._tz })}</div>
+        <div style="font-size:0.78rem;color:#666;margin-bottom:6px">${new Date(p.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", ..._tz })}</div>
+        <button
+          onclick="imprimirPedido(${p.id})"
+          title="Imprimir este pedido"
+          style="background:#3498db;color:#fff;border:none;border-radius:6px;
+                 padding:5px 10px;cursor:pointer;font-size:0.75rem;font-weight:600;
+                 display:inline-flex;align-items:center;gap:4px;transition:opacity .15s"
+          onmouseover="this.style.opacity='0.85'"
+          onmouseout="this.style.opacity='1'">
+          <i class="fas fa-print"></i> Imprimir
+        </button>
       </td>
       <td style="padding:10px 8px">
         <div style="font-weight:700;color:#1a1a2e">${p.cliente_nome || "-"}</div>
@@ -2438,11 +2463,24 @@ async function carregarRelatorio() {
       </td>
     </tr>`;
   });
-  if (!pedidos || pedidos.length === 0)
-    tbody.innerHTML =
+
+  // ── Aplica ao DOM ────────────────────────────────────────────────
+  if (reset === true) {
+    tbody.innerHTML = html ||
       '<tr><td colspan="6" style="text-align:center;padding:40px;color:#aaa">Nenhum pedido encontrado.</td></tr>';
+  } else {
+    tbody.insertAdjacentHTML("beforeend", html);
+  }
+
+  _relOffset += (pedidos || []).length;
+
   const el = document.getElementById("rel-total-count");
-  if (el) el.textContent = (pedidos || []).length + " pedidos encontrados";
+  if (el) el.textContent = `${_relOffset} de ${_relTotal} pedidos`;
+
+  if (btnMais) {
+    const temMais = _relOffset < _relTotal;
+    btnMais.style.display = temMais ? "inline-flex" : "none";
+  }
 }
 
 function abrirModalCaixa(tipo) {
@@ -2541,24 +2579,61 @@ async function salvarMovimentacaoCaixa() {
     calcularFinanceiro();
   }
 }
+
+// ── Trava anti-duplo-clique (fica FORA da função, no escopo do módulo) ──
+let _fechandoCaixa = false;
+
 async function fecharCaixaResumo() {
+  // 1. Trava anti-duplo-clique
+  if (_fechandoCaixa) return;
   if (!_sessaoCaixaAtiva) return alert("Nenhum caixa aberto para fechar.");
   if (!confirm("Fechar o caixa desta sessão?")) return;
 
-  // Só marca como fechado — a trigger faz o resto
-  const { data, error } = await supa
-    .from("sessoes_caixa")
-    .update({ fechado_em: new Date().toISOString() })
-    .eq("id", _sessaoCaixaAtiva.id)
-    .select()
-    .single();
+  // 2. Detecta sessão aberta há mais de 24h e avisa
+  const agora = Date.now();
+  const abertoEm = new Date(_sessaoCaixaAtiva.aberto_em).getTime();
+  const durHoras = (agora - abertoEm) / 3600000;
+  const patch = { fechado_em: new Date().toISOString() };
 
-  if (error) return alert("Erro: " + error.message);
+  if (durHoras > 24) {
+    if (!confirm(
+      `⚠️ Esta sessão está aberta há ${Math.round(durHoras)}h.\n\n` +
+      `Ao fechar, apenas os pedidos das últimas 24h serão contabilizados.\n` +
+      `As horas anteriores serão ignoradas para evitar distorção no resumo.\n\n` +
+      `Confirmar fechamento?`
+    )) return;
+    // Desloca aberto_em para 24h atrás (janela limpa para a trigger)
+    patch.aberto_em = new Date(agora - 24 * 3600 * 1000).toISOString();
+  }
 
-  const r = data.resumo || {};
-  const fmt = (n) => "Gs " + Number(n || 0).toLocaleString("es-PY");
+  _fechandoCaixa = true;
+  try {
+    // 3. Só marca como fechado — a trigger trg_fechar_sessao_caixa faz o resto
+    const { data, error } = await supa
+      .from("sessoes_caixa")
+      .update(patch)
+      .eq("id", _sessaoCaixaAtiva.id)
+      .select()
+      .single();
 
-  alert(`📊 FECHAMENTO DA SESSÃO #${data.id}
+    if (error) {
+      alert("Erro: " + error.message);
+      return;
+    }
+
+    // 4. Lê o resumo calculado pela trigger
+    const r = data.resumo || {};
+    const fmt = (n) => "Gs " + Number(n || 0).toLocaleString("es-PY");
+
+    if (!r || Object.keys(r).length === 0) {
+      // Trigger não rodou / não foi aplicada ainda
+      alert(
+        `✅ Sessão #${data.id} fechada.\n\n` +
+        `⚠️ O resumo detalhado não foi calculado (trigger ausente).\n` +
+        `Verifique se a trigger trg_fechar_sessao_caixa está instalada no Supabase.`
+      );
+    } else {
+      alert(`📊 FECHAMENTO DA SESSÃO #${data.id}
 ═══════════════════════════
 Faturamento: ${fmt(r.faturamento)}
 
@@ -2568,16 +2643,22 @@ Faturamento: ${fmt(r.faturamento)}
   💳 Cartão:        ${fmt(r.total_cartao)}
   🏦 Transferência: ${fmt(r.total_transf)}
 
-📦 Pedidos: ${r.qtd_pedidos}
+📦 Pedidos: ${r.qtd_pedidos || 0}
 🏍️ Custo Entregas: ${fmt(r.custo_entregas)}
 💸 Saídas: ${fmt(r.total_saidas)}
 ➕ Entradas: ${fmt(r.total_entradas)}
 ═══════════════════════════
 💵 RESULTADO: ${fmt(r.lucro)}
 Sessão encerrada!`);
+    }
 
-  _sessaoCaixaAtiva = null;
-  if (typeof pdvCarregarPainelCaixa === "function") pdvCarregarPainelCaixa();
+    _sessaoCaixaAtiva = null;
+    if (typeof pdvCarregarPainelCaixa === "function") pdvCarregarPainelCaixa();
+    if (typeof carregarHistoricoCaixas === "function") carregarHistoricoCaixas();
+
+  } finally {
+    _fechandoCaixa = false;
+  }
 }
 
 // =========================================
