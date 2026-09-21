@@ -1758,8 +1758,13 @@ async function _abrirSessaoCaixa(valorAbertura, descricao) {
 }
 
 async function calcularFinanceiro() {
-  const abaFin = document.getElementById("financeiro");
-  if (!abaFin || !abaFin.classList.contains("active")) return;
+  const silencioso = opts.silencioso === true;
+
+  const abaFin   = document.getElementById("financeiro");
+  const tabAtiva = abaFin && abaFin.classList.contains("active");
+
+
+  if (!tabAtiva && !silencioso) return;
 
   const elInicio  = document.getElementById("fin-inicio");
   const elFim     = document.getElementById("fin-fim");
@@ -1775,8 +1780,8 @@ async function calcularFinanceiro() {
 
   // ── 2. Se não houver sessão aberta, exibe alerta de abertura ─────
   if (!_sessaoCaixaAtiva) {
-    _exibirAlertaAberturaCaixa();
-    return; // não renderiza nada enquanto não houver sessão
+    if (!silencioso) _exibirAlertaAberturaCaixa();
+    return;
   }
 
   // ── 3. Define intervalo de tempo baseado na SESSÃO, não no calendário ─
@@ -2520,7 +2525,14 @@ async function salvarMovimentacaoCaixa() {
 
   alert(t("alert.operacao_registrada"));
   fecharModal("modal-caixa");
-  calcularFinanceiro();
+
+  // Atualiza o painel do PDV (que fica visível o tempo todo)
+  if (typeof pdvCarregarPainelCaixa === "function") pdvCarregarPainelCaixa();
+
+  // Atualiza a aba financeiro só se ela estiver aberta
+  if (document.getElementById("financeiro")?.classList.contains("active")) {
+    calcularFinanceiro();
+  }
 }
 
 async function fecharCaixaResumo() {
@@ -2531,7 +2543,7 @@ async function fecharCaixaResumo() {
 
   if (!confirm("Fechar o caixa desta sessão?\nIsso encerra a sessão e registra o fechamento.")) return;
 
-  await calcularFinanceiro(); // garante que _caixaState está atualizado
+  await calcularFinanceiro({ silencioso: true }); // garante que _caixaState está atualizado
   const s   = _caixaState;
   const fmt = (n) => "Gs " + n.toLocaleString("es-PY");
   const lucro = s.faturamento + s.totalEntradas - s.custoEntregas - s.totalSaidas;
@@ -7502,15 +7514,14 @@ async function carregarPDV() {
 
 /**
  * Mini-painel de caixa na aba PDV.
- * Visível para todos os perfis (funcionario, gerente, dono, etc).
- * Permite abrir o caixa sem precisar acessar a aba financeiro.
+ * Visível para todos os perfis — permite operar o caixa sem acessar
+ * a aba financeiro (que pode estar bloqueada por permissoes_cargo).
  */
 async function pdvCarregarPainelCaixa() {
   const container = document.getElementById("pdv-painel-caixa");
   if (!container) return;
 
-  // Reutiliza _carregarSessaoCaixa se financeiro não foi aberto ainda
-  const ehGestor = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
+  const ehGestor   = ["dono", "gerente", "adminMaster"].includes(perfilUsuario);
   const emailAtual = document.getElementById("user-email")?.innerText || "";
 
   let q = supa
@@ -7524,7 +7535,7 @@ async function pdvCarregarPainelCaixa() {
   const { data } = await q;
   const sessao = data?.[0] || null;
 
-  // Sincroniza com _sessaoCaixaAtiva para que salvarMovimentacaoCaixa funcione
+  // Sincroniza com _sessaoCaixaAtiva (usado por salvarMovimentacaoCaixa/fecharCaixaResumo)
   _sessaoCaixaAtiva = sessao;
 
   if (!sessao) {
@@ -7544,42 +7555,59 @@ async function pdvCarregarPainelCaixa() {
           <i class="fas fa-door-open"></i> Abrir Caixa
         </button>
       </div>`;
-  } else {
-    const dAbr = new Date(sessao.aberto_em).toLocaleString("pt-BR", {
-      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
-    });
-    const podeFechar = ehGestor;
-    container.innerHTML = `
-      <div style="background:#eafaf1;border:1.5px solid #27ae60;border-radius:12px;
-        padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-          <div style="font-weight:700;color:#1a6b3a;font-size:0.92rem">
-            🟢 Caixa aberto desde ${dAbr}
-          </div>
-          <div style="font-size:0.8rem;color:#2e7d52;margin-top:2px">
-            Operador: ${sessao.usuario_nome || sessao.usuario_email}
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="abrirModalCaixa('suprimento')"
-            style="background:#2980b9;color:#fff;border:none;border-radius:8px;
-              padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem">
-            <i class="fas fa-plus-circle"></i> Suprimento
-          </button>
-          <button onclick="abrirModalCaixa('sangria')"
-            style="background:#e67e22;color:#fff;border:none;border-radius:8px;
-              padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem">
-            <i class="fas fa-hand-holding-usd"></i> Sangria
-          </button>
-          ${podeFechar ? `
-          <button onclick="fecharCaixaResumo()"
-            style="background:#2c3e50;color:#fff;border:none;border-radius:8px;
-              padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem">
-            <i class="fas fa-calculator"></i> Fechar Dia
-          </button>` : ""}
-        </div>
-      </div>`;
+    return;
   }
+
+  const dAbr = new Date(sessao.aberto_em).toLocaleString("pt-BR", {
+    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+  });
+
+  container.innerHTML = `
+    <div style="background:#eafaf1;border:1.5px solid #27ae60;border-radius:12px;
+      padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:200px">
+        <div style="font-weight:700;color:#1a6b3a;font-size:0.92rem">
+          🟢 Caixa aberto desde ${dAbr}
+        </div>
+        <div style="font-size:0.8rem;color:#2e7d52;margin-top:2px">
+          Operador: ${sessao.usuario_nome || sessao.usuario_email}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+        <button onclick="abrirModalCaixa('suprimento')"
+          title="Entrada de dinheiro na gaveta"
+          style="background:#2980b9;color:#fff;border:none;border-radius:8px;
+            padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem;
+            display:inline-flex;align-items:center;gap:6px">
+          <i class="fas fa-plus-circle"></i> Suprimento
+        </button>
+
+        <button onclick="abrirModalCaixa('sangria')"
+          title="Retirada de dinheiro da gaveta"
+          style="background:#e67e22;color:#fff;border:none;border-radius:8px;
+            padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem;
+            display:inline-flex;align-items:center;gap:6px">
+          <i class="fas fa-hand-holding-usd"></i> Sangria
+        </button>
+
+        <button onclick="abrirModalCaixa('despesa')"
+          title="Registrar uma despesa do caixa"
+          style="background:#c0392b;color:#fff;border:none;border-radius:8px;
+            padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem;
+            display:inline-flex;align-items:center;gap:6px">
+          <i class="fas fa-file-invoice-dollar"></i> Despesa
+        </button>
+
+        <button onclick="fecharCaixaResumo()"
+          title="Encerrar a sessão e ver o resumo do dia"
+          style="background:#2c3e50;color:#fff;border:none;border-radius:8px;
+            padding:8px 14px;font-weight:600;cursor:pointer;font-size:0.82rem;
+            display:inline-flex;align-items:center;gap:6px">
+          <i class="fas fa-calculator"></i> Fechar Dia
+        </button>
+      </div>
+    </div>`;
 }
 
 let produtosCatsPDV = [];
